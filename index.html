@@ -19,6 +19,7 @@
       <label>পাসওয়ার্ড<input id="lPass" type="password" autocomplete="current-password" required></label>
       <button class="btn primary" type="submit">লগইন</button>
       <p id="lErr" class="err"></p>
+      <p translate="no"><a href="#" id="lLang" class="muted small">🌐 English / বাংলা</a></p>
     </form>
   </div>
 
@@ -27,13 +28,16 @@
       <button id="menuBtn" class="icon-btn" aria-label="মেনু">☰</button>
       <div class="brand"><span class="logo">▶</span> Reels Enjoy</div>
       <span id="who" class="muted small"></span>
+      <button id="langBtn" class="btn sm" translate="no">EN / বাং</button>
     </header>
     <nav id="nav" class="nav">
       <a href="#dashboard">📊 ড্যাশবোর্ড</a>
       <a href="#withdrawals">💸 উইথড্র <b id="bWd" class="badge"></b></a>
       <a href="#cashins">💳 ক্যাশ-ইন <b id="bCi" class="badge"></b></a>
+      <a href="#coins">🪙 Coin Sent</a>
       <a href="#users">👥 ইউজার</a>
-      <a href="#videos">🎬 ভিডিও</a>
+      <a href="#videos">🎬 ভিডিও <b id="bPv" class="badge"></b></a>
+      <a href="#vault">🔒 লক ফোল্ডার</a>
       <a href="#upload">⬆️ ভিডিও আপলোড</a>
       <a href="#moderation">🛡️ রিপোর্ট ও লগ <b id="bRp" class="badge"></b></a>
       <a href="#gifts">🎁 গিফট</a>
@@ -48,6 +52,7 @@
 
   <div id="toast" class="toast"></div>
 
+  <script src="i18n.js"></script>
   <script src="config.js"></script>
   <script type="module" src="app.js"></script>
 </body>

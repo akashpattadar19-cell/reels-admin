@@ -1,0 +1,1 @@
+-- admin_users now also returns user_no and email, and searches by exact user_no (see live DB for full body)

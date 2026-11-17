@@ -29,6 +29,14 @@ phone / optional real email / that login email in `user_private`. `resolve-login
 client calls `signInWithPassword`.
 Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role = 'admin'`.
 
+## Other features
+- `profiles.user_no`: public numeric ID (from 100001) shown in the app; admin "Coin Sent" page mints coins to a user_no via `admin_send_coins` (ledger type `admin_coin_grant`).
+- Uploads start as `pending`; cron `auto_approve_videos` publishes them after `auto_approve_minutes` (0 = manual only). Admin approves/rejects in Videos → Pending.
+- Locked folder (`vault` private bucket + `vault_files`): per-user quota `vault_quota_mb` (enforced in `vault_add` and the storage insert policy); only the owner and admins can read.
+- Language: `i18n.js` (shared by admin and app) translates Bengali UI text to English at runtime from a phrase map when `localStorage.lang = 'en'`.
+  Elements with `translate="no"` (user captions, names, comments, bios, admin notice) are never translated. New UI text → add its English to the map.
+- Live streaming: not built yet (owner postponed; needs ZEGOCLOUD/Agora + FLAG_SECURE in the APK for no screenshots).
+
 ## Security
 RLS on every table; clients can only SELECT. All writes go through SECURITY DEFINER RPCs that check `auth.uid()`;
 admin RPCs call `_require_admin()`. `anon` cannot execute any function.

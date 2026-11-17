@@ -89,6 +89,9 @@ $("#loginForm").addEventListener("submit", async (e) => {
   boot();
 });
 $("#logoutBtn").addEventListener("click", async (e) => { e.preventDefault(); await sb.auth.signOut(); location.hash = ""; showLogin(); });
+const toggleLang = (e) => { e?.preventDefault(); window.setLang?.(window.getLang?.() === "en" ? "bn" : "en"); };
+$("#langBtn").addEventListener("click", toggleLang);
+$("#lLang").addEventListener("click", toggleLang);
 $("#menuBtn").addEventListener("click", () => $("#nav").classList.toggle("open"));
 $("#nav").addEventListener("click", (e) => { if (e.target.closest("a")) $("#nav").classList.remove("open"); });
 
@@ -98,6 +101,8 @@ async function refreshBadges() {
     $("#bWd").textContent = d.withdraw_pending || "";
     $("#bCi").textContent = d.cashin_pending || "";
     $("#bRp").textContent = d.reports_open || "";
+    const { count } = await sb.from("videos").select("id", { count: "exact", head: true }).eq("status", "pending");
+    $("#bPv").textContent = count || "";
   } catch { /* ignore */ }
 }
 
@@ -246,8 +251,8 @@ routes.users = async () => {
     rows = rows.concat(data); offset += data.length;
     $("#cnt").textContent = `${rows.length} / ${data[0]?.total_count ?? rows.length}`;
     $("#more").classList.toggle("hidden", data.length < 50);
-    $("#list").innerHTML = rows.length ? `<table><tr><th>ইউজার</th><th>ফোন</th><th>স্ট্যাটাস</th><th class="num">ভিডিও</th><th class="num">কয়েন</th><th class="num">ব্যালেন্স</th><th class="num">পেন্ডিং</th><th class="num">পয়েন্ট</th><th>যোগদান</th></tr>
-      ${rows.map((u) => `<tr><td><a href="#user/${u.id}">@${esc(u.username)}</a><br><span class="muted small">${esc(u.full_name ?? "")}${u.role === "admin" ? " · অ্যাডমিন" : ""}</span></td>
+    $("#list").innerHTML = rows.length ? `<table><tr><th>ID</th><th>ইউজার</th><th>ফোন</th><th>স্ট্যাটাস</th><th class="num">ভিডিও</th><th class="num">কয়েন</th><th class="num">ব্যালেন্স</th><th class="num">পেন্ডিং</th><th class="num">পয়েন্ট</th><th>যোগদান</th></tr>
+      ${rows.map((u) => `<tr><td><b>${u.user_no}</b></td><td><a href="#user/${u.id}">@${esc(u.username)}</a><br><span class="muted small">${esc(u.full_name ?? "")}${u.role === "admin" ? " · অ্যাডমিন" : ""}</span></td>
         <td>${esc(u.phone ?? "")}</td><td>${pill(u.status)}${u.is_frozen ? ' <span class="pill rejected">ফ্রিজ</span>' : ""}</td>
         <td class="num">${num(u.videos_count)}</td><td class="num">${num(u.coin_balance)}</td><td class="num">${taka(u.earning_paisa)}</td>
         <td class="num">${taka(u.pending_paisa)}</td><td class="num">${num(u.points)}</td><td>${dt(u.created_at)}</td></tr>`).join("")}</table>`
@@ -273,7 +278,8 @@ routes.user = async (id) => {
   const amt = (t) => (t.bucket === "coin" || t.bucket === "points" ? num(t.amount) : taka(t.amount));
   view.innerHTML = `<h1>@${esc(p.username)} ${p.is_verified ? "✔️" : ""}</h1>
     <div class="card"><div class="kv">
-      <div>নাম</div><div>${esc(p.full_name ?? "-")}</div>
+      <div>ID নম্বর</div><div><b>${copyable(String(p.user_no))}</b></div>
+      <div>নাম</div><div translate="no">${esc(p.full_name ?? "-")}</div>
       <div>ফোন</div><div>${copyable(priv?.phone ?? "-")}</div>
       <div>ইমেইল</div><div>${priv?.email ? copyable(priv.email) : "-"}</div>
       <div>স্ট্যাটাস</div><div>${pill(p.status)} ${p.ban_reason ? esc(p.ban_reason) : ""} ${p.role === "admin" ? '<span class="pill approved">অ্যাডমিন</span>' : ""}</div>
@@ -297,6 +303,8 @@ routes.user = async (id) => {
       <button class="btn" id="ver">${p.is_verified ? "ভেরিফাইড বাদ" : "ভেরিফাইড ব্যাজ"}</button>
       <button class="btn" id="role">${p.role === "admin" ? "অ্যাডমিন বাদ" : "অ্যাডমিন বানান"}</button>
       <a class="btn" href="#videos/user:${p.id}">ভিডিও দেখুন</a>
+      <a class="btn" href="#coins/${p.user_no}">🪙 কয়েন পাঠান</a>
+      <a class="btn" href="#vault/${p.user_no}">🔒 লক ফোল্ডার</a>
     </div>
     <h2>উইথড্র</h2>
     <div class="table-wrap">${wd?.length ? `<table><tr><th>তারিখ</th><th class="num">টাকা</th><th>মাধ্যম</th><th>স্ট্যাটাস</th><th>TrxID / কারণ</th></tr>
@@ -349,7 +357,7 @@ routes.user = async (id) => {
 routes.videos = async (arg = "published") => {
   const userFilter = arg.startsWith("user:") ? arg.slice(5) : null;
   const status = userFilter ? null : arg;
-  const tabs = [["published", "প্রকাশিত"], ["featured", "ফিচার্ড"], ["rejected", "রিজেক্টেড"], ["deleted", "ডিলিট"]];
+  const tabs = [["pending", "পেন্ডিং"], ["published", "প্রকাশিত"], ["featured", "ফিচার্ড"], ["rejected", "রিজেক্টেড"], ["deleted", "ডিলিট"]];
   view.innerHTML = `<h1>ভিডিও</h1>
     <div class="tabs">${tabs.map(([k, l]) => `<a class="btn sm ${k === status ? "on" : ""}" href="#videos/${k}">${l}</a>`).join("")}
       <a class="btn sm" href="#upload">+ আপলোড</a></div>
@@ -370,11 +378,13 @@ routes.videos = async (arg = "published") => {
         <video src="${esc(v.video_url)}" ${v.thumb_url ? `poster="${esc(v.thumb_url)}"` : ""} preload="none" controls playsinline></video>
         <div class="body">
           <div><a href="#user/${v.user_id}">@${esc(v.profiles?.username)}</a> ${v.is_featured ? "⭐" : ""} ${v.uploaded_by_admin ? '<span class="pill">অ্যাডমিন</span>' : ""}</div>
-          <div class="cap">${esc(v.caption ?? "")}</div>
+          ${v.status === "pending" ? `<div class="small" style="color:var(--warn)">⏳ পেন্ডিং · ${dt(v.created_at)}</div>` : ""}
+          <div class="cap" translate="no">${esc(v.caption ?? "")}</div>
           <div class="muted small">👁 ${num(v.views_count)} ❤️ ${num(v.likes_count)} 💬 ${num(v.comments_count)} 🎁 ${num(v.gifts_coins_total)} · ${dt(v.created_at)}</div>
           ${v.reject_reason ? `<div class="small err">${esc(v.reject_reason)}</div>` : ""}
           <div class="actions">
-            ${v.status === "published" ? `<button class="btn sm" data-a="${v.is_featured ? "unfeature" : "feature"}">${v.is_featured ? "আনফিচার" : "ফিচার ⭐"}</button>
+            ${v.status === "pending" ? `<button class="btn sm good" data-a="approve">অ্যাপ্রুভ ✅</button><button class="btn sm warn" data-a="reject">রিজেক্ট</button>`
+            : v.status === "published" ? `<button class="btn sm" data-a="${v.is_featured ? "unfeature" : "feature"}">${v.is_featured ? "আনফিচার" : "ফিচার ⭐"}</button>
               <button class="btn sm warn" data-a="reject">রিজেক্ট</button><button class="btn sm bad" data-a="delete">ডিলিট</button>`
               : `<button class="btn sm good" data-a="restore">ফেরত আনুন</button>`}
           </div>
@@ -390,6 +400,7 @@ routes.videos = async (arg = "published") => {
     if (a === "reject" || a === "delete") { reason = prompt("কারণ (ক্রিয়েটর দেখবে):"); if (!reason) return; }
     await act(() => rpc("admin_video_action", { p_id: id, p_action: a, p_reason: reason }), "হয়েছে");
     b.closest(".vcard").remove();
+    refreshBadges();
   };
   $("#more").onclick = load;
   load();
@@ -446,6 +457,111 @@ routes.upload = () => {
     } catch (e) { toast(errMsg(e), true); $("#msg").textContent = "ব্যর্থ: " + errMsg(e); }
     btn.disabled = false;
   };
+};
+
+
+// ---------- Coin Sent ----------
+routes.coins = async (preNo) => {
+  view.innerHTML = `<h1>🪙 Coin Sent</h1>
+    <div class="card" style="max-width:520px">
+      <label>ইউজারের ID নম্বর<input id="cn" type="number" inputmode="numeric" placeholder="যেমন 100001" value="${esc(preNo ?? "")}"></label>
+      <div id="who2" class="muted small" style="min-height:1.4em;margin-top:6px"></div>
+      <label>কত কয়েন<input id="cc" type="number" inputmode="numeric" min="1" placeholder="যেমন 1000"></label>
+      <div class="row" style="margin-top:8px">${[100, 500, 1000, 5000, 10000].map((x) => `<button class="btn sm" data-q="${x}">${num(x)}</button>`).join("")}</div>
+      <label>নোট (ইউজার দেখবে, ঐচ্ছিক)<input id="cnote" maxlength="120" placeholder="যেমন: বোনাস কয়েন"></label>
+      <button class="btn primary" id="csend">কয়েন পাঠান</button>
+      <p class="muted small">মনে রাখবেন: এই কয়েন দিয়ে ইউজার গিফট পাঠালে ক্রিয়েটর আসল টাকা আয় করবে, যা উইথড্র করা যায়।</p>
+    </div>
+    <h2>পাঠানো কয়েনের হিসাব</h2><div id="ch" class="table-wrap"></div>`;
+  let target = null;
+  const look = async () => {
+    target = null;
+    const no = Number($("#cn").value);
+    if (!no) { $("#who2").textContent = ""; return; }
+    const { data } = await sb.from("profiles").select("id,username,full_name,status").eq("user_no", no).maybeSingle();
+    if (!data) { $("#who2").innerHTML = `<span class="err">এই ID-তে কোনো ইউজার নেই</span>`; return; }
+    const { data: w } = await sb.from("wallets").select("coin_balance").eq("user_id", data.id).maybeSingle();
+    target = data;
+    $("#who2").innerHTML = `✅ <b translate="no">${esc(data.full_name ?? "")}</b> @${esc(data.username)} · এখন আছে 🪙 ${num(w?.coin_balance)} ${data.status === "banned" ? '<span class="pill banned">ব্যান</span>' : ""}`;
+  };
+  let tm; $("#cn").oninput = () => { clearTimeout(tm); tm = setTimeout(look, 350); };
+  if (preNo) look();
+  view.querySelectorAll("[data-q]").forEach((b) => (b.onclick = () => ($("#cc").value = b.dataset.q)));
+  const loadHist = async () => {
+    const { data } = await sb.from("transactions").select("amount,note,created_at,balance_after,profiles!transactions_user_id_fkey(username,user_no)")
+      .eq("type", "admin_coin_grant").order("id", { ascending: false }).limit(100);
+    const total = (data ?? []).reduce((a, r) => a + Number(r.amount), 0);
+    $("#ch").innerHTML = data?.length ? `<table><tr><th>সময়</th><th>ID</th><th>ইউজার</th><th class="num">কয়েন</th><th>নোট</th></tr>
+      ${data.map((r) => `<tr><td>${dt(r.created_at)}</td><td>${r.profiles?.user_no ?? ""}</td><td>@${esc(r.profiles?.username)}</td><td class="num">🪙 ${num(r.amount)}</td><td>${esc(r.note ?? "")}</td></tr>`).join("")}
+      <tr><td colspan="3"><b>মোট (সর্বশেষ ১০০)</b></td><td class="num"><b>🪙 ${num(total)}</b></td><td></td></tr></table>` : `<div class="empty">এখনো কোনো কয়েন পাঠানো হয়নি</div>`;
+  };
+  loadHist();
+  $("#csend").onclick = async (e) => {
+    if (!target) return toast("সঠিক ID নম্বর দিন", true);
+    const coins = Math.floor(Number($("#cc").value));
+    if (!coins || coins < 1) return toast("কয়েনের সংখ্যা দিন", true);
+    if (!confirm(`@${target.username}-কে 🪙 ${num(coins)} কয়েন পাঠাবেন?`)) return;
+    e.target.disabled = true;
+    try {
+      const r = await rpc("admin_send_coins", { p_user_no: Number($("#cn").value), p_coins: coins, p_note: $("#cnote").value });
+      toast(`পাঠানো হয়েছে ✅ এখন আছে 🪙 ${num(r.coin_balance)}`);
+      $("#cc").value = ""; $("#cnote").value = "";
+      look(); loadHist();
+    } catch (er) { toast(errMsg(er), true); }
+    e.target.disabled = false;
+  };
+};
+
+// ---------- লক ফোল্ডার ----------
+routes.vault = async (userNo) => {
+  view.innerHTML = `<h1>🔒 লক ফোল্ডার</h1>
+    <p class="muted small">ইউজারদের লক ফোল্ডারে রাখা ছবি ও ভিডিও। নিয়ম ভঙ্গকারী ফাইল মুছে দিতে পারেন।</p>
+    <div class="toolbar"><input id="vu" type="number" inputmode="numeric" placeholder="ইউজার ID দিয়ে খুঁজুন (খালি = সবার)" value="${esc(userNo ?? "")}"><button class="btn" id="vgo">দেখুন</button></div>
+    <div id="vs" class="muted small" style="margin-bottom:10px"></div>
+    <div id="vl" class="videos"></div><div style="margin-top:12px"><button class="btn sm hidden" id="vmore">আরও</button></div>`;
+  let before = null, uid = null;
+  const load = async (reset) => {
+    if (reset) {
+      before = null; uid = null; $("#vl").innerHTML = ""; $("#vs").textContent = "";
+      const no = Number($("#vu").value);
+      if (no) {
+        const { data } = await sb.from("profiles").select("id,username").eq("user_no", no).maybeSingle();
+        if (!data) { $("#vl").innerHTML = `<div class="empty">এই ID-তে কোনো ইউজার নেই</div>`; return; }
+        uid = data.id;
+        const { data: used } = await sb.rpc("vault_used", { p_user: uid });
+        $("#vs").textContent = `@${data.username} · ব্যবহার ${(Number(used) / 1048576).toFixed(1)} MB`;
+      }
+    }
+    let q = sb.from("vault_files").select("*, profiles!vault_files_user_id_fkey(username,user_no)").order("id", { ascending: false }).limit(24);
+    if (uid) q = q.eq("user_id", uid);
+    if (before) q = q.lt("id", before);
+    const { data, error } = await q;
+    if (error) return toast(errMsg(error), true);
+    if (!data.length && !before) { $("#vl").innerHTML = `<div class="empty">কোনো ফাইল নেই</div>`; return; }
+    before = data[data.length - 1]?.id ?? before;
+    $("#vmore").classList.toggle("hidden", data.length < 24);
+    const { data: urls } = await sb.storage.from("vault").createSignedUrls(data.map((f) => f.path), 3600);
+    const map = Object.fromEntries((urls ?? []).map((u) => [u.path, u.signedUrl]));
+    $("#vl").insertAdjacentHTML("beforeend", data.map((f) => `<div class="vcard" data-id="${f.id}" data-path="${esc(f.path)}">
+      ${f.kind === "video" ? `<video src="${esc(map[f.path] ?? "")}" preload="metadata" controls playsinline></video>` : `<img src="${esc(map[f.path] ?? "")}" loading="lazy" alt="">`}
+      <div class="body"><div>${f.profiles?.user_no ?? ""} · @${esc(f.profiles?.username)}</div>
+        <div class="muted small" translate="no">${esc(f.name ?? "")}</div>
+        <div class="muted small">${(f.size_bytes / 1048576).toFixed(1)} MB · ${dt(f.created_at)}</div>
+        <div class="actions"><button class="btn sm bad" data-del>মুছুন</button></div></div></div>`).join(""));
+  };
+  $("#vl").onclick = async (e) => {
+    const b = e.target.closest("[data-del]"); if (!b) return;
+    const card = b.closest(".vcard");
+    if (!confirm("ফাইলটি স্থায়ীভাবে মুছবেন?")) return;
+    try {
+      await sb.storage.from("vault").remove([card.dataset.path]);
+      await rpc("vault_remove", { p_id: Number(card.dataset.id) });
+      card.remove(); toast("মুছে ফেলা হয়েছে");
+    } catch (er) { toast(errMsg(er), true); }
+  };
+  $("#vgo").onclick = () => load(true);
+  $("#vmore").onclick = () => load(false);
+  load(true);
 };
 
 // ---------- moderation ----------
@@ -620,7 +736,8 @@ routes.settings = async () => {
     ["ক্যাশ-ইন (ইউজার এই নম্বরে টাকা পাঠাবে)", ["bkash_number", "nagad_number", "rocket_number", "min_cash_in_taka", "coin_price_paisa"]],
     ["ক্রিয়েটর ইনকাম", ["earnings_enabled", "view_rate_paisa_per_1000", "like_rate_paisa", "comment_rate_paisa", "creator_daily_view_cap_paisa", "pending_hold_hours", "min_watch_ms"]],
     ["দর্শক পয়েন্ট", ["watch_points", "viewer_daily_points_cap", "point_value_paisa", "points_convert_min"]],
-    ["অন্যান্য", ["max_video_sec", "app_notice"]],
+    ["ভিডিও ও লক ফোল্ডার", ["auto_approve_minutes", "max_video_sec", "vault_quota_mb"]],
+    ["অন্যান্য", ["app_notice"]],
   ];
   const byKey = Object.fromEntries(data.map((s) => [s.key, s]));
   const hint = (k, v) => (k.endsWith("_paisa") ? ` = ${taka(v)}` : "");

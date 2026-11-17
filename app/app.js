@@ -63,6 +63,7 @@ const ERR = {
   BAD_NAME: "আপনার নাম লিখুন",
   TRY_LATER: "একটু পরে চেষ্টা করুন",
   ACCOUNT_BANNED: "আপনার অ্যাকাউন্ট ব্লক করা হয়েছে",
+  VAULT_FULL: "লক ফোল্ডারে জায়গা নেই",
   "Failed to fetch": "ইন্টারনেট সংযোগ নেই",
   NETWORK: "ইন্টারনেট সংযোগ নেই",
   "maximum allowed size": "ফাইল অনেক বড় (সর্বোচ্চ 50MB)",
@@ -155,6 +156,7 @@ function showAuth(msg = "") {
   $("#auth").classList.remove("hidden");
   $("#authErr").textContent = msg;
 }
+$("#authLang").onclick = (e) => { e.preventDefault(); window.setLang?.(window.getLang?.() === "en" ? "bn" : "en"); };
 $("#toReg").onclick = (e) => { e.preventDefault(); $("#loginForm").classList.add("hidden"); $("#regForm").classList.remove("hidden"); $("#authErr").textContent = ""; };
 $("#toLogin").onclick = (e) => { e.preventDefault(); $("#regForm").classList.add("hidden"); $("#loginForm").classList.remove("hidden"); $("#authErr").textContent = ""; };
 
@@ -242,7 +244,7 @@ function route() {
 window.addEventListener("hashchange", route);
 const back = () => (history.length > 1 ? history.back() : (location.hash = "#feed"));
 const header = (title, showBack = true) => `<h1>${showBack ? `<button class="back" onclick="history.back()">←</button>` : ""}${title}</h1>`;
-const notice = () => (setting("app_notice", "") ? `<div class="notice">📢 ${esc(setting("app_notice", ""))}</div>` : "");
+const notice = () => (setting("app_notice", "") ? `<div class="notice" translate="no">📢 ${esc(setting("app_notice", ""))}</div>` : "");
 
 // ---------------- FEED ----------------
 R.feed = () => openFeed({ type: "foryou" });
@@ -317,7 +319,7 @@ function openFeed({ type, user = null, startId = null }) {
       <div class="info">
         <div class="uname"><a href="#u/${v.user_id}">@${esc(v.username)}</a>${v.is_verified ? " ✔️" : ""}
           ${v.user_id !== S.me.id ? `<button class="follow-btn ${v.following ? "on" : ""}">${v.following ? "ফলোয়িং" : "ফলো"}</button>` : ""}</div>
-        <div class="cap">${esc(v.caption ?? "").replace(/#([^\s#]+)/g, '<span class="tag">#$1</span>')}</div>
+        <div class="cap" translate="no">${esc(v.caption ?? "").replace(/#([^\s#]+)/g, '<span class="tag">#$1</span>')}</div>
         <div class="tiny muted">👁 ${n(v.views_count)} · ${ago(v.created_at)}</div>
       </div>`;
     const video = el.querySelector("video");
@@ -442,7 +444,7 @@ async function openComments(el) {
   const load = async () => {
     const { data } = await sb.from("comments").select("id,body,created_at,user_id,profiles!comments_user_id_fkey(username,full_name,avatar_url)")
       .eq("video_id", v.id).eq("status", "visible").order("id", { ascending: false }).limit(100);
-    $("#cl", body).innerHTML = data?.length ? data.map((c) => `<div class="cmt">${avatar(c.profiles)}<div><div class="u">@${esc(c.profiles?.username)} · ${ago(c.created_at)}</div>${esc(c.body)}</div>
+    $("#cl", body).innerHTML = data?.length ? data.map((c) => `<div class="cmt">${avatar(c.profiles)}<div><div class="u">@${esc(c.profiles?.username)} · ${ago(c.created_at)}</div><span translate="no">${esc(c.body)}</span></div>
       ${c.user_id === S.me.id || v.user_id === S.me.id ? `<button class="del" data-id="${c.id}">মুছুন</button>` : ""}</div>`).join("")
       : `<div class="empty">প্রথম কমেন্ট আপনিই করুন</div>`;
   };
@@ -536,6 +538,7 @@ R.upload = () => {
     <button class="btn primary" id="up" disabled>আপলোড করুন</button>
     <div class="progress hidden" id="pg"><div></div></div>
     <p id="msg" class="muted tiny"></p>
+    <p class="muted tiny">আপলোডের পর ভিডিও অল্প সময় পর্যালোচনায় থাকবে, তারপর সবাই দেখতে পাবে।</p>
     <p class="muted tiny">অশ্লীল, সহিংস বা অন্যের কপিরাইট করা ভিডিও আপলোড করলে অ্যাকাউন্ট ব্লক ও ইনকাম বাতিল হবে।</p></div>`;
   const vf = $("#vf"), pv = $("#pv");
   let file = null, duration = 0;
@@ -570,8 +573,10 @@ R.upload = () => {
       const vUrl = sb.storage.from("videos").getPublicUrl(vPath).data.publicUrl;
       const id = await rpc("create_video", { p_video_path: vPath, p_video_url: vUrl, p_thumb_url: tUrl, p_caption: $("#cap").value, p_duration: duration });
       setP(100, "✅ আপলোড সম্পন্ন!");
-      toast("ভিডিও প্রকাশিত হয়েছে 🎉");
-      setTimeout(() => (location.hash = `#watch/${S.me.id}/${id}`), 700);
+      const mins = Number(setting("auto_approve_minutes", 2));
+      toast(mins > 0 ? `আপলোড হয়েছে ✅ ${mins} মিনিটের মধ্যে প্রকাশিত হবে` : "আপলোড হয়েছে ✅ অ্যাডমিন অ্যাপ্রুভ করলে প্রকাশিত হবে");
+      void id;
+      setTimeout(() => (location.hash = "#me"), 900);
     } catch (e) { toast(errMsg(e), true); $("#msg").textContent = "ব্যর্থ: " + errMsg(e); btn.disabled = false; }
   };
 };
@@ -681,7 +686,7 @@ R.cashin = async () => {
   const nums = ["bkash", "nagad", "rocket"].filter((m) => setting(m + "_number", ""));
   const coinPrice = Number(setting("coin_price_paisa", 100));
   screen.innerHTML = `<div class="page">${header("কয়েন কিনুন")}
-    ${nums.length ? `<div class="card"><b>ধাপ ১:</b> নিচের নম্বরে <b>Send Money</b> করুন
+    ${nums.length ? `<div class="card"><b>ধাপ ১:</b> <span>নিচের নম্বরে Send Money করুন</span>
       ${nums.map((m) => `<div class="row" style="margin-top:8px"><span>${METHOD[m]}</span><span class="copy" data-copy="${esc(setting(m + "_number"))}">${esc(setting(m + "_number"))}</span></div>`).join("")}
       <p class="tiny muted" style="margin:10px 0 0">৳১ = 🪙 ${n(100 / coinPrice)} কয়েন · সর্বনিম্ন ৳${n(setting("min_cash_in_taka", 20))}</p></div>
     <form class="card" id="cf"><b>ধাপ ২:</b> পেমেন্টের তথ্য দিন
@@ -793,15 +798,23 @@ R.u = async (id) => {
   const grid = (list) => list.map((v) => `<a href="#watch/${id}/${v.id}">${v.thumb_url ? `<img src="${esc(v.thumb_url)}" loading="lazy" alt="">` : ""}<span class="vc">▶ ${n(v.views_count)}</span></a>`).join("");
   screen.innerHTML = `<div class="page">
     ${mine ? `<div class="row"><span></span><button class="btn small" id="lo">লগআউট</button></div>${notice()}` : `<button class="back" onclick="history.back()">←</button>`}
-    <div class="prof">${avatar(p)}<h2>${esc(p.full_name ?? "")} ${p.is_verified ? "✔️" : ""}</h2><div class="muted">@${esc(p.username)}</div>
+    <div class="prof">${avatar(p)}<h2 translate="no">${esc(p.full_name ?? "")} ${p.is_verified ? "✔️" : ""}</h2><div class="muted">@${esc(p.username)}</div>
+      <div class="idtag" data-copy="${p.user_no}">ID: ${p.user_no} ⧉</div>
       <div class="counts"><div><b>${n(p.videos_count)}</b><span>ভিডিও</span></div><div><b id="fc">${n(p.followers_count)}</b><span>ফলোয়ার</span></div><div><b>${n(p.following_count)}</b><span>ফলোয়িং</span></div></div>
-      ${p.bio ? `<p>${esc(p.bio)}</p>` : ""}
-      ${mine ? `<div class="row" style="justify-content:center;gap:8px"><a class="btn small" href="#edit">✏️ প্রোফাইল এডিট</a><a class="btn small" href="#wallet">💰 ওয়ালেট</a></div>`
+      ${p.bio ? `<p translate="no">${esc(p.bio)}</p>` : ""}
+      ${mine ? `<div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap"><a class="btn small" href="#edit">✏️ প্রোফাইল এডিট</a><a class="btn small" href="#vault">🔒 লক ফোল্ডার</a><button class="btn small" id="lang" translate="no">${window.getLang?.() === "en" ? "🌐 বাংলা" : "🌐 English"}</button></div>`
         : `<button class="btn" id="fb" style="min-width:140px;${following ? "" : "background:var(--accent);border:0"}">${following ? "ফলোয়িং" : "ফলো করুন"}</button>`}
     </div>
+    <div id="pend"></div>
     <div class="grid3" id="g">${vids.length ? grid(vids) : ""}</div>
     ${vids.length ? "" : `<div class="empty">${mine ? "এখনো কোনো ভিডিও নেই — ＋ চেপে প্রথম ভিডিও দিন" : "কোনো ভিডিও নেই"}</div>`}
     ${vids.length === 30 ? `<button class="btn" id="mr" style="width:100%;margin-top:10px">আরও</button>` : ""}</div>`;
+  if (mine) {
+    const { data: pv } = await sb.from("videos").select("id,thumb_url,status,created_at,reject_reason").eq("user_id", id).in("status", ["pending", "rejected"]).order("id", { ascending: false }).limit(12);
+    if (pv?.length) $("#pend").innerHTML = `<div class="card" style="margin-top:14px"><b>পর্যালোচনায় থাকা ভিডিও</b><div class="list">${pv.map((v) => `<div class="li"><span class="tiny">${dt(v.created_at)}${v.reject_reason ? ` · <span translate="no">${esc(v.reject_reason)}</span>` : ""}</span>
+      <span class="pill ${v.status === "pending" ? "pending" : "rejected"}">${v.status === "pending" ? "⏳ পেন্ডিং" : "রিজেক্টেড"}</span></div>`).join("")}</div></div>`;
+  }
+  $("#lang")?.addEventListener("click", () => window.setLang?.(window.getLang?.() === "en" ? "bn" : "en"));
   $("#lo")?.addEventListener("click", async () => { if (!confirm("লগআউট করবেন?")) return; await sb.auth.signOut(); S.me = null; location.hash = ""; showAuth(); });
   $("#fb")?.addEventListener("click", async (e) => {
     try {
@@ -853,6 +866,67 @@ R.edit = () => {
       toast("সেভ হয়েছে");
       location.hash = "#me";
     } catch (er) { toast(errMsg(er), true); e.target.disabled = false; }
+  };
+};
+
+
+// ---------------- লক ফোল্ডার ----------------
+R.vault = async () => {
+  screen.innerHTML = `<div class="page">${header("🔒 লক ফোল্ডার")}<div class="spinner"></div></div>`;
+  const [{ data: files }, used] = await Promise.all([
+    sb.from("vault_files").select("*").eq("user_id", S.me.id).order("id", { ascending: false }).limit(200),
+    rpc("vault_used", { p_user: S.me.id }).catch(() => 0),
+  ]);
+  const quota = Number(setting("vault_quota_mb", 100)) * 1048576;
+  const pct = Math.min(100, Math.round((Number(used) / quota) * 100));
+  const mb = (b) => (Number(b) / 1048576).toFixed(1) + " MB";
+  const { data: urls } = files?.length ? await sb.storage.from("vault").createSignedUrls(files.map((f) => f.path), 3600) : { data: [] };
+  const map = Object.fromEntries((urls ?? []).map((u) => [u.path, u.signedUrl]));
+  screen.innerHTML = `<div class="page">${header("🔒 লক ফোল্ডার")}
+    <div class="card"><div class="row"><b>${mb(used)} / ${mb(quota)}</b><span class="tiny muted">${pct}%</span></div>
+      <div class="progress"><div style="width:${pct}%"></div></div>
+      <p class="tiny muted" style="margin:8px 0 0">এখানের ছবি ও ভিডিও শুধু আপনি দেখতে পারবেন, অন্য ইউজাররা নয়। নিয়ম যাচাইয়ের জন্য অ্যাডমিন দেখতে পারেন।</p></div>
+    <div class="menu">
+      <label style="cursor:pointer"><input type="file" id="vimg" accept="image/*" class="hidden"><span class="ic">🖼️</span>ছবি রাখুন</label>
+      <label style="cursor:pointer"><input type="file" id="vvid" accept="video/*" class="hidden"><span class="ic">🎞️</span>ভিডিও রাখুন</label>
+    </div>
+    <div class="progress hidden" id="vpg"><div></div></div><p id="vmsg" class="tiny muted"></p>
+    <div class="grid3" id="vg">${files?.length ? files.map((f) => `<a data-id="${f.id}" data-path="${esc(f.path)}" data-kind="${f.kind}">
+      ${f.kind === "video" ? `<video src="${esc(map[f.path] ?? "")}#t=0.5" preload="metadata" muted playsinline style="width:100%;height:100%;object-fit:cover"></video><span class="vc">▶</span>` : `<img src="${esc(map[f.path] ?? "")}" loading="lazy" alt="">`}</a>`).join("") : ""}</div>
+    ${files?.length ? "" : `<div class="empty">লক ফোল্ডার খালি</div>`}</div>`;
+
+  const upload = async (file) => {
+    if (!file) return;
+    if (Number(used) + file.size > quota) return toast(`জায়গা নেই — বাকি আছে ${mb(quota - used)}`, true);
+    const pg = $("#vpg"); pg.classList.remove("hidden");
+    const ext = ((file.name || "").split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
+    const path = `${S.me.id}/${Date.now()}.${ext}`;
+    try {
+      await xhrUpload("vault", path, file, file.type || "application/octet-stream", (p) => {
+        pg.firstElementChild.style.width = Math.round(p * 100) + "%"; $("#vmsg").textContent = `রাখা হচ্ছে… ${Math.round(p * 100)}%`;
+      });
+      try { await rpc("vault_add", { p_path: path, p_size: file.size, p_mime: file.type || "", p_name: file.name || "" }); }
+      catch (er) { await sb.storage.from("vault").remove([path]); throw er; }
+      toast("লক ফোল্ডারে রাখা হয়েছে 🔒");
+      R.vault();
+    } catch (er) { toast(errMsg(er), true); pg.classList.add("hidden"); $("#vmsg").textContent = ""; }
+  };
+  $("#vimg").onchange = (e) => upload(e.target.files[0]);
+  $("#vvid").onchange = (e) => upload(e.target.files[0]);
+  $("#vg").onclick = (e) => {
+    const a = e.target.closest("a[data-id]"); if (!a) return;
+    const url = map[a.dataset.path] ?? "";
+    const body = sheet(`${a.dataset.kind === "video" ? `<video src="${esc(url)}" controls autoplay playsinline style="width:100%;max-height:65vh;background:#000;border-radius:12px"></video>`
+      : `<img src="${esc(url)}" style="width:100%;max-height:65vh;object-fit:contain;border-radius:12px" alt="">`}
+      <button class="btn" id="vdel" style="width:100%;margin-top:10px;color:#ff8a8a">🗑️ মুছে ফেলুন</button>`);
+    $("#vdel", body).onclick = async () => {
+      if (!confirm("ফাইলটি স্থায়ীভাবে মুছবেন?")) return;
+      try {
+        await sb.storage.from("vault").remove([a.dataset.path]);
+        await rpc("vault_remove", { p_id: Number(a.dataset.id) });
+        closeSheet(); toast("মুছে ফেলা হয়েছে"); R.vault();
+      } catch (er) { toast(errMsg(er), true); }
+    };
   };
 };
 
