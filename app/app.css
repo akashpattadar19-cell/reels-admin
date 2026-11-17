@@ -166,3 +166,10 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent2); b
 .toast.bad { border-color: var(--bad); }
 .spinner { width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; margin: 0 auto; }
 @keyframes spin { to { transform: rotate(360deg) } }
+
+.seg { display: flex; background: var(--panel2); border-radius: 12px; padding: 4px; margin: 14px 0 6px; }
+.seg button { flex: 1; border: 0; background: none; padding: 9px; border-radius: 9px; font-weight: 600; color: var(--muted); cursor: pointer; }
+.seg button.on { background: var(--accent2); color: #fff; }
+.phone-row { display: flex; gap: 6px; }
+.phone-row .cc { width: 42%; flex: none; padding-left: 8px; padding-right: 4px; }
+.phone-row input { flex: 1; min-width: 0; }

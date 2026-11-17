@@ -25,7 +25,6 @@ const ago = (s) => {
   if (m < 1440) return Math.floor(m / 60) + " ঘণ্টা আগে";
   return Math.floor(m / 1440) + " দিন আগে";
 };
-const phoneToEmail = (p) => `p${p}@phone.reelsenjoy.app`;
 const cleanPhone = (p) => String(p).trim().replace(/[\s-]/g, "").replace(/^\+?88/, "");
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2));
 const setting = (k, d = 0) => (S.settings[k] ?? d);
@@ -43,7 +42,11 @@ const ERR = {
   ACCOUNT_TOO_NEW: "নতুন অ্যাকাউন্ট — কয়েক দিন পর উইথড্র করতে পারবেন",
   WALLET_FROZEN: "আপনার ওয়ালেট সাময়িক বন্ধ আছে — সাপোর্টে যোগাযোগ করুন",
   BAD_NUMBER: "সঠিক মোবাইল নম্বর দিন (01XXXXXXXXX)",
-  BAD_PHONE: "সঠিক মোবাইল নম্বর দিন (01XXXXXXXXX)",
+  BAD_PHONE: "দেশ বেছে নিয়ে সঠিক মোবাইল নম্বর দিন",
+  BAD_EMAIL: "সঠিক ইমেইল দিন",
+  EMAIL_TAKEN: "এই ইমেইলে আগেই অ্যাকাউন্ট আছে — লগইন করুন",
+  NO_ACCOUNT: "এই নম্বর/ইমেইলে কোনো অ্যাকাউন্ট নেই — আগে রেজিস্টার করুন",
+  SIGNUP_FAILED: "অ্যাকাউন্ট খোলা যায়নি, আবার চেষ্টা করুন",
   TRX_USED: "এই TrxID আগেই ব্যবহার হয়েছে",
   BAD_TRX: "সঠিক TrxID দিন",
   TOO_MANY_PENDING: "আগের রিকোয়েস্টগুলো যাচাই হওয়া পর্যন্ত অপেক্ষা করুন",
@@ -100,6 +103,53 @@ function closeSheet() { $("#sheet").classList.add("hidden"); $("#sheetBody").inn
 $("#sheet").addEventListener("click", (e) => { if (e.target.id === "sheet") closeSheet(); });
 
 // ---------------- auth ----------------
+// দেশের কোড: বাংলাদেশ ছাড়াও প্রবাসীরা যেসব দেশে বেশি থাকেন
+const COUNTRIES = [
+  ["🇧🇩", "বাংলাদেশ", "+880"], ["🇸🇦", "সৌদি আরব", "+966"], ["🇦🇪", "দুবাই/আমিরাত", "+971"], ["🇶🇦", "কাতার", "+974"],
+  ["🇰🇼", "কুয়েত", "+965"], ["🇴🇲", "ওমান", "+968"], ["🇧🇭", "বাহরাইন", "+973"], ["🇲🇾", "মালয়েশিয়া", "+60"],
+  ["🇸🇬", "সিঙ্গাপুর", "+65"], ["🇲🇻", "মালদ্বীপ", "+960"], ["🇧🇳", "ব্রুনাই", "+673"], ["🇮🇳", "ভারত", "+91"],
+  ["🇯🇴", "জর্ডান", "+962"], ["🇱🇧", "লেবানন", "+961"], ["🇮🇶", "ইরাক", "+964"], ["🇱🇾", "লিবিয়া", "+218"],
+  ["🇮🇹", "ইতালি", "+39"], ["🇬🇧", "যুক্তরাজ্য", "+44"], ["🇫🇷", "ফ্রান্স", "+33"], ["🇪🇸", "স্পেন", "+34"],
+  ["🇵🇹", "পর্তুগাল", "+351"], ["🇬🇷", "গ্রিস", "+30"], ["🇩🇪", "জার্মানি", "+49"], ["🇷🇴", "রোমানিয়া", "+40"],
+  ["🇺🇸", "যুক্তরাষ্ট্র/কানাডা", "+1"], ["🇦🇺", "অস্ট্রেলিয়া", "+61"], ["🇯🇵", "জাপান", "+81"], ["🇰🇷", "দক্ষিণ কোরিয়া", "+82"],
+  ["🇲🇺", "মরিশাস", "+230"], ["🇿🇦", "দক্ষিণ আফ্রিকা", "+27"],
+];
+for (const id of ["liCC", "rgCC"]) {
+  $("#" + id).innerHTML = COUNTRIES.map(([f, nm, c]) => `<option value="${c}">${f} ${c} ${nm}</option>`).join("");
+  try { const saved = localStorage.getItem("cc"); if (saved) $("#" + id).value = saved; } catch { /* */ }
+}
+// দেশের কোড + নম্বর → +8801712345678 (শুরুর 0 বাদ)
+const fullPhone = (cc, num) => {
+  let d = String(num).replace(/[^\d+]/g, "");
+  if (d.startsWith("+")) return d;
+  if (d.startsWith("00")) return "+" + d.slice(2);
+  return cc + d.replace(/^0+/, "");
+};
+let loginMode = "phone";
+document.querySelectorAll("#loginForm .seg button").forEach((b) => (b.onclick = () => {
+  loginMode = b.dataset.m;
+  document.querySelectorAll("#loginForm .seg button").forEach((x) => x.classList.toggle("on", x === b));
+  $("#liPhoneRow").classList.toggle("hidden", loginMode !== "phone");
+  $("#liEmail").classList.toggle("hidden", loginMode !== "email");
+}));
+
+async function fnCall(name, body) {
+  const { data, error } = await sb.functions.invoke(name, { body });
+  if (error || data?.error) {
+    let code = data?.error;
+    if (!code && error?.context?.json) code = (await error.context.json().catch(() => ({})))?.error;
+    throw new Error(code || error?.message || "ERROR");
+  }
+  return data;
+}
+async function loginWith(identifier, password) {
+  const { login } = await fnCall("resolve-login", { identifier }).catch((e) => {
+    throw new Error(String(e.message).includes("NOT_FOUND") ? "NO_ACCOUNT" : e.message);
+  });
+  const { error } = await sb.auth.signInWithPassword({ email: login, password });
+  if (error) throw error;
+}
+
 function showAuth(msg = "") {
   $("#main").classList.add("hidden");
   $("#auth").classList.remove("hidden");
@@ -111,28 +161,30 @@ $("#toLogin").onclick = (e) => { e.preventDefault(); $("#regForm").classList.add
 $("#loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const b = e.submitter; b.disabled = true;
-  const { error } = await sb.auth.signInWithPassword({ email: phoneToEmail(cleanPhone($("#liPhone").value)), password: $("#liPass").value });
+  try {
+    const id = loginMode === "email" ? $("#liEmail").value.trim() : fullPhone($("#liCC").value, $("#liPhone").value);
+    if (!id || id === $("#liCC").value) throw new Error(loginMode === "email" ? "BAD_EMAIL" : "BAD_PHONE");
+    try { localStorage.setItem("cc", $("#liCC").value); } catch { /* */ }
+    await loginWith(id, $("#liPass").value);
+    start();
+  } catch (er) { $("#authErr").textContent = errMsg(er); }
   b.disabled = false;
-  if (error) return ($("#authErr").textContent = errMsg(error));
-  start();
 });
 $("#regForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const b = e.submitter; b.disabled = true;
-  const phone = cleanPhone($("#rgPhone").value);
-  const body = { phone, password: $("#rgPass").value, full_name: $("#rgName").value.trim(), username: $("#rgUser").value.trim().toLowerCase() };
-  const { data, error } = await sb.functions.invoke("signup", { body });
-  if (error || data?.error) {
-    let code = data?.error;
-    if (!code && error?.context?.json) code = (await error.context.json().catch(() => ({})))?.error;
-    b.disabled = false;
-    return ($("#authErr").textContent = errMsg(code || error));
-  }
-  const { error: e2 } = await sb.auth.signInWithPassword({ email: phoneToEmail(phone), password: body.password });
+  const phone = fullPhone($("#rgCC").value, $("#rgPhone").value);
+  const body = { phone, email: $("#rgEmail").value.trim(), password: $("#rgPass").value,
+    full_name: $("#rgName").value.trim(), username: $("#rgUser").value.trim().toLowerCase() };
+  try {
+    const r = await fnCall("signup", body);
+    try { localStorage.setItem("cc", $("#rgCC").value); } catch { /* */ }
+    const { error } = await sb.auth.signInWithPassword({ email: r.login, password: body.password });
+    if (error) throw error;
+    toast("স্বাগতম! 🎉");
+    start();
+  } catch (er) { $("#authErr").textContent = errMsg(er); }
   b.disabled = false;
-  if (e2) return ($("#authErr").textContent = errMsg(e2));
-  toast("স্বাগতম! 🎉");
-  start();
 });
 
 async function start() {

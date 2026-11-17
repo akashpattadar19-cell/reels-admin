@@ -17,7 +17,9 @@
       <h1>Reels Enjoy</h1>
       <p class="muted">ভিডিও দেখুন, বানান, আয় করুন</p>
       <form id="loginForm">
-        <input id="liPhone" inputmode="numeric" placeholder="মোবাইল নম্বর (01XXXXXXXXX)" autocomplete="username" required>
+        <div class="seg"><button type="button" data-m="phone" class="on">মোবাইল নম্বর</button><button type="button" data-m="email">ইমেইল</button></div>
+        <div class="phone-row" id="liPhoneRow"><select class="cc" id="liCC"></select><input id="liPhone" inputmode="tel" placeholder="মোবাইল নম্বর" autocomplete="tel"></div>
+        <input id="liEmail" class="hidden" type="email" placeholder="ইমেইল" autocomplete="email">
         <input id="liPass" type="password" placeholder="পাসওয়ার্ড" autocomplete="current-password" required>
         <button class="btn primary" type="submit">লগইন</button>
         <p class="switch">অ্যাকাউন্ট নেই? <a href="#" id="toReg">রেজিস্টার করুন</a></p>
@@ -25,7 +27,8 @@
       <form id="regForm" class="hidden">
         <input id="rgName" placeholder="আপনার নাম" required>
         <input id="rgUser" placeholder="ইউজারনেম (ইংরেজি, যেমন rahim_01)" autocapitalize="off" required>
-        <input id="rgPhone" inputmode="numeric" placeholder="মোবাইল নম্বর (01XXXXXXXXX)" required>
+        <div class="phone-row"><select class="cc" id="rgCC"></select><input id="rgPhone" inputmode="tel" placeholder="মোবাইল নম্বর" required></div>
+        <input id="rgEmail" type="email" placeholder="ইমেইল (ঐচ্ছিক — ইমেইল দিয়েও লগইন করা যাবে)" autocomplete="email">
         <input id="rgPass" type="password" placeholder="পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)" autocomplete="new-password" required>
         <button class="btn primary" type="submit">অ্যাকাউন্ট খুলুন</button>
         <p class="switch">আগে থেকে অ্যাকাউন্ট আছে? <a href="#" id="toLogin">লগইন</a></p>

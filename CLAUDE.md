@@ -23,7 +23,10 @@ Owner works only from a phone (Bengali UI). Everything is free-tier: Supabase + 
 - All rates/limits live in `settings` and are editable from the admin panel.
 
 ## Auth
-Phone + password. The `signup` edge function creates the auth user with email `p<phone>@phone.reelsenjoy.app` (confirmed), so no SMS cost.
+Phone (any country, E.164 like +8801…, +9665…) or email + password; no SMS cost.
+`signup` edge function creates the auth user with a random internal email `u<hex>@id.reelsenjoy.app` (confirmed) and stores
+phone / optional real email / that login email in `user_private`. `resolve-login` maps phone or email → login email, then the
+client calls `signInWithPassword`.
 Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role = 'admin'`.
 
 ## Security

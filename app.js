@@ -11,7 +11,6 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const num = (n) => Number(n ?? 0).toLocaleString("en-IN");
 const taka = (p) => "৳" + (Number(p ?? 0) / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 const dt = (s) => (s ? new Date(s).toLocaleString("en-GB", { timeZone: "Asia/Dhaka", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "-");
-const phoneToEmail = (p) => `p${p}@phone.reelsenjoy.app`;
 const METHOD = { bkash: "bKash", nagad: "Nagad", rocket: "Rocket" };
 const STATUS = { pending: "পেন্ডিং", approved: "অ্যাপ্রুভড", paid: "Paid", rejected: "রিজেক্টেড", active: "সক্রিয়", banned: "ব্যান", published: "প্রকাশিত", deleted: "ডিলিট", open: "খোলা", resolved: "সমাধান", dismissed: "বাতিল" };
 const pill = (s) => `<span class="pill ${esc(s)}">${esc(STATUS[s] ?? s)}</span>`;
@@ -74,8 +73,16 @@ function showLogin(msg = "") {
 }
 $("#loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const phone = $("#lPhone").value.trim().replace(/^\+?88/, "");
-  const { error } = await sb.auth.signInWithPassword({ email: phoneToEmail(phone), password: $("#lPass").value });
+  let id = $("#lPhone").value.trim();
+  if (!id.includes("@")) {
+    id = id.replace(/[^\d+]/g, "");
+    if (id.startsWith("00")) id = "+" + id.slice(2);
+    else if (id.startsWith("01")) id = "+880" + id.slice(1); // বাংলাদেশি নম্বর
+    else if (!id.startsWith("+")) id = "+" + id;
+  }
+  const { data: r, error: e1 } = await sb.functions.invoke("resolve-login", { body: { identifier: id } });
+  if (e1 || !r?.login) return ($("#lErr").textContent = "এই নম্বর/ইমেইলে কোনো অ্যাকাউন্ট নেই");
+  const { error } = await sb.auth.signInWithPassword({ email: r.login, password: $("#lPass").value });
   if (error) return ($("#lErr").textContent = errMsg(error));
   boot();
 });
@@ -254,7 +261,7 @@ routes.user = async (id) => {
   loading();
   const [{ data: p }, { data: priv }, { data: w }, { data: tx }, { data: wd }] = await Promise.all([
     sb.from("profiles").select("*").eq("id", id).single(),
-    sb.from("user_private").select("phone").eq("user_id", id).maybeSingle(),
+    sb.from("user_private").select("phone,email").eq("user_id", id).maybeSingle(),
     sb.from("wallets").select("*").eq("user_id", id).single(),
     sb.from("transactions").select("*").eq("user_id", id).order("id", { ascending: false }).limit(60),
     sb.from("withdraw_requests").select("*").eq("user_id", id).order("id", { ascending: false }).limit(20),
@@ -266,6 +273,7 @@ routes.user = async (id) => {
     <div class="card"><div class="kv">
       <div>নাম</div><div>${esc(p.full_name ?? "-")}</div>
       <div>ফোন</div><div>${copyable(priv?.phone ?? "-")}</div>
+      <div>ইমেইল</div><div>${priv?.email ? copyable(priv.email) : "-"}</div>
       <div>স্ট্যাটাস</div><div>${pill(p.status)} ${p.ban_reason ? esc(p.ban_reason) : ""} ${p.role === "admin" ? '<span class="pill approved">অ্যাডমিন</span>' : ""}</div>
       <div>ভিডিও / ফলোয়ার</div><div>${num(p.videos_count)} / ${num(p.followers_count)}</div>
       <div>যোগদান</div><div>${dt(p.created_at)}</div>
