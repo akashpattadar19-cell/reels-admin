@@ -80,9 +80,11 @@ $("#loginForm").addEventListener("submit", async (e) => {
     else if (id.startsWith("01")) id = "+880" + id.slice(1); // বাংলাদেশি নম্বর
     else if (!id.startsWith("+")) id = "+" + id;
   }
-  const { data: r, error: e1 } = await sb.functions.invoke("resolve-login", { body: { identifier: id } });
-  if (e1 || !r?.login) return ($("#lErr").textContent = "এই নম্বর/ইমেইলে কোনো অ্যাকাউন্ট নেই");
-  const { error } = await sb.auth.signInWithPassword({ email: r.login, password: $("#lPass").value });
+  const { data: r } = await sb.functions.invoke("resolve-login", { body: { identifier: id } });
+  // অ্যাডমিন অ্যাকাউন্ট সরাসরি ইমেইল দিয়েও থাকতে পারে
+  const login = r?.login ?? (id.includes("@") ? id.toLowerCase() : null);
+  if (!login) return ($("#lErr").textContent = "এই নম্বর/ইমেইলে কোনো অ্যাকাউন্ট নেই");
+  const { error } = await sb.auth.signInWithPassword({ email: login, password: $("#lPass").value });
   if (error) return ($("#lErr").textContent = errMsg(error));
   boot();
 });
@@ -631,8 +633,19 @@ routes.settings = async () => {
       <div class="top"><b>${esc(s.description ?? s.key)}</b><span class="muted small">${esc(s.key)}<span class="h">${hint(s.key, v)}</span></span></div>
       <div class="row" style="flex-wrap:nowrap">${input}<button class="btn sm good" data-save style="margin-top:4px">সেভ</button></div></div>`;
   };
-  view.innerHTML = `<h1>সেটিংস</h1><p class="muted small">টাকার ঘরগুলো <b>পয়সায়</b> (১ টাকা = ১০০ পয়সা)। যেমন উইথড্র মিনিমাম ৫০০ টাকা = 50000।</p>
+  view.innerHTML = `<h1>সেটিংস</h1>
+    <div class="card" style="margin-bottom:14px"><b>আমার পাসওয়ার্ড বদলান</b>
+      <div class="row" style="flex-wrap:nowrap;margin-top:6px"><input id="npw" type="password" placeholder="নতুন পাসওয়ার্ড (কমপক্ষে ৮ অক্ষর)" style="flex:1;width:auto;min-width:0"><button class="btn sm good" id="cpw" style="margin-top:4px">বদলান</button></div></div>
+    <p class="muted small">টাকার ঘরগুলো <b>পয়সায়</b> (১ টাকা = ১০০ পয়সা)। যেমন উইথড্র মিনিমাম ৫০০ টাকা = 50000।</p>
     ${groups.map(([g, keys]) => `<h2>${g}</h2><div class="list">${keys.filter((k) => byKey[k]).map((k) => field(byKey[k])).join("")}</div>`).join("")}`;
+  $("#cpw").onclick = async () => {
+    const pw = $("#npw").value;
+    if (pw.length < 8) return toast("কমপক্ষে ৮ অক্ষর দিন", true);
+    const { error } = await sb.auth.updateUser({ password: pw });
+    if (error) return toast(errMsg(error), true);
+    $("#npw").value = "";
+    toast("পাসওয়ার্ড বদলানো হয়েছে ✅");
+  };
   view.onclick = async (e) => {
     const b = e.target.closest("[data-save]");
     if (!b) return;
