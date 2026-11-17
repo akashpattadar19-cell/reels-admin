@@ -47,6 +47,8 @@ const ERR = {
   EMAIL_TAKEN: "এই ইমেইলে আগেই অ্যাকাউন্ট আছে — লগইন করুন",
   NO_ACCOUNT: "এই নম্বর/ইমেইলে কোনো অ্যাকাউন্ট নেই — আগে রেজিস্টার করুন",
   SIGNUP_FAILED: "অ্যাকাউন্ট খোলা যায়নি, আবার চেষ্টা করুন",
+  BAD_REF: "এই রেফার কোডে কোনো ইউজার নেই",
+  BAD_DATE: "সঠিক জন্মতারিখ দিন",
   TRX_USED: "এই TrxID আগেই ব্যবহার হয়েছে",
   BAD_TRX: "সঠিক TrxID দিন",
   TOO_MANY_PENDING: "আগের রিকোয়েস্টগুলো যাচাই হওয়া পর্যন্ত অপেক্ষা করুন",
@@ -176,7 +178,7 @@ $("#regForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const b = e.submitter; b.disabled = true;
   const phone = fullPhone($("#rgCC").value, $("#rgPhone").value);
-  const body = { phone, email: $("#rgEmail").value.trim(), password: $("#rgPass").value,
+  const body = { phone, email: $("#rgEmail").value.trim(), password: $("#rgPass").value, ref_no: $("#rgRef").value.trim(),
     full_name: $("#rgName").value.trim(), username: $("#rgUser").value.trim().toLowerCase() };
   try {
     const r = await fnCall("signup", body);
@@ -208,7 +210,43 @@ async function start() {
   realtime();
   refreshUnread();
   route();
+  rpc("touch_last_seen").catch(() => {});
+  requireLocation();
 }
+
+// ---------------- লোকেশন (APK-তে লোকেশন ছাড়া অ্যাপ চলবে না) ----------------
+function requireLocation() {
+  if (!Native?.requestLocation) return; // ব্রাউজার বা পুরনো APK
+  let gate = $("#locGate");
+  if (!gate) {
+    document.body.insertAdjacentHTML("beforeend", `<div id="locGate" class="loc-gate hidden"><div>
+      <div style="font-size:54px">📍</div><h2>লোকেশন চালু করুন</h2>
+      <p class="muted">Reels Enjoy ব্যবহার করতে লোকেশন অনুমতি লাগবে। এটা দিয়ে শুধু আপনার দেশ ও শহর জানা হয় — প্রতারণা রোধ ও দেশভিত্তিক অফারের জন্য। আপনার সঠিক ঠিকানা কেউ দেখতে পায় না।</p>
+      <button class="btn primary" id="locTry">অনুমতি দিন</button>
+      <button class="btn" id="locSet" style="width:100%;margin-top:8px">সেটিংস খুলুন</button>
+      <p class="tiny muted" id="locMsg"></p></div></div>`);
+    gate = $("#locGate");
+    $("#locTry").onclick = () => { $("#locMsg").textContent = "অপেক্ষা করুন…"; Native.requestLocation(); };
+    $("#locSet").onclick = () => Native.openSettings?.(S.locState === "disabled" ? "location" : "app");
+  }
+  Native.requestLocation();
+}
+window.onAppResume = () => {
+  const g = $("#locGate");
+  if (g && !g.classList.contains("hidden")) Native?.requestLocation?.();
+};
+window.onNativeLocation = (r) => {
+  const gate = $("#locGate");
+  if (r && r.ok) {
+    gate?.classList.add("hidden");
+    rpc("update_location", { p_lat: r.lat, p_lon: r.lon, p_country: r.country || null, p_country_code: r.countryCode || null, p_city: r.city || null }).catch(() => {});
+    return;
+  }
+  S.locState = r?.reason;
+  gate?.classList.remove("hidden");
+  const msg = $("#locMsg");
+  if (msg) msg.textContent = r?.reason === "disabled" ? "ফোনের লোকেশন (GPS) বন্ধ আছে — সেটিংস থেকে চালু করুন" : r?.reason === "denied" ? "অনুমতি দেওয়া হয়নি — আবার চাপুন বা সেটিংস থেকে চালু করুন" : "লোকেশন পাওয়া যায়নি — আবার চেষ্টা করুন";
+};
 
 function realtime() {
   if (S.rtChannel) sb.removeChannel(S.rtChannel);
@@ -236,7 +274,7 @@ function route() {
   if (cleanup) { try { cleanup(); } catch { /* */ } cleanup = null; }
   closeSheet();
   const [name, a, b] = (location.hash.slice(1) || "feed").split("/");
-  document.querySelectorAll(".tabbar a").forEach((x) => x.classList.toggle("on", x.dataset.t === name || (name === "following" && x.dataset.t === "feed")));
+  document.querySelectorAll(".tabbar a").forEach((x) => x.classList.toggle("on", x.dataset.t === name || (name === "following" && x.dataset.t === "feed") || (["invite", "rules", "settings", "vault", "edit"].includes(name) && x.dataset.t === "me")));
   screen.classList.remove("full");
   screen.scrollTop = 0;
   (R[name] ?? R.feed)(a, b);
@@ -247,7 +285,8 @@ const header = (title, showBack = true) => `<h1>${showBack ? `<button class="bac
 const notice = () => (setting("app_notice", "") ? `<div class="notice" translate="no">📢 ${esc(setting("app_notice", ""))}</div>` : "");
 
 // ---------------- FEED ----------------
-R.feed = () => openFeed({ type: "foryou" });
+const CATS = [["", "সব"], ["natok", "🎭 নাটক"], ["movie", "🎬 মুভি"], ["funny", "😂 ফানি"], ["vlog", "📹 ব্লগ"], ["music", "🎵 গান"], ["other", "📦 অন্যান্য"]];
+R.feed = (cat) => openFeed({ type: "foryou", category: cat || "" });
 R.following = () => openFeed({ type: "following" });
 R.watch = (userId, videoId) => openFeed({ type: "user", user: userId, startId: Number(videoId) });
 R.v = async (videoId) => {
@@ -256,7 +295,7 @@ R.v = async (videoId) => {
   location.replace(`#watch/${data.user_id}/${videoId}`);
 };
 
-function openFeed({ type, user = null, startId = null }) {
+function openFeed({ type, user = null, startId = null, category = "" }) {
   screen.classList.add("full");
   screen.innerHTML = `
     <div class="feed-top">
@@ -264,6 +303,7 @@ function openFeed({ type, user = null, startId = null }) {
       <a href="#following" class="${type === "following" ? "on" : ""}">ফলোয়িং</a>
       <a href="#feed" class="${type === "foryou" ? "on" : ""}">আপনার জন্য</a>`}
     </div>
+    ${type === "foryou" ? `<div class="cat-row">${CATS.map(([k, l]) => `<a href="#feed${k ? "/" + k : ""}" class="${k === category ? "on" : ""}">${l}</a>`).join("")}</div>` : ""}
     <div class="feed" id="feed"></div>`;
   const feedEl = $("#feed");
   const st = { before: startId ? startId + 1 : null, loading: false, done: false, slides: [], active: null, swipes: 0, timer: null };
@@ -278,7 +318,7 @@ function openFeed({ type, user = null, startId = null }) {
     if (st.loading || st.done) return;
     st.loading = true;
     try {
-      const rows = await rpc("feed", { p_type: type === "user" ? "foryou" : type, p_before: st.before, p_limit: 8, p_user: user });
+      const rows = await rpc("feed", { p_type: type === "user" ? "foryou" : type, p_before: st.before, p_limit: 8, p_user: user, p_category: category || null });
       if (!rows.length) {
         st.done = true;
         if (!st.slides.length) {
@@ -533,6 +573,8 @@ R.upload = () => {
     <label class="pick" id="pickL"><input type="file" id="vf" accept="video/*" class="hidden"><div class="ic">🎬</div>
       <b>ভিডিও বেছে নিন</b><div class="muted tiny">সর্বোচ্চ ${maxSec} সেকেন্ড · খাড়া (9:16) ভিডিও সবচেয়ে ভালো দেখায়</div></label>
     <video id="pv" class="preview hidden" controls playsinline></video>
+    <label class="lbl">ক্যাটাগরি</label>
+    <select id="cat">${CATS.filter(([k]) => k).map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select>
     <label class="lbl">ক্যাপশন (#হ্যাশট্যাগ দিন)</label>
     <textarea id="cap" maxlength="2200" placeholder="ভিডিও সম্পর্কে লিখুন… #funny #bangla"></textarea>
     <button class="btn primary" id="up" disabled>আপলোড করুন</button>
@@ -572,6 +614,7 @@ R.upload = () => {
       if (thumb) { await xhrUpload("thumbs", tPath, thumb, "image/jpeg", () => {}); tUrl = sb.storage.from("thumbs").getPublicUrl(tPath).data.publicUrl; }
       const vUrl = sb.storage.from("videos").getPublicUrl(vPath).data.publicUrl;
       const id = await rpc("create_video", { p_video_path: vPath, p_video_url: vUrl, p_thumb_url: tUrl, p_caption: $("#cap").value, p_duration: duration });
+      await rpc("set_video_category", { p_id: id, p_category: $("#cat").value }).catch(() => {});
       setP(100, "✅ আপলোড সম্পন্ন!");
       const mins = Number(setting("auto_approve_minutes", 2));
       toast(mins > 0 ? `আপলোড হয়েছে ✅ ${mins} মিনিটের মধ্যে প্রকাশিত হবে` : "আপলোড হয়েছে ✅ অ্যাডমিন অ্যাপ্রুভ করলে প্রকাশিত হবে");
@@ -783,7 +826,112 @@ R.inbox = async () => {
 };
 
 // ---------------- PROFILE ----------------
-R.me = () => R.u(S.me.id);
+const COUNTRY_NAMES = { BD: "বাংলাদেশ", SA: "সৌদি আরব", AE: "দুবাই/আমিরাত", QA: "কাতার", KW: "কুয়েত", OM: "ওমান", BH: "বাহরাইন", MY: "মালয়েশিয়া",
+  SG: "সিঙ্গাপুর", MV: "মালদ্বীপ", IN: "ভারত", IT: "ইতালি", GB: "যুক্তরাজ্য", US: "যুক্তরাষ্ট্র", JO: "জর্ডান", LB: "লেবানন", IQ: "ইরাক", LY: "লিবিয়া",
+  FR: "ফ্রান্স", ES: "স্পেন", PT: "পর্তুগাল", GR: "গ্রিস", DE: "জার্মানি", RO: "রোমানিয়া", CA: "কানাডা", AU: "অস্ট্রেলিয়া", JP: "জাপান", KR: "দক্ষিণ কোরিয়া" };
+const flagOf = (cc) => (cc && cc.length === 2 ? String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 127397 + c.charCodeAt(0))) : "🌐");
+
+R.me = async () => {
+  screen.innerHTML = `<div class="page"><div class="spinner"></div></div>`;
+  const [{ data: p }, { data: w }, refs] = await Promise.all([
+    sb.from("profiles").select("*").eq("id", S.me.id).single(),
+    sb.from("wallets").select("*").eq("user_id", S.me.id).single(),
+    rpc("my_referrals").catch(() => null),
+  ]);
+  S.me = p;
+  const en = window.getLang?.() === "en";
+  const cc = p.country_code;
+  screen.innerHTML = `<div class="me">
+    <div class="me-head">
+      <div class="me-av">${avatar(p)}</div>
+      <h2 translate="no">${esc(p.full_name || p.username)} ${p.is_verified ? "✔️" : ""}</h2>
+      <div class="me-sub">@${esc(p.username)} · <span data-copy="${p.user_no}">ID ${p.user_no} ⧉</span></div>
+      <div class="chips"><span>${flagOf(cc)} ${cc ? (COUNTRY_NAMES[cc] ?? cc) : "দেশ জানা নেই"}</span><span>🅰️ ${en ? "English" : "বাংলা"}</span></div>
+      <div class="me-counts"><a href="#u/${p.id}"><b>${n(p.videos_count)}</b><span>ভিডিও</span></a><div><b>${n(p.following_count)}</b><span>ফলোয়িং</span></div><div><b>${n(p.followers_count)}</b><span>ফলোয়ার</span></div></div>
+    </div>
+    <div class="me-cards">
+      <a href="#cashin" class="mc coins"><span>আমার কয়েন</span><b>🪙 ${n(w?.coin_balance)}</b></a>
+      <a href="#wallet" class="mc money"><span>আমার ব্যালেন্স</span><b>${tk(w?.earning_paisa)}</b></a>
+    </div>
+    <a href="#invite" class="me-banner"><span>🤝 বন্ধুদের রেফার করে আয় করুন</span><b>${tk(refs?.earned_paisa ?? 0)} ›</b></a>
+    ${notice()}
+    <div class="me-menu">
+      <a href="#inbox"><i>💬</i>নোটিফিকেশন<em>${S.unread ? `<b class="red"></b>` : ""}›</em></a>
+      <a href="#wallet"><i>💰</i>ওয়ালেট ও উইথড্র<em>›</em></a>
+      <a href="#invite"><i>🎁</i>আমার রেফার<em>${refs?.qualified ?? 0} জন সফল ›</em></a>
+      <a href="#rules"><i>📋</i>আয়ের নিয়ম<em>›</em></a>
+      <a href="#u/${p.id}"><i>🎬</i>আমার ভিডিও<em>${n(p.videos_count)} ›</em></a>
+      <a href="#vault"><i>🔒</i>লক ফোল্ডার<em>›</em></a>
+      <a href="#edit"><i>👤</i>আমার প্রোফাইল<em>›</em></a>
+      <a href="#settings"><i>⚙️</i>সেটিংস<em>›</em></a>
+    </div></div>`;
+};
+
+R.settings = () => {
+  const en = window.getLang?.() === "en";
+  screen.innerHTML = `<div class="page">${header("সেটিংস")}
+    <div class="card list">
+      <div class="li"><span>🌐 ভাষা / Language</span><button class="btn small" id="lang" translate="no">${en ? "বাংলা" : "English"}</button></div>
+      <div class="li"><span>🆔 আমার ID</span><b data-copy="${S.me.user_no}">${S.me.user_no} ⧉</b></div>
+      <div class="li"><span>📱 অ্যাপ ভার্সন</span><span class="muted">${esc(Native?.appVersion?.() ?? "web")}</span></div>
+    </div>
+    <button class="btn" id="lo" style="width:100%;color:#ff8a8a">🚪 লগআউট</button></div>`;
+  $("#lang").onclick = () => window.setLang?.(en ? "bn" : "en");
+  $("#lo").onclick = async () => { if (!confirm("লগআউট করবেন?")) return; await sb.auth.signOut(); S.me = null; location.hash = ""; showAuth(); };
+};
+
+R.invite = async () => {
+  screen.innerHTML = `<div class="page">${header("🎁 আমার রেফার")}<div class="spinner"></div></div>`;
+  const r = await rpc("my_referrals").catch((e) => ({ error: e }));
+  if (r.error) { screen.innerHTML = `<div class="page">${header("🎁 আমার রেফার")}<div class="empty">${esc(errMsg(r.error))}</div></div>`; return; }
+  const shareText = `Reels Enjoy অ্যাপে ভিডিও দেখে ও বানিয়ে আয় করুন! রেজিস্টার করার সময় আমার রেফার কোড দিন: ${r.code}`;
+  screen.innerHTML = `<div class="page">${header("🎁 আমার রেফার")}
+    <div class="card hero" style="text-align:center"><div class="k">আপনার রেফার কোড</div>
+      <div class="v" data-copy="${r.code}" style="letter-spacing:2px">${r.code} ⧉</div>
+      <button class="btn" id="shr" style="background:#fff;color:#4b1c7a;border:0">📤 বন্ধুদের পাঠান</button></div>
+    <div class="stats" style="margin-bottom:12px"><div><b>${n(r.total)}</b><span>মোট রেফার</span></div><div><b>${n(r.qualified)}</b><span>সফল</span></div><div><b>${tk(r.earned_paisa)}</b><span>রেফার আয়</span></div></div>
+    <div class="card"><b>কীভাবে কাজ করে</b><div class="list tiny">
+      <div class="li"><span>১. বন্ধু রেজিস্টারের সময় আপনার কোড দেবে</span></div>
+      <div class="li"><span>২. বন্ধু ${n(r.min_views)}টি ভিডিও দেখলে রেফার সফল</span></div>
+      <div class="li"><span>৩. প্রতি সফল রেফারে আপনি পাবেন</span><b>${tk(setting("referral_bonus_paisa"))}</b></div>
+      <div class="li"><span>বন্ধু পাবে স্বাগত পয়েন্ট</span><b>⭐ ${n(setting("referral_welcome_points"))}</b></div></div></div>
+    ${r.tiers.length ? `<div class="card"><b>🏆 বাড়তি বোনাস</b><div class="list">${r.tiers.map((t) => `<div class="li"><span>${n(t.referrals)} জন সফল রেফার</span>
+      <span>${t.awarded ? "✅ " : ""}<b>${tk(t.bonus_paisa)}</b></span></div>
+      ${t.awarded ? "" : `<div class="progress" style="margin:0 0 6px"><div style="width:${Math.min(100, Math.round((r.qualified / t.referrals) * 100))}%"></div></div>`}`).join("")}</div></div>` : ""}
+    <h3>আপনার রেফার করা বন্ধু</h3><div class="card list">${r.list.length ? r.list.map((x) => `<div class="li"><span>@${esc(x.username)}<div class="tiny muted">${dt(x.created_at)} · ${n(x.views)}/${n(r.min_views)} ভিডিও দেখেছে</div></span>
+      <span class="pill ${x.qualified ? "paid" : "pending"}">${x.qualified ? "সফল" : "চলছে"}</span></div>`).join("") : `<div class="empty">এখনো কেউ নেই — কোড শেয়ার করুন</div>`}</div></div>`;
+  $("#shr").onclick = async () => {
+    try {
+      if (Native?.share) Native.share(shareText);
+      else if (navigator.share) await navigator.share({ text: shareText });
+      else { await navigator.clipboard.writeText(shareText); toast("কপি হয়েছে"); }
+    } catch { /* */ }
+  };
+};
+
+R.rules = async () => {
+  const { data: tiers } = await sb.from("referral_tiers").select("*").eq("is_active", true).order("referrals");
+  const rew = S.ads.rewarded_points;
+  screen.innerHTML = `<div class="page">${header("📋 আয়ের নিয়ম")}
+    <div class="card"><b>🎬 ভিডিও বানিয়ে (ক্রিয়েটর)</b><div class="list tiny">
+      <div class="li"><span>প্রতি ১০০০ ভিউ</span><b>${tk(setting("view_rate_paisa_per_1000"))}</b></div>
+      <div class="li"><span>প্রতি লাইক</span><b>${tk(setting("like_rate_paisa"))}</b></div>
+      <div class="li"><span>প্রতি কমেন্টকারী</span><b>${tk(setting("comment_rate_paisa"))}</b></div>
+      <div class="li"><span>গিফট পেলে</span><b>গিফটের দামের বড় অংশ</b></div>
+      ${rew ? `<div class="li"><span>আপনার ভিডিওতে কেউ অ্যাড দেখলে</span><b>⭐ ${n(rew.creator_points)}</b></div>` : ""}</div></div>
+    <div class="card"><b>👀 ভিডিও দেখে (দর্শক)</b><div class="list tiny">
+      <div class="li"><span>প্রতি ভিডিও</span><b>⭐ ${n(setting("watch_points"))}</b></div>
+      <div class="li"><span>দিনে সর্বোচ্চ</span><b>⭐ ${n(setting("viewer_daily_points_cap"))}</b></div>
+      ${rew ? `<div class="li"><span>অ্যাড দেখে (দিনে সর্বোচ্চ ${n(rew.daily_cap)} বার)</span><b>⭐ ${n(rew.viewer_points)}</b></div>` : ""}
+      <div class="li"><span>${n(setting("points_convert_min"))} পয়েন্ট</span><b>${tk(setting("points_convert_min") * setting("point_value_paisa"))}</b></div></div></div>
+    <div class="card"><b>🤝 রেফার</b><div class="list tiny">
+      <div class="li"><span>প্রতি সফল রেফার</span><b>${tk(setting("referral_bonus_paisa"))}</b></div>
+      ${(tiers ?? []).map((t) => `<div class="li"><span>${n(t.referrals)} জন সফল রেফার হলে বাড়তি</span><b>${tk(t.bonus_paisa)}</b></div>`).join("")}</div></div>
+    <div class="card"><b>💸 উইথড্র</b><div class="list tiny">
+      <div class="li"><span>সর্বনিম্ন উইথড্র</span><b>${tk(setting("withdraw_min_paisa"))}</b></div>
+      <div class="li"><span>কত দিন পরপর</span><b>${n(setting("withdraw_cooldown_days"))} দিন</b></div>
+      <div class="li"><span>আয় ব্যালেন্সে আসে</span><b>${n(setting("pending_hold_hours"))} ঘণ্টা পরে</b></div></div></div></div>`;
+};
 R.u = async (id) => {
   const mine = id === S.me.id;
   screen.innerHTML = `<div class="page"><div class="spinner"></div></div>`;
@@ -797,12 +945,12 @@ R.u = async (id) => {
   let following = !!fl.data;
   const grid = (list) => list.map((v) => `<a href="#watch/${id}/${v.id}">${v.thumb_url ? `<img src="${esc(v.thumb_url)}" loading="lazy" alt="">` : ""}<span class="vc">▶ ${n(v.views_count)}</span></a>`).join("");
   screen.innerHTML = `<div class="page">
-    ${mine ? `<div class="row"><span></span><button class="btn small" id="lo">লগআউট</button></div>${notice()}` : `<button class="back" onclick="history.back()">←</button>`}
+    <button class="back" onclick="history.back()">←</button>
     <div class="prof">${avatar(p)}<h2 translate="no">${esc(p.full_name ?? "")} ${p.is_verified ? "✔️" : ""}</h2><div class="muted">@${esc(p.username)}</div>
       <div class="idtag" data-copy="${p.user_no}">ID: ${p.user_no} ⧉</div>
       <div class="counts"><div><b>${n(p.videos_count)}</b><span>ভিডিও</span></div><div><b id="fc">${n(p.followers_count)}</b><span>ফলোয়ার</span></div><div><b>${n(p.following_count)}</b><span>ফলোয়িং</span></div></div>
       ${p.bio ? `<p translate="no">${esc(p.bio)}</p>` : ""}
-      ${mine ? `<div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap"><a class="btn small" href="#edit">✏️ প্রোফাইল এডিট</a><a class="btn small" href="#vault">🔒 লক ফোল্ডার</a><button class="btn small" id="lang" translate="no">${window.getLang?.() === "en" ? "🌐 বাংলা" : "🌐 English"}</button></div>`
+      ${mine ? `<div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap"><a class="btn small" href="#edit">✏️ প্রোফাইল এডিট</a><a class="btn small" href="#me">⬅ আমার পেজ</a></div>`
         : `<button class="btn" id="fb" style="min-width:140px;${following ? "" : "background:var(--accent);border:0"}">${following ? "ফলোয়িং" : "ফলো করুন"}</button>`}
     </div>
     <div id="pend"></div>
@@ -840,7 +988,9 @@ R.edit = () => {
     <span class="lbl">নাম</span><input id="fn" value="${esc(p.full_name ?? "")}" maxlength="60">
     <span class="lbl">ইউজারনেম</span><input id="un" value="${esc(p.username)}" autocapitalize="off" maxlength="30">
     <span class="lbl">বায়ো</span><textarea id="bio" maxlength="300">${esc(p.bio ?? "")}</textarea>
+    <span class="lbl">জন্মতারিখ</span><input id="bd" type="date">
     <button class="btn primary" id="sv">সেভ করুন</button></div>`;
+  sb.from("user_private").select("birth_date").eq("user_id", S.me.id).maybeSingle().then(({ data }) => { if (data?.birth_date) $("#bd").value = data.birth_date; });
   let avatarBlob = null;
   $("#af").onchange = async (e) => {
     const f = e.target.files[0]; if (!f) return;
@@ -863,6 +1013,7 @@ R.edit = () => {
         url = sb.storage.from("avatars").getPublicUrl(path).data.publicUrl;
       }
       await rpc("update_profile", { p_full_name: $("#fn").value, p_username: $("#un").value.trim().toLowerCase(), p_bio: $("#bio").value, p_avatar_url: url });
+      if ($("#bd").value) await rpc("set_birth_date", { p_date: $("#bd").value });
       toast("সেভ হয়েছে");
       location.hash = "#me";
     } catch (er) { toast(errMsg(er), true); e.target.disabled = false; }

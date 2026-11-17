@@ -13,6 +13,16 @@ const taka = (p) => "৳" + (Number(p ?? 0) / 100).toLocaleString("en-IN", { max
 const dt = (s) => (s ? new Date(s).toLocaleString("en-GB", { timeZone: "Asia/Dhaka", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "-");
 const METHOD = { bkash: "bKash", nagad: "Nagad", rocket: "Rocket" };
 const STATUS = { pending: "পেন্ডিং", approved: "অ্যাপ্রুভড", paid: "Paid", rejected: "রিজেক্টেড", active: "সক্রিয়", banned: "ব্যান", published: "প্রকাশিত", deleted: "ডিলিট", open: "খোলা", resolved: "সমাধান", dismissed: "বাতিল" };
+const CATS = [["natok", "🎭 নাটক"], ["movie", "🎬 মুভি"], ["funny", "😂 ফানি"], ["vlog", "📹 ব্লগ"], ["music", "🎵 গান"], ["other", "📦 অন্যান্য"]];
+const CAT_NAME = Object.fromEntries(CATS);
+const PHONE_CC = [["+880", "বাংলাদেশ"], ["+966", "সৌদি আরব"], ["+971", "দুবাই/আমিরাত"], ["+974", "কাতার"], ["+965", "কুয়েত"], ["+968", "ওমান"],
+  ["+973", "বাহরাইন"], ["+60", "মালয়েশিয়া"], ["+65", "সিঙ্গাপুর"], ["+960", "মালদ্বীপ"], ["+673", "ব্রুনাই"], ["+91", "ভারত"], ["+962", "জর্ডান"],
+  ["+961", "লেবানন"], ["+964", "ইরাক"], ["+218", "লিবিয়া"], ["+39", "ইতালি"], ["+44", "যুক্তরাজ্য"], ["+33", "ফ্রান্স"], ["+34", "স্পেন"],
+  ["+351", "পর্তুগাল"], ["+30", "গ্রিস"], ["+49", "জার্মানি"], ["+40", "রোমানিয়া"], ["+1", "যুক্তরাষ্ট্র/কানাডা"], ["+61", "অস্ট্রেলিয়া"],
+  ["+81", "জাপান"], ["+82", "দক্ষিণ কোরিয়া"], ["+230", "মরিশাস"], ["+27", "দক্ষিণ আফ্রিকা"]];
+const phoneCountry = (ph) => (PHONE_CC.filter(([c]) => String(ph ?? "").startsWith(c)).sort((a, b) => b[0].length - a[0].length)[0]?.[1] ?? "-");
+const flag = (cc) => (cc && cc.length === 2 ? String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 127397 + c.charCodeAt(0))) : "");
+const age = (d) => (d ? Math.floor((Date.now() - new Date(d)) / (365.25 * 864e5)) : null);
 const pill = (s) => `<span class="pill ${esc(s)}">${esc(STATUS[s] ?? s)}</span>`;
 
 const ERR = {
@@ -252,7 +262,7 @@ routes.users = async () => {
     $("#cnt").textContent = `${rows.length} / ${data[0]?.total_count ?? rows.length}`;
     $("#more").classList.toggle("hidden", data.length < 50);
     $("#list").innerHTML = rows.length ? `<table><tr><th>ID</th><th>ইউজার</th><th>ফোন</th><th>স্ট্যাটাস</th><th class="num">ভিডিও</th><th class="num">কয়েন</th><th class="num">ব্যালেন্স</th><th class="num">পেন্ডিং</th><th class="num">পয়েন্ট</th><th>যোগদান</th></tr>
-      ${rows.map((u) => `<tr><td><b>${u.user_no}</b></td><td><a href="#user/${u.id}">@${esc(u.username)}</a><br><span class="muted small">${esc(u.full_name ?? "")}${u.role === "admin" ? " · অ্যাডমিন" : ""}</span></td>
+      ${rows.map((u) => `<tr><td><a href="#lookup/${u.user_no}"><b>${u.user_no}</b></a></td><td><a href="#user/${u.id}">@${esc(u.username)}</a><br><span class="muted small">${esc(u.full_name ?? "")}${u.role === "admin" ? " · অ্যাডমিন" : ""}</span></td>
         <td>${esc(u.phone ?? "")}</td><td>${pill(u.status)}${u.is_frozen ? ' <span class="pill rejected">ফ্রিজ</span>' : ""}</td>
         <td class="num">${num(u.videos_count)}</td><td class="num">${num(u.coin_balance)}</td><td class="num">${taka(u.earning_paisa)}</td>
         <td class="num">${taka(u.pending_paisa)}</td><td class="num">${num(u.points)}</td><td>${dt(u.created_at)}</td></tr>`).join("")}</table>`
@@ -303,6 +313,7 @@ routes.user = async (id) => {
       <button class="btn" id="ver">${p.is_verified ? "ভেরিফাইড বাদ" : "ভেরিফাইড ব্যাজ"}</button>
       <button class="btn" id="role">${p.role === "admin" ? "অ্যাডমিন বাদ" : "অ্যাডমিন বানান"}</button>
       <a class="btn" href="#videos/user:${p.id}">ভিডিও দেখুন</a>
+      <a class="btn" href="#lookup/${p.user_no}">🔎 সম্পূর্ণ প্রোফাইল</a>
       <a class="btn" href="#coins/${p.user_no}">🪙 কয়েন পাঠান</a>
       <a class="btn" href="#vault/${p.user_no}">🔒 লক ফোল্ডার</a>
     </div>
@@ -377,7 +388,7 @@ routes.videos = async (arg = "published") => {
       <div class="vcard" data-id="${v.id}">
         <video src="${esc(v.video_url)}" ${v.thumb_url ? `poster="${esc(v.thumb_url)}"` : ""} preload="none" controls playsinline></video>
         <div class="body">
-          <div><a href="#user/${v.user_id}">@${esc(v.profiles?.username)}</a> ${v.is_featured ? "⭐" : ""} ${v.uploaded_by_admin ? '<span class="pill">অ্যাডমিন</span>' : ""}</div>
+          <div><a href="#user/${v.user_id}">@${esc(v.profiles?.username)}</a> <span class="pill">${CAT_NAME[v.category] ?? ""}</span> ${v.is_featured ? "⭐" : ""} ${v.uploaded_by_admin ? '<span class="pill">অ্যাডমিন</span>' : ""}</div>
           ${v.status === "pending" ? `<div class="small" style="color:var(--warn)">⏳ পেন্ডিং · ${dt(v.created_at)}</div>` : ""}
           <div class="cap" translate="no">${esc(v.caption ?? "")}</div>
           <div class="muted small">👁 ${num(v.views_count)} ❤️ ${num(v.likes_count)} 💬 ${num(v.comments_count)} 🎁 ${num(v.gifts_coins_total)} · ${dt(v.created_at)}</div>
@@ -412,6 +423,7 @@ routes.upload = () => {
     <div class="card" style="max-width:520px">
       <label>ভিডিও ফাইল (MP4, সর্বোচ্চ 50MB)<input type="file" id="vf" accept="video/mp4,video/quicktime,video/webm"></label>
       <video id="pv" class="hidden" style="width:100%;max-height:360px;margin-top:10px;background:#000" controls playsinline muted></video>
+      <label>ক্যাটাগরি<select id="cat">${CATS.map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select></label>
       <label>ক্যাপশন (#হ্যাশট্যাগ সহ)<textarea id="cap" maxlength="2200"></textarea></label>
       <button class="btn primary" id="up">আপলোড করুন</button>
       <div class="progress hidden" id="pg"><div></div></div>
@@ -450,7 +462,8 @@ routes.upload = () => {
       const vUrl = sb.storage.from("videos").getPublicUrl(vPath).data.publicUrl;
       const tUrl = sb.storage.from("thumbs").getPublicUrl(tPath).data.publicUrl;
       setP(95, "সেভ হচ্ছে…");
-      await rpc("create_video", { p_video_path: vPath, p_video_url: vUrl, p_thumb_url: tUrl, p_caption: $("#cap").value, p_duration: duration });
+      const vid = await rpc("create_video", { p_video_path: vPath, p_video_url: vUrl, p_thumb_url: tUrl, p_caption: $("#cap").value, p_duration: duration });
+      await rpc("set_video_category", { p_id: vid, p_category: $("#cat").value });
       setP(100, "✅ আপলোড সম্পন্ন — ফিডে দেখা যাবে");
       toast("আপলোড সম্পন্ন");
       vf.value = ""; $("#cap").value = "";
@@ -459,6 +472,147 @@ routes.upload = () => {
   };
 };
 
+
+
+// ---------- ইউজার খুঁজুন (ID নম্বর দিয়ে) ----------
+routes.lookup = async (no) => {
+  view.innerHTML = `<h1>🔎 ইউজার খুঁজুন</h1>
+    <div class="toolbar"><input id="lq" type="number" inputmode="numeric" placeholder="ইউজারের ID নম্বর (যেমন 100001)" value="${esc(no ?? "")}"><button class="btn" id="lgo">খুঁজুন</button></div>
+    <div id="lr"></div>`;
+  $("#lgo").onclick = () => { const v = $("#lq").value.trim(); if (v) location.hash = "#lookup/" + v; };
+  $("#lq").onkeydown = (e) => e.key === "Enter" && $("#lgo").click();
+  if (!no) return;
+  $("#lr").innerHTML = `<div class="empty">লোড হচ্ছে…</div>`;
+  let d;
+  try { d = await rpc("admin_user_detail", { p_user_no: Number(no) }); }
+  catch (e) { $("#lr").innerHTML = `<div class="empty err">${esc(errMsg(e))}</div>`; return; }
+  const p = d.profile, pv = d.private ?? {}, w = d.wallet ?? {};
+  const mapLink = pv.lat != null ? `https://maps.google.com/?q=${pv.lat},${pv.lon}` : null;
+  const a = age(pv.birth_date);
+  $("#lr").innerHTML = `
+    <div class="card" style="display:flex;gap:14px;align-items:center">
+      <div style="width:64px;height:64px;border-radius:50%;overflow:hidden;background:var(--panel2);display:grid;place-items:center;font-size:26px;flex:none">
+        ${p.avatar_url ? `<img src="${esc(p.avatar_url)}" style="width:100%;height:100%;object-fit:cover">` : "👤"}</div>
+      <div><div style="font-size:18px;font-weight:700" translate="no">${esc(p.full_name ?? "")} ${p.is_verified ? "✔️" : ""}</div>
+        <div class="muted">@${esc(p.username)} · ID <b>${p.user_no}</b> ${flag(pv.country_code)}</div>
+        <div style="margin-top:4px">${pill(p.status)} ${p.role === "admin" ? '<span class="pill approved">অ্যাডমিন</span>' : ""} ${w.is_frozen ? '<span class="pill rejected">ফ্রিজ</span>' : ""}</div></div>
+    </div>
+    <div class="card"><div class="kv">
+      <div>ফোন</div><div>${copyable(pv.phone ?? "-")}</div>
+      <div>নম্বরের দেশ</div><div>${phoneCountry(pv.phone)}</div>
+      <div>ইমেইল</div><div>${pv.email ? copyable(pv.email) : "-"}</div>
+      <div>জন্মতারিখ</div><div>${pv.birth_date ? `${esc(pv.birth_date)} (${a} বছর)` : "-"}</div>
+      <div>যোগদান</div><div>${dt(p.created_at)}</div>
+      <div>শেষ সক্রিয়</div><div>${pv.last_seen ? dt(pv.last_seen) : "-"}</div>
+      <div>বর্তমান লোকেশন</div><div>${pv.country ? `${flag(pv.country_code)} ${esc(pv.country)}${pv.city ? ", " + esc(pv.city) : ""} <span class="muted small">(${dt(pv.location_at)})</span>` : "-"}
+        ${mapLink ? ` · <a href="${mapLink}" target="_blank" rel="noopener">ম্যাপে দেখুন</a>` : ""}</div>
+      <div>রেফার করেছে</div><div>${d.referred_by ? `<a href="#lookup/${d.referred_by.user_no}">${d.referred_by.user_no} @${esc(d.referred_by.username)}</a>` : "-"}</div>
+      <div>রেফার এনেছে</div><div>${num(d.referrals_total)} জন (সফল ${num(d.referrals_qualified)})</div>
+      <div>ভিডিও দেখেছে</div><div>${num(d.views_given)}</div>
+      <div>গিফট পাঠিয়েছে</div><div>🪙 ${num(d.gifts_sent_coins)}</div>
+      <div>গিফট থেকে আয়</div><div>${taka(d.gifts_received_paisa)}</div>
+      <div>লক ফোল্ডার</div><div>${num(d.vault_files)} ফাইল · ${(Number(d.vault_bytes) / 1048576).toFixed(1)} MB</div>
+    </div></div>
+    <div class="grid">
+      <div class="card stat"><div class="k">উইথড্রযোগ্য ব্যালেন্স</div><div class="v">${taka(w.earning_paisa)}</div></div>
+      <div class="card stat"><div class="k">পেন্ডিং</div><div class="v">${taka(w.pending_paisa)}</div></div>
+      <div class="card stat"><div class="k">কয়েন</div><div class="v">${num(w.coin_balance)}</div></div>
+      <div class="card stat"><div class="k">পয়েন্ট</div><div class="v">${num(w.points)}</div></div>
+      <div class="card stat"><div class="k">মোট আয়</div><div class="v">${taka(w.total_earned_paisa)}</div></div>
+      <div class="card stat"><div class="k">মোট উইথড্র</div><div class="v">${taka(w.total_withdrawn_paisa)}</div></div>
+    </div>
+    <div class="toolbar" style="margin-top:12px">
+      <a class="btn" href="#user/${p.id}">⚙️ ম্যানেজ (ব্যান, ব্যালেন্স, পাসওয়ার্ড)</a>
+      <a class="btn" href="#coins/${p.user_no}">🪙 কয়েন পাঠান</a>
+      <a class="btn" href="#vault/${p.user_no}">🔒 লক ফোল্ডার</a>
+    </div>
+    <h2>পোস্ট (${num(d.videos.length)})</h2>
+    <div class="videos">${d.videos.length ? d.videos.map((v) => `<div class="vcard">
+      <video src="${esc(v.video_url)}" ${v.thumb_url ? `poster="${esc(v.thumb_url)}"` : ""} preload="none" controls playsinline></video>
+      <div class="body"><div>${pill(v.status)} <span class="pill">${CAT_NAME[v.category] ?? ""}</span></div>
+        <div class="cap" translate="no">${esc(v.caption ?? "")}</div>
+        <div class="muted small">👁 ${num(v.views)} ❤️ ${num(v.likes)} · ${dt(v.created_at)}</div></div></div>`).join("") : `<div class="empty">কোনো পোস্ট নেই</div>`}</div>`;
+};
+
+// ---------- ইনকাম রুলস ----------
+routes.rules = async () => {
+  loading();
+  const [{ data: st }, { data: tiers }, { data: ads }] = await Promise.all([
+    sb.from("settings").select("*"), sb.from("referral_tiers").select("*").order("referrals"), sb.from("ad_placements").select("*").eq("key", "rewarded_points").maybeSingle(),
+  ]);
+  const S = Object.fromEntries((st ?? []).map((x) => [x.key, x.value]));
+  const row = (key, label, kind) => {
+    const v = S[key];
+    const shown = kind === "taka" ? Number(v) / 100 : v;
+    return `<div class="item" data-key="${key}" data-kind="${kind}"><div class="top"><b>${label}</b></div>
+      <div class="row" style="flex-wrap:nowrap">${kind === "bool"
+        ? `<select name="v"><option value="true" ${v === true ? "selected" : ""}>চালু</option><option value="false" ${v === false ? "selected" : ""}>বন্ধ</option></select>`
+        : `<input name="v" type="number" step="${kind === "taka" ? "0.01" : "1"}" min="0" value="${esc(shown)}">${kind === "taka" ? '<span class="muted">৳</span>' : ""}`}
+        <button class="btn sm good" data-save>সেভ</button></div></div>`;
+  };
+  view.innerHTML = `<h1>💰 ইউজার ইনকাম রুলস</h1>
+    <p class="muted small">এখানে বদলালে সাথে সাথে অ্যাপের "কীভাবে আয় করবেন" অংশেও বদলে যাবে। টাকার ঘরগুলো সরাসরি টাকায় লিখুন।</p>
+    <h2>🎬 ক্রিয়েটর (ভিডিও বানালে)</h2><div class="list">
+      ${row("view_rate_paisa_per_1000", "প্রতি ১০০০ ভিউতে", "taka")}
+      ${row("like_rate_paisa", "প্রতি লাইকে", "taka")}
+      ${row("comment_rate_paisa", "প্রতি কমেন্টকারীতে", "taka")}
+      ${row("creator_daily_view_cap_paisa", "ভিউ থেকে দিনে সর্বোচ্চ আয়", "taka")}
+      <div class="item"><b>গিফট থেকে</b><div class="muted small">প্রতিটা গিফটের ক্রিয়েটর % <a href="#gifts">গিফট পেজে</a> সেট করুন</div></div>
+    </div>
+    <h2>👀 দর্শক (ভিডিও দেখলে)</h2><div class="list">
+      ${row("watch_points", "প্রতি ভিডিও দেখায় পয়েন্ট", "num")}
+      ${row("viewer_daily_points_cap", "দিনে সর্বোচ্চ পয়েন্ট (ভিডিও দেখে)", "num")}
+      ${row("point_value_paisa", "১ পয়েন্টের দাম", "taka")}
+      ${row("points_convert_min", "কমপক্ষে কত পয়েন্ট হলে টাকায় নেওয়া যাবে", "num")}
+      <div class="item"><b>অ্যাড দেখে পয়েন্ট</b><div class="muted small">দর্শক ${num(ads?.viewer_points)} · ক্রিয়েটর ${num(ads?.creator_points)} · দিনে ${num(ads?.daily_cap)} বার — <a href="#ads">অ্যাড পেজে</a> বদলান</div></div>
+    </div>
+    <h2>🤝 রেফার</h2><div class="list">
+      ${row("referral_enabled", "রেফার ইনকাম", "bool")}
+      ${row("referral_bonus_paisa", "প্রতি সফল রেফারে রেফারকারী পাবে", "taka")}
+      ${row("referral_welcome_points", "নতুন ইউজার স্বাগত পয়েন্ট পাবে", "num")}
+      ${row("referral_min_views", "রেফার সফল হতে নতুন ইউজারকে কতটি ভিডিও দেখতে হবে", "num")}
+    </div>
+    <h2>🏆 রেফার বোনাস ধাপ</h2>
+    <p class="muted small">যেমন: ১০ জন সফল রেফার হলে একবার ৳৫০ বাড়তি বোনাস। প্রতিটা ধাপ একজন ইউজার একবারই পাবে।</p>
+    <div class="table-wrap"><table id="tt"><tr><th class="num">কতজন রেফার</th><th class="num">বোনাস (৳)</th><th>চালু</th><th></th></tr>
+      ${(tiers ?? []).map((t) => `<tr data-id="${t.id}"><td><input name="referrals" type="number" min="1" value="${t.referrals}"></td><td><input name="bonus" type="number" step="0.01" min="0" value="${t.bonus_paisa / 100}"></td>
+        <td><input name="is_active" type="checkbox" ${t.is_active ? "checked" : ""} style="width:auto"></td><td><button class="btn sm good" data-ts>সেভ</button> <button class="btn sm bad" data-td>মুছুন</button></td></tr>`).join("")}
+      <tr data-id="new"><td><input name="referrals" type="number" min="1" placeholder="যেমন 200"></td><td><input name="bonus" type="number" step="0.01" min="0" placeholder="যেমন 2000"></td>
+        <td><input name="is_active" type="checkbox" checked style="width:auto"></td><td><button class="btn sm" data-ts>যোগ করুন</button></td></tr></table></div>
+    <h2>💸 উইথড্র</h2><div class="list">
+      ${row("withdraw_min_paisa", "সর্বনিম্ন উইথড্র", "taka")}
+      ${row("withdraw_cooldown_days", "কত দিন পরপর উইথড্র", "num")}
+      ${row("pending_hold_hours", "আয় কত ঘণ্টা পর উইথড্রযোগ্য হবে", "num")}
+    </div>`;
+  view.onclick = async (e) => {
+    const b = e.target.closest("[data-save]");
+    if (b) {
+      const it = b.closest(".item"), raw = it.querySelector("[name=v]").value, kind = it.dataset.kind;
+      const value = kind === "bool" ? raw === "true" : kind === "taka" ? Math.round(Number(raw) * 100) : Math.round(Number(raw));
+      if (kind !== "bool" && (isNaN(value) || value < 0)) return toast("সঠিক সংখ্যা দিন", true);
+      await act(() => rpc("admin_set_setting", { p_key: it.dataset.key, p_value: value }), "সেভ হয়েছে");
+      return;
+    }
+    const tr = e.target.closest("tr[data-id]");
+    if (!tr) return;
+    const id = tr.dataset.id;
+    if (e.target.closest("[data-td]")) {
+      if (!confirm("এই ধাপ মুছবেন?")) return;
+      const { error } = await sb.from("referral_tiers").delete().eq("id", Number(id));
+      if (error) return toast(errMsg(error), true);
+      return routes.rules();
+    }
+    if (e.target.closest("[data-ts]")) {
+      const r = { referrals: Number(tr.querySelector("[name=referrals]").value), bonus_paisa: Math.round(Number(tr.querySelector("[name=bonus]").value) * 100),
+        is_active: tr.querySelector("[name=is_active]").checked };
+      if (!r.referrals || r.referrals < 1 || isNaN(r.bonus_paisa)) return toast("কতজন ও বোনাস দিন", true);
+      const { error } = id === "new" ? await sb.from("referral_tiers").insert(r) : await sb.from("referral_tiers").update(r).eq("id", Number(id));
+      if (error) return toast(String(error.message).includes("duplicate") ? "এই সংখ্যার ধাপ আগেই আছে" : errMsg(error), true);
+      toast("সেভ হয়েছে");
+      if (id === "new") routes.rules();
+    }
+  };
+};
 
 // ---------- Coin Sent ----------
 routes.coins = async (preNo) => {

@@ -25,6 +25,7 @@ Deno.serve(async (req) => {
   const password = String(b.password ?? "");
   const fullName = String(b.full_name ?? "").trim().slice(0, 60);
   const username = String(b.username ?? "").trim().toLowerCase();
+  const refNo = String(b.ref_no ?? "").replace(/\D/g, "").slice(0, 12);
 
   if (!/^\+[1-9][0-9]{7,14}$/.test(phone)) return json({ error: "BAD_PHONE" }, 400);
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return json({ error: "BAD_EMAIL" }, 400);
@@ -51,12 +52,17 @@ Deno.serve(async (req) => {
     if (byEmail) return json({ error: "EMAIL_TAKEN" }, 409);
   }
 
+  if (refNo) {
+    const { data: refUser } = await admin.from("profiles").select("id").eq("user_no", Number(refNo)).maybeSingle();
+    if (!refUser) return json({ error: "BAD_REF" }, 400);
+  }
+
   const login = `u${randomId()}@id.reelsenjoy.app`;
   const { error } = await admin.auth.admin.createUser({
     email: login,
     password,
     email_confirm: true,
-    user_metadata: { phone, email: email || null, full_name: fullName, username },
+    user_metadata: { phone, email: email || null, full_name: fullName, username, ref_no: refNo || null },
   });
   if (error) {
     console.error(error);

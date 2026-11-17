@@ -71,7 +71,7 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent2); b
 .av { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; border: 2px solid #fff; background: var(--panel2);
   display: grid; place-items: center; font-weight: 700; font-size: 18px; overflow: hidden; }
 .av img { width: 100%; height: 100%; object-fit: cover; }
-.mute { position: absolute; top: 60px; right: 12px; z-index: 3; background: rgba(0,0,0,.45); border: 0; border-radius: 99px; padding: 6px 10px; font-size: 16px; }
+.mute { position: absolute; top: 92px; right: 12px; z-index: 3; background: rgba(0,0,0,.45); border: 0; border-radius: 99px; padding: 6px 10px; font-size: 16px; }
 .paused-ic { position: absolute; inset: 0; display: grid; place-items: center; font-size: 64px; opacity: .8; pointer-events: none; z-index: 1; }
 .feed-top { position: absolute; top: 0; left: 0; right: 0; z-index: 5; display: flex; justify-content: center; gap: 22px; padding: 14px 0;
   background: linear-gradient(rgba(0,0,0,.5), transparent); pointer-events: none; }
@@ -175,3 +175,39 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent2); b
 .phone-row input { flex: 1; min-width: 0; }
 .idtag { display: inline-block; margin-top: 6px; padding: 3px 12px; border-radius: 99px; background: var(--panel2); border: 1px solid var(--line); font-size: 13px; font-weight: 600; cursor: pointer; }
 .li .pill, .item .pill { align-self: center; height: fit-content; }
+/* feed categories */
+.cat-row { position: absolute; top: 46px; left: 0; right: 0; z-index: 5; display: flex; gap: 6px; overflow-x: auto; padding: 4px 10px; scrollbar-width: none; }
+.cat-row::-webkit-scrollbar { display: none; }
+.cat-row a { flex: none; padding: 4px 11px; border-radius: 99px; font-size: 13px; background: rgba(0,0,0,.35); color: rgba(255,255,255,.85); border: 1px solid rgba(255,255,255,.18); }
+.cat-row a.on { background: #fff; color: #000; font-weight: 600; }
+/* location gate */
+.loc-gate { position: fixed; inset: 0; z-index: 90; background: #0b0b10; display: grid; place-items: center; padding: 26px; text-align: center; }
+.loc-gate > div { max-width: 360px; }
+/* me page (light purple) */
+.me { min-height: 100%; background: #f6f4ff; color: #241a3d; padding-bottom: 24px; }
+.me a { color: inherit; }
+.me .muted { color: #8b84a3; }
+.me-head { text-align: center; padding: 28px 16px 18px; background: linear-gradient(180deg, #b9b3ff 0%, #e4defe 55%, #f6f4ff 100%); border-radius: 0 0 50% 50% / 0 0 26px 26px; }
+.me-av .av { width: 96px; height: 96px; margin: 0 auto; border: 3px solid #fff; font-size: 36px; background: #d9d3ff; color: #4b2e9e; box-shadow: 0 6px 18px rgba(80,50,180,.25); }
+.me-head h2 { margin: 12px 0 2px; font-size: 24px; color: #1e1250; }
+.me-sub { font-size: 13px; color: #6c628f; }
+.me-sub span { cursor: pointer; font-weight: 600; }
+.chips { display: flex; justify-content: center; gap: 8px; margin: 12px 0 8px; flex-wrap: wrap; }
+.chips span { background: rgba(255,255,255,.65); border: 1px solid #ddd6ff; border-radius: 99px; padding: 5px 13px; font-size: 13px; color: #3d2f6e; }
+.me-counts { display: flex; justify-content: space-around; margin-top: 10px; }
+.me-counts b { display: block; font-size: 22px; color: #1e1250; }
+.me-counts span { font-size: 13px; color: #8b84a3; }
+.me-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 4px 16px 0; }
+.mc { border-radius: 18px; padding: 16px; display: block; position: relative; overflow: hidden; min-height: 84px; }
+.mc span { display: block; font-size: 15px; font-weight: 600; }
+.mc b { display: block; font-size: 22px; margin-top: 8px; }
+.mc.coins { background: #ece6ff; color: #6d3df0; }
+.mc.money { background: #fff0e4; color: #e08214; }
+.me-banner { display: flex; justify-content: space-between; align-items: center; margin: 12px 16px; padding: 15px 16px; border-radius: 16px; background: #ece6ff; color: #6d3df0; font-weight: 600; }
+.me .notice { margin: 0 16px 12px; }
+.me-menu { background: #fff; margin: 0 16px; border-radius: 16px; padding: 4px 0; box-shadow: 0 2px 10px rgba(60,40,140,.06); }
+.me-menu a { display: flex; align-items: center; gap: 14px; padding: 15px 16px; font-size: 16px; font-weight: 500; border-bottom: 1px solid #f0edfb; }
+.me-menu a:last-child { border-bottom: 0; }
+.me-menu i { font-style: normal; font-size: 22px; width: 30px; text-align: center; }
+.me-menu em { margin-left: auto; font-style: normal; color: #a9a3c2; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+.me-menu .red { width: 9px; height: 9px; border-radius: 50%; background: #ef4444; display: inline-block; }
