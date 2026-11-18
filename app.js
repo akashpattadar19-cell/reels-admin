@@ -860,6 +860,36 @@ routes.devices = async (arg = "") => {
   } catch (e) { $("#list").innerHTML = `<div class="empty err">${esc(errMsg(e))}</div>`; }
 };
 
+// ---------- অ্যাপ আপডেট (বাধ্যতামূলক / ঐচ্ছিক) ----------
+routes.appupdate = async () => {
+  view.innerHTML = `<h1>📲 অ্যাপ আপডেট</h1><div class="empty">লোড হচ্ছে…</div>`;
+  const keys = ["latest_app_build", "min_app_build", "apk_url", "update_message"];
+  const [{ data }, vers] = await Promise.all([sb.from("settings").select("key,value").in("key", keys), rpc("admin_app_versions").catch(() => [])]);
+  const S2 = Object.fromEntries((data ?? []).map((r) => [r.key, r.value]));
+  const latest = Number(S2.latest_app_build || 0), min = Number(S2.min_app_build || 0);
+  const forced = latest && min >= latest;
+  view.innerHTML = `<h1>📲 অ্যাপ আপডেট</h1>
+    <div class="grid"><div class="card stat"><div class="k">সর্বশেষ ভার্সন</div><div class="v">1.0.${latest}</div></div>
+      <div class="card stat ${forced ? "alert" : ""}"><div class="k">আপডেট</div><div class="v" style="font-size:18px">${forced ? "🔒 বাধ্যতামূলক" : min ? "1.0." + min + "-এর নিচে বাধ্যতামূলক" : "ঐচ্ছিক"}</div></div></div>
+    <div class="card">
+      <p class="small">নতুন APK বের হলে ইউজার অ্যাপ খুললেই আপডেটের স্ক্রিন দেখবে। "বাধ্যতামূলক" হলে আপডেট না করে অ্যাপ খুলতে পারবে না। "আপডেট করুন" চাপলে অ্যাপের ভেতরেই নতুন APK ডাউনলোড হয়ে ইনস্টল স্ক্রিন খোলে।</p>
+      <label class="small">সর্বশেষ বিল্ড নম্বর (1.0.X-এর X)</label><input id="ul" type="number" value="${latest}">
+      <label class="small">এর নিচের ভার্সন খুলবে না (বাধ্যতামূলক)</label><input id="um" type="number" value="${min}">
+      <label class="small">APK লিংক</label><input id="uu" value="${esc(S2.apk_url ?? "")}">
+      <label class="small">ইউজারকে বার্তা</label><textarea id="ums" rows="2">${esc(S2.update_message ?? "")}</textarea>
+      <div class="toolbar"><button class="btn good" id="usave">সেভ</button><button class="btn warn" id="uforce">🔒 সবার জন্য বাধ্যতামূলক করুন</button><button class="btn" id="usoft">ঐচ্ছিক করুন</button></div>
+    </div>
+    <h2>কে কোন ভার্সন ব্যবহার করছে</h2>
+    <div class="table-wrap"><table><tr><th>ভার্সন</th><th>ইউজার</th></tr>${vers.map((v) => `<tr><td>${esc(v.app_version)}${Number(String(v.app_version).split(".")[2]) < latest ? ' <span class="pill pending">পুরনো</span>' : ""}</td><td>${num(v.users)}</td></tr>`).join("") || `<tr><td colspan="2" class="muted">ডেটা নেই (v1.0.6+ থেকে গণনা হয়)</td></tr>`}</table></div>`;
+  const save = async (over = {}) => {
+    const vals = { latest_app_build: Number($("#ul").value) || 0, min_app_build: Number($("#um").value) || 0, apk_url: $("#uu").value.trim(), update_message: $("#ums").value.trim(), ...over };
+    for (const [k, v] of Object.entries(vals)) await rpc("admin_set_setting", { p_key: k, p_value: v });
+  };
+  $("#usave").onclick = () => act(() => save(), "সেভ হয়েছে").then(() => routes.appupdate());
+  $("#uforce").onclick = () => { if (confirm("পুরনো ভার্সনের সবাইকে আপডেট করতে বাধ্য করবেন?")) act(() => save({ min_app_build: Number($("#ul").value) || 0 }), "বাধ্যতামূলক করা হয়েছে").then(() => routes.appupdate()); };
+  $("#usoft").onclick = () => act(() => save({ min_app_build: 0 }), "ঐচ্ছিক করা হয়েছে").then(() => routes.appupdate());
+};
+
 // ---------- অ্যাকাউন্ট ডিলিট রিকোয়েস্ট ----------
 routes.deletions = async () => {
   view.innerHTML = `<h1>🗑️ অ্যাকাউন্ট ডিলিট রিকোয়েস্ট</h1>

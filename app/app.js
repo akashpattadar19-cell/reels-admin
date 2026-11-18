@@ -229,7 +229,48 @@ async function start() {
     const di = JSON.parse(Native?.deviceInfo?.() || "{}");
     if (di.id) rpc("register_device", { p_device_id: di.id, p_brand: di.brand, p_model: di.model, p_os: di.os, p_app: di.app }).catch(() => {});
   } catch { /* old APK */ }
-  requireLocation();
+  if (!checkUpdate()) requireLocation();
+}
+
+// ---------------- অ্যাপ আপডেট (পুরনো APK হলে অ্যাপ খুলবে না) ----------------
+function appBuild() {
+  const v = String(Native?.appVersion?.() ?? "");
+  const m = v.match(/(\d+)\.(\d+)\.(\d+)/);
+  return m ? Number(m[3]) : 0;
+}
+function checkUpdate() {
+  if (!Native?.appVersion) return false;               // ব্রাউজারে চেক নেই
+  const b = appBuild(), min = Number(setting("min_app_build", 0)), latest = Number(setting("latest_app_build", 0));
+  const url = String(setting("apk_url", "") || "");
+  if (!url || !latest || b >= latest) return false;
+  const forced = b < min;
+  if (!forced && sessionStorage.getItem("updSkip") === String(latest)) return false;
+  let g = $("#updGate");
+  if (!g) { g = document.createElement("div"); g.id = "updGate"; document.body.appendChild(g); }
+  g.className = "upd-gate" + (forced ? "" : " soft");
+  g.innerHTML = `<div class="upd-card">
+      <div class="upd-ic">🚀</div>
+      <h2>নতুন আপডেট এসেছে</h2>
+      <p class="muted" translate="no">${esc(setting("update_message", ""))}</p>
+      <div class="tiny muted">আপনার ভার্সন 1.0.${b} → নতুন ভার্সন 1.0.${latest}</div>
+      <div class="progress hidden" id="updPg"><div></div></div>
+      <div class="tiny" id="updMsg"></div>
+      <button class="btn primary" id="updGo">⬇️ এখনই আপডেট করুন</button>
+      ${forced ? `<p class="tiny muted" style="margin-top:10px">আপডেট না করলে অ্যাপ ব্যবহার করা যাবে না।</p>` : `<button class="btn" id="updLater" style="width:100%;margin-top:8px">পরে করব</button>`}
+    </div>`;
+  window.onUpdateState = (st) => {
+    const pg = $("#updPg"), msg = $("#updMsg");
+    if (st.state === "downloading") { pg.classList.remove("hidden"); pg.firstElementChild.style.width = st.p + "%"; msg.textContent = `ডাউনলোড হচ্ছে… ${st.p}%`; $("#updGo").disabled = true; }
+    else if (st.state === "permission") { msg.textContent = "\"এই উৎস থেকে অনুমতি দিন\" চালু করে ফিরে আসুন — ইনস্টল নিজে থেকে শুরু হবে"; $("#updGo").disabled = false; $("#updGo").textContent = "📲 ইনস্টল করুন"; }
+    else if (st.state === "installing") { msg.textContent = "ইনস্টল স্ক্রিনে \"Update/ইনস্টল\" চাপুন"; $("#updGo").disabled = false; $("#updGo").textContent = "📲 আবার ইনস্টল স্ক্রিন খুলুন"; }
+    else if (st.state === "error") { msg.textContent = "ডাউনলোড হয়নি — ইন্টারনেট দেখে আবার চাপুন"; $("#updGo").disabled = false; }
+  };
+  $("#updGo").onclick = () => {
+    if (Native?.installUpdate) Native.installUpdate(url);
+    else location.href = url;                              // পুরনো APK: ব্রাউজারে ডাউনলোড
+  };
+  $("#updLater")?.addEventListener("click", () => { sessionStorage.setItem("updSkip", String(latest)); g.remove(); requireLocation(); });
+  return forced;
 }
 
 // ---------------- লোকেশন (APK-তে লোকেশন ছাড়া অ্যাপ চলবে না) ----------------

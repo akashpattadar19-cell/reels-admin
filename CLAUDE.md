@@ -86,6 +86,12 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
 - Adult/18+ content: owner asked for a paid 18+ folder; declined (illegal in BD/KSA, breaks AdMob policy, CSAM risk). Don't build it.
 - Live streaming: not built yet (owner postponed; needs ZEGOCLOUD/Agora + FLAG_SECURE in the APK for no screenshots).
 
+## App updates (APK)
+Public APK for in-app updates: `download/Reels-Enjoy.apk` in this repo (GitHub Pages). After a new reels-app release:
+copy the APK there, push, then set `latest_app_build` (X of 1.0.X) and `min_app_build` (= latest to force) — admin
+"📲 অ্যাপ আপডেট" page or SQL. App shows `#updGate` when its build < latest (blocking when < min); APK ≥ v1.0.11
+`ReelsAndroid.installUpdate(url)` downloads and opens the installer, older APKs open the link in the browser.
+
 ## Deploy
 Before every push of web changes run `python3 tools/stamp.py` (adds `?v=<time>` to script/css links in both index.html files)
 so phones load the new files immediately. APK ≥ v1.0.7 also opens the app URL with `?v=<now>` on each start.
