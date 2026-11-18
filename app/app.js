@@ -2241,13 +2241,13 @@ R.live = async (rid) => {
   screen.classList.add("full");
   document.body.classList.add("story-open");
   try { Native?.setDarkBars?.(true); Native?.setSecure?.(true); } catch { /* */ }
-  screen.innerHTML = `<div class="lv"><div class="spinner" style="margin-top:40vh"></div></div>`;
+  screen.innerHTML = `<div class="lvroom"><div class="spinner" style="margin-top:40vh"></div></div>`;
   let info;
   try { needMedia(); info = await rpc("live_join", { p_room: id }); }
   catch (e) { document.body.classList.remove("story-open"); toast(errMsg(e), true); location.replace("#home/live"); return; }
   const host = info.host_id === S.me.id;
   const { data: hp } = await sb.from("profiles").select("id,username,full_name,avatar_url,user_no,account_type").eq("id", info.host_id).single();
-  screen.innerHTML = `<div class="lv">
+  screen.innerHTML = `<div class="lvroom">
     <div class="lv-main" id="lvMain"><div class="lv-wait">${avatar(hp)}<div>লাইভ লোড হচ্ছে…</div></div></div>
     <div class="lv-guest hidden" id="lvGuest"></div><div class="lv-pk2 hidden" id="lvPk2"></div>
     <div class="pkbar hidden" id="pkBar"><div class="pk-names"><b id="pkNa" translate="no"></b><span id="pkTm"></span><b id="pkNb" translate="no"></b></div>
@@ -2339,13 +2339,13 @@ R.live = async (rid) => {
     pk = b;
     const mineA = b.room_a === id, otherRoom = mineA ? b.room_b : b.room_a;
     const { data: op } = await sb.from("profiles").select("id,username,full_name,avatar_url,user_no").eq("id", mineA ? b.host_b : b.host_a).single();
-    $(".lv").classList.add("pk");
+    $(".lvroom").classList.add("pk");
     $("#pkBar").classList.remove("hidden");
     $("#pkNa").textContent = "@" + hp.username; $("#pkNb").textContent = "@" + (op?.username ?? "");
     const box = $("#pkVs"); if (box) box.remove();
     $("#lvPk2").classList.remove("hidden"); $("#lvPk2").innerHTML = `<div class="lv-wait">${avatar(op)}</div>`;
     pkPaint(); pkTick(); pkT = setInterval(pkTick, 1000);
-    const vs = document.createElement("div"); vs.className = "pk-vs"; vs.id = "pkVs"; vs.textContent = "VS"; $(".lv").appendChild(vs); setTimeout(() => vs.remove(), 2500);
+    const vs = document.createElement("div"); vs.className = "pk-vs"; vs.id = "pkVs"; vs.textContent = "VS"; $(".lvroom").appendChild(vs); setTimeout(() => vs.remove(), 2500);
     pkCh = sb.channel("pk-" + pid).on("postgres_changes", { event: "UPDATE", schema: "public", table: "pk_battles", filter: `id=eq.${pid}` }, (p) => {
       if (!pk) return; Object.assign(pk, p.new); pkPaint(); if (p.new.status !== "active") pkEnd();
     }).subscribe();
@@ -2375,7 +2375,7 @@ R.live = async (rid) => {
       res.className = "pk-res " + (!b.winner ? "draw" : b.winner === myHost ? "win" : "lose");
       setTimeout(() => res.classList.add("hidden"), 5000);
     }
-    $(".lv")?.classList.remove("pk"); $("#pkBar")?.classList.add("hidden"); $("#lvPk2")?.classList.add("hidden");
+    $(".lvroom")?.classList.remove("pk"); $("#pkBar")?.classList.add("hidden"); $("#lvPk2")?.classList.add("hidden");
   }
   const { data: lr0 } = await sb.from("live_rooms").select("pk_id").eq("id", id).single();
   if (lr0?.pk_id) pkStart(lr0.pk_id);
