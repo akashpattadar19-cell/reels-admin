@@ -395,6 +395,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
         <button class="act cm"><span class="ic svg"><svg viewBox="0 0 24 24"><path d="M12 3.5c5 0 9 3.4 9 7.7s-4 7.7-9 7.7c-1 0-2-.1-2.9-.4L4.5 20.5l1.2-3.9C4 15.2 3 13.3 3 11.2 3 6.9 7 3.5 12 3.5z"/></svg></span><span class="c">${n(v.comments_count)}</span></button>
         ${v.allow_gifts && v.user_id !== S.me.id ? `<button class="act gf"><span class="ic svg gft"><svg viewBox="0 0 24 24"><rect x="3.5" y="9" width="17" height="4" rx="1"/><path d="M5 13v7.5h14V13M12 9v11.5M12 9S10.5 4.3 8 4.9C6 5.4 7 9 12 9zM12 9s1.5-4.7 4-4.1c2 .5 1 4.1-4 4.1z"/></svg></span><span>গিফট</span></button>` : ""}
         <button class="act sh"><span class="ic svg"><svg viewBox="0 0 24 24"><path d="M13.5 4.5 21 11.5l-7.5 7v-4c-5 0-8.3 1.4-10.5 5 .8-5.5 3.6-10 10.5-10.8z"/></svg></span><span class="c">${n(v.shares_count)}</span></button>
+        ${setting("downloads_enabled", true) !== false && !v.is_premium ? `<button class="act dl"><span class="ic svg dlic"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 19.5h14"/></svg></span><span>সেভ</span></button>` : ""}
         ${v.user_id !== S.me.id ? `<button class="act rp"><span class="ic svg sm"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4.5h12l-2.5 4 2.5 4H5"/></svg></span></button>` : ""}
       </div>
       <div class="info">
@@ -442,6 +443,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
     el.querySelector(".cm").onclick = () => openComments(el);
     el.querySelector(".gf")?.addEventListener("click", () => openGifts(el));
     el.querySelector(".sh").onclick = () => doShare(el);
+    el.querySelector(".dl")?.addEventListener("click", () => downloadVideo(v));
     el.querySelector(".rp")?.addEventListener("click", () => doReport(v));
     el.querySelector(".follow-btn")?.addEventListener("click", async (e) => {
       const btn = e.currentTarget;
@@ -1268,6 +1270,31 @@ const COUNTRY_NAMES = { BD: "বাংলাদেশ", SA: "সৌদি আর
   FR: "ফ্রান্স", ES: "স্পেন", PT: "পর্তুগাল", GR: "গ্রিস", DE: "জার্মানি", RO: "রোমানিয়া", CA: "কানাডা", AU: "অস্ট্রেলিয়া", JP: "জাপান", KR: "দক্ষিণ কোরিয়া" };
 const flagOf = (cc) => (cc && cc.length === 2 ? String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 127397 + c.charCodeAt(0))) : "🌐");
 
+
+// ---------------- ভিডিও ডাউনলোড (ওয়াটারমার্কসহ, APK ≥ 1.0.8) ----------------
+function downloadVideo(v) {
+  if (!v.video_url) return;
+  if (!Native?.downloadVideo) return toast("ডাউনলোড করতে নতুন অ্যাপ (APK) ইনস্টল করুন", true);
+  let bar = $("#dlbar");
+  if (!bar) {
+    bar = document.createElement("div"); bar.id = "dlbar"; bar.className = "dlbar";
+    bar.innerHTML = `<span class="t"></span><div class="progress"><div></div></div>`;
+    document.body.appendChild(bar);
+  }
+  const show = (txt, p) => { bar.classList.add("show"); bar.querySelector(".t").textContent = txt; bar.querySelector(".progress div").style.width = (p ?? 0) + "%"; };
+  window.onDownloadState = (st) => {
+    if (st.state === "downloading") show(`⬇️ ডাউনলোড হচ্ছে… ${st.p}%`, st.p / 2);
+    else if (st.state === "processing") show(`🎬 ওয়াটারমার্ক বসানো হচ্ছে… ${st.p}%`, 50 + st.p / 2);
+    else if (st.state === "busy") toast("আগের ডাউনলোড শেষ হতে দিন", true);
+    else {
+      bar.classList.remove("show");
+      if (st.state === "done") { toast("✅ গ্যালারিতে সেভ হয়েছে (Movies/ReelsEnjoy)"); rpc("record_download", { p_video: v.id }).catch(() => {}); }
+      else toast(st.msg === "permission" ? "স্টোরেজ অনুমতি দিন, তারপর আবার চেষ্টা করুন" : "ডাউনলোড হয়নি — ইন্টারনেট দেখে আবার চেষ্টা করুন", true);
+    }
+  };
+  show("⬇️ ডাউনলোড শুরু হচ্ছে…", 0);
+  Native.downloadVideo(v.video_url, String(setting("watermark_text", "Reels Enjoy") || "Reels Enjoy"), v.username || "", "");
+}
 
 // ---------------- HOME (Discover grid) ----------------
 const LANGS = [["Bengali", "বাংলা"], ["English", "English"], ["Hindi", "हिन्दी"], ["Urdu", "اردو"], ["Arabic", "العربية"], ["Nepali", "नेपाली"]];

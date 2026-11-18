@@ -78,6 +78,9 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
 - Devices: APK ≥ v1.0.6 `ReelsAndroid.deviceInfo()` (ANDROID_ID + brand/model/OS) → `register_device` (stores md5 hash in
   `user_devices`). `_check_referral` blocks (`profiles.referral_blocked='same_device'`) when the new account's phone was
   used by any other account; `referral_require_device` makes referrals count only after an APK login. Admin "📱 ডিভাইস" page.
+- Downloads: reels "সেভ" button → APK ≥ v1.0.9 `ReelsAndroid.downloadVideo(url, brand, username, id)` downloads, burns a
+  watermark (app icon + `settings.watermark_text` + @username, top-left and bottom-right, media3 OverlayEffect) and saves
+  to Movies/ReelsEnjoy; progress via `window.onDownloadState`. Premium videos can't be downloaded. `downloads_enabled` toggle.
 - TODO (owner postponed): move video storage to Cloudflare R2 (account opened; needs bucket + API keys) and allow 1 s – 59 min videos.
 - Adult/18+ content: owner asked for a paid 18+ folder; declined (illegal in BD/KSA, breaks AdMob policy, CSAM risk). Don't build it.
 - Live streaming: not built yet (owner postponed; needs ZEGOCLOUD/Agora + FLAG_SECURE in the APK for no screenshots).

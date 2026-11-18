@@ -460,3 +460,11 @@ input.sw { width: 40px; height: 22px; margin: 0; accent-color: var(--purple); }
 .pick.pick-sm { padding: 9px; } .pick.pick-sm .ic { display: none; }
 .slide.framed video { inset: auto; top: 50%; left: 0; width: 100%; height: auto; max-height: 100%; transform: translateY(-50%); object-fit: cover; }
 #pv { margin-left: auto; margin-right: auto; display: block; }
+
+/* download */
+.act .ic.svg.dlic svg { fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; width: 28px; height: 28px; }
+.dlbar { position: fixed; left: 50%; bottom: calc(var(--tab) + var(--safe-b) + 14px); transform: translate(-50%, 20px); width: min(86vw, 340px);
+  background: rgba(30,24,50,.95); color: #fff; border-radius: 14px; padding: 10px 14px; z-index: 80; opacity: 0; visibility: hidden; transition: .2s; }
+.dlbar.show { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+.dlbar .t { font-size: 13px; display: block; margin-bottom: 6px; }
+.dlbar .progress { background: rgba(255,255,255,.2); height: 5px; }

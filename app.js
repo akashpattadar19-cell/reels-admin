@@ -940,6 +940,10 @@ routes.rules = async () => {
       ${row("premium_notice", "প্রিমিয়াম আপলোডের নোটিশ (হোস্টরা আপলোডের সময় দেখবে)", "text")}
       ${row("cashin_notice", "কয়েন কেনার পেজের নোটিশ (সব ইউজার নম্বরের নিচে দেখবে)", "text")}
     </div>
+    <h2>⬇️ ভিডিও ডাউনলোড</h2><div class="list">
+      ${row("downloads_enabled", "ইউজাররা ভিডিও ডাউনলোড করতে পারবে (লোগো + @username ওয়াটারমার্কসহ, প্রিমিয়াম ছাড়া)", "bool")}
+      ${row("watermark_text", "ওয়াটারমার্কের লেখা (যেমন Reels Enjoy)", "text")}
+    </div>
     <h2>🎧 লাইভ সাপোর্ট</h2><div class="list">
       ${row("support_enabled", "লাইভ সাপোর্ট চালু", "bool")}
       ${row("support_telegram", "ইউজারদের জন্য সাপোর্ট টেলিগ্রাম ইউজারনেম (যেমন @ReelsEnjoySupport, খালি রাখলে দেখাবে না)", "text")}

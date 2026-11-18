@@ -1170,7 +1170,18 @@
 "📐 ভিডিওর আসল ফ্রেম:": "📐 Original video frame:",
 "মূল সাইজে পুরো ভিডিও দেখাবে": "Shows the whole video in its original size",
 "পুরো স্ক্রিন জুড়ে দেখাবে (দরকার হলে পাশ কেটে)": "Fills the whole screen (sides cut if needed)",
-"ফ্রেমে দেখাবে — ফ্রেমের বাইরের অংশ কাটা পড়বে": "frame — parts outside the frame are cut"
+"ফ্রেমে দেখাবে — ফ্রেমের বাইরের অংশ কাটা পড়বে": "frame — parts outside the frame are cut",
+"ডাউনলোড করতে নতুন অ্যাপ (APK) ইনস্টল করুন": "Install the new app (APK) to download",
+"⬇️ ডাউনলোড হচ্ছে…": "⬇️ Downloading…",
+"🎬 ওয়াটারমার্ক বসানো হচ্ছে…": "🎬 Adding watermark…",
+"আগের ডাউনলোড শেষ হতে দিন": "Let the previous download finish",
+"✅ গ্যালারিতে সেভ হয়েছে (Movies/ReelsEnjoy)": "✅ Saved to gallery (Movies/ReelsEnjoy)",
+"স্টোরেজ অনুমতি দিন, তারপর আবার চেষ্টা করুন": "Allow storage, then try again",
+"ডাউনলোড হয়নি — ইন্টারনেট দেখে আবার চেষ্টা করুন": "Download failed — check the internet and try again",
+"⬇️ ডাউনলোড শুরু হচ্ছে…": "⬇️ Starting download…",
+"⬇️ ভিডিও ডাউনলোড": "⬇️ Video downloads",
+"ইউজাররা ভিডিও ডাউনলোড করতে পারবে (লোগো + @username ওয়াটারমার্কসহ, প্রিমিয়াম ছাড়া)": "Users can download videos (with logo + @username watermark, not premium)",
+"ওয়াটারমার্কের লেখা (যেমন Reels Enjoy)": "Watermark text (e.g. Reels Enjoy)"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });
