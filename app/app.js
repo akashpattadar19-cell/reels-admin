@@ -391,6 +391,8 @@ function fillDob() {
   $("#obM").innerHTML = `<option value="">মাস</option>` + MONTHS_BN.map((m, i) => `<option value="${i + 1}">${m}</option>`).join("");
   $("#obY").innerHTML = `<option value="">সাল</option>` + Array.from({ length: 70 }, (_, i) => `<option>${y - 18 - i}</option>`).join("");
 }
+// কিছু ফোনে ঘরে চাপলে পেজ পাশে সরে যায় — সবসময় বাম দিকে ফিরিয়ে আনে
+["focusin", "change", "scroll"].forEach((ev) => $("#auth").addEventListener(ev, () => { const a = $("#auth"); if (a.scrollLeft) a.scrollLeft = 0; if (document.scrollingElement.scrollLeft) document.scrollingElement.scrollLeft = 0; }, true));
 function showOnboard() {
   $("#main").classList.add("hidden");
   $("#auth").classList.remove("hidden");

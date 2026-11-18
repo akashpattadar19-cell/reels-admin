@@ -1014,3 +1014,17 @@ html, body { overflow-x: hidden; }
 .auth form, .auth form > * { max-width: 100%; box-sizing: border-box; }
 .dob { display: grid; grid-template-columns: 1fr 1.4fr 1.2fr; gap: 6px; margin-bottom: 10px; }
 .dob select { margin: 0; min-width: 0; width: 100%; }
+/* auth: never scroll sideways (also with large system fonts) */
+html, body, .auth, .auth-card { overflow-x: clip; }
+.auth { display: block; padding: calc(24px + var(--safe-t, 0px)) 16px 24px; }
+.auth-card { margin: 0 auto; width: 100%; }
+.auth form input:not([type=radio]):not([type=checkbox]), .auth form select, .auth form button, .auth form textarea { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
+.auth .pick2 { flex-wrap: wrap; }
+.auth .pick2 > span { flex: 1 1 100%; text-align: left; }
+.auth .pick2 > label { flex: 1 1 40%; min-width: 0; }
+.auth .pick2 b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dob { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* hidden radio buttons stay inside their label (focusing them used to scroll the page sideways) */
+.pick2 label { position: relative; }
+.pick2 input { left: 0; top: 0; width: 1px; height: 1px; margin: 0; }
