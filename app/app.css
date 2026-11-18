@@ -1007,3 +1007,10 @@ a.mention, span.mention { color: #2563eb; font-weight: 600; }
 .auth #authErr:not(:empty) { padding: 8px 10px; }
 .auth > .auth-card > .tiny, .auth-card p a#authLang { color: rgba(255,255,255,.8) !important; }
 .auth-bg i { color: rgba(255,255,255,.6); filter: saturate(.6); opacity: .75; }
+/* auth: no sideways scroll on small screens */
+html, body { overflow-x: hidden; }
+.auth { overflow-x: hidden; width: 100%; }
+.auth-card { min-width: 0; max-width: min(380px, 100%); }
+.auth form, .auth form > * { max-width: 100%; box-sizing: border-box; }
+.dob { display: grid; grid-template-columns: 1fr 1.4fr 1.2fr; gap: 6px; margin-bottom: 10px; }
+.dob select { margin: 0; min-width: 0; width: 100%; }

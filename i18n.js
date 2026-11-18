@@ -436,7 +436,7 @@
 "ইউজার": "User",
 "কাতার": "Qatar",
 "জাপান": "Japan",
-"তারিখ": "Date",
+"তারিখ": "Day",
 "তারকা": "Star",
 "স্পেন": "Spain",
 "ঘণ্টা": "hours",
@@ -462,7 +462,6 @@
 "পাবে": "gets",
 "আমি": "Me",
 "কাজ": "Action",
-"দিন": "days",
 "ফোন": "Phone",
 "মোট": "Total",
 "ভিউ": "Views",
@@ -1722,7 +1721,23 @@
 "🔴 লাইভ": "🔴 Live",
 "🎉 পার্টি": "🎉 Party",
 "প্রিমিয়ামে বাংলা, ইংরেজি বা হিন্দি মুভি, ওয়েব সিরিজ, নাটক বা ভিডিও দিতে পারবেন — তবে শুধু আপনার নিজের বানানো অথবা যার অনুমতি/লাইসেন্স আপনার আছে। অনুমতি ছাড়া অন্যের মুভি বা সিরিজ দিলে কপিরাইট অভিযোগে ভিডিও মুছে যাবে। অশ্লীল, নগ্ন বা যৌন কোনো ভিডিও ১০০% নিষিদ্ধ — দিলে ইনকাম বাতিল হবে এবং অ্যাকাউন্ট জেলে বা ব্লক হতে পারে।": "You can post Bangla, English or Hindi movies, web series, dramas or videos as premium — but only ones you made yourself or have permission/licence for. Other people's movies or series without permission will be removed for copyright. Obscene, nude or sexual videos are 100% prohibited — posting them cancels your income and can get the account jailed or blocked.",
-"নিজের লেখা শায়েরি, গল্প, কবিতা, মজার কথা বা রোমান্টিক লেখা দিন। অন্যের লেখা কপি, গালাগালি বা অশ্লীল লেখা দিলে পোস্ট মুছে যাবে এবং অ্যাকাউন্ট জেলে যেতে পারে।": "Post your own shayari, stories, poems, jokes or romantic writing. Copied, abusive or obscene text will be removed and the account can be jailed."
+"নিজের লেখা শায়েরি, গল্প, কবিতা, মজার কথা বা রোমান্টিক লেখা দিন। অন্যের লেখা কপি, গালাগালি বা অশ্লীল লেখা দিলে পোস্ট মুছে যাবে এবং অ্যাকাউন্ট জেলে যেতে পারে।": "Post your own shayari, stories, poems, jokes or romantic writing. Copied, abusive or obscene text will be removed and the account can be jailed.",
+"মাস": "Month",
+"ছেলে না মেয়ে বেছে নিন": "Choose male or female",
+"জন্মতারিখ দিন (দিন, মাস, বছর)": "Enter your birth date (day, month, year)",
+"জানুয়ারি": "January",
+"ফেব্রুয়ারি": "February",
+"মার্চ": "March",
+"এপ্রিল": "April",
+"মে": "May",
+"জুন": "June",
+"জুলাই": "July",
+"আগস্ট": "August",
+"সেপ্টেম্বর": "September",
+"অক্টোবর": "October",
+"নভেম্বর": "November",
+"ডিসেম্বর": "December",
+"সাল": "Year"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });

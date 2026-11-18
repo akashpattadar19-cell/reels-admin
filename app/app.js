@@ -383,10 +383,19 @@ window.onGoogleSignIn = async (token, err) => {
   start();
 };
 // Google দিয়ে নতুন অ্যাকাউন্ট: লিঙ্গ, ভাষা, জন্মতারিখ, রেফার কোড
+const MONTHS_BN = ["জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন", "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"];
+function fillDob() {
+  if ($("#obY").options.length) return;
+  const y = new Date().getFullYear();
+  $("#obD").innerHTML = `<option value="">তারিখ</option>` + Array.from({ length: 31 }, (_, i) => `<option>${i + 1}</option>`).join("");
+  $("#obM").innerHTML = `<option value="">মাস</option>` + MONTHS_BN.map((m, i) => `<option value="${i + 1}">${m}</option>`).join("");
+  $("#obY").innerHTML = `<option value="">সাল</option>` + Array.from({ length: 70 }, (_, i) => `<option>${y - 18 - i}</option>`).join("");
+}
 function showOnboard() {
   $("#main").classList.add("hidden");
   $("#auth").classList.remove("hidden");
   authShow("onbForm");
+  fillDob();
   $("input[name=obL][value=" + (window.getLang?.() === "en" ? "en" : "bn") + "]").checked = true;
 }
 document.querySelectorAll("input[name=obL]").forEach((r) => (r.onchange = () => window.setLang?.(r.value)));
@@ -395,7 +404,11 @@ $("#onbForm").addEventListener("submit", async (e) => {
   const b = e.submitter; b.disabled = true;
   try {
     const lg = $("input[name=obL]:checked")?.value ?? "bn";
-    await rpc("finish_onboarding", { p_gender: $("input[name=obG]:checked")?.value, p_lang: lg === "en" ? "English" : "Bengali", p_birth: $("#obB").value, p_ref_no: $("#obRef").value.trim() });
+    if (!$("input[name=obG]:checked")) throw new Error("ছেলে না মেয়ে বেছে নিন");
+    const d = $("#obD").value, m = $("#obM").value, y = $("#obY").value;
+    if (!d || !m || !y) throw new Error("জন্মতারিখ দিন (দিন, মাস, বছর)");
+    const birth = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    await rpc("finish_onboarding", { p_gender: $("input[name=obG]:checked").value, p_lang: lg === "en" ? "English" : "Bengali", p_birth: birth, p_ref_no: $("#obRef").value.trim() });
     try { localStorage.setItem("lang", lg); } catch { /* */ }
     toast("স্বাগতম! 🎉");
     start();
