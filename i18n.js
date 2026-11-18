@@ -1755,7 +1755,17 @@
 "এককালীন পাসওয়ার্ডের মেয়াদ শেষ — সাপোর্ট থেকে নতুন একটি নিন": "The one-time password has expired — get a new one from support",
 "পাসওয়ার্ড কমপক্ষে ৬ অক্ষর দিন": "Use at least 6 characters",
 "দুটো পাসওয়ার্ড মেলেনি": "The two passwords don't match",
-"✅ নতুন পাসওয়ার্ড সেভ হয়েছে": "✅ New password saved"
+"✅ নতুন পাসওয়ার্ড সেভ হয়েছে": "✅ New password saved",
+"🎁 বন্ধুর রেফার কোড আছে?": "🎁 Have a friend's referral code?",
+"বন্ধুর ID নম্বর (যেমন 100025)": "Friend's ID number (e.g. 100025)",
+"🎁 বন্ধুর রেফার কোড দিন": "🎁 Enter a friend's referral code",
+"যুক্ত করুন": "Add",
+"বন্ধুর ID নম্বর দিন": "Enter your friend's ID number",
+"-এর রেফারে যুক্ত হয়েছেন": " — referral added",
+"আপনি আগেই একজনের রেফারে যুক্ত আছেন": "You already have a referrer",
+"নতুন অ্যাকাউন্ট খোলার কয়েক দিনের মধ্যেই শুধু রেফার কোড দেওয়া যায়": "A referral code can only be added within a few days of opening a new account",
+"এই ID নম্বরের কোনো ইউজার পাওয়া যায়নি": "No user found with this ID number",
+"নিজের বা আপনার রেফার করা কারো কোড দেওয়া যাবে না": "You can't use your own code or the code of someone you referred"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });

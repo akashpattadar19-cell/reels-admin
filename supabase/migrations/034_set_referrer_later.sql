@@ -1,0 +1,3 @@
+-- 034 (applied as skip_google_onboarding + set_referrer_later): finish_onboarding_skip(); handle_new_user no longer sets needs_onboarding.
+-- settings.referral_add_days (7); set_referrer(ref_no) — only if referred_by is null, account younger than referral_add_days,
+-- not self / not own referee. Errors REF_ALREADY / REF_TOO_LATE / REF_NOT_FOUND / REF_SELF.

@@ -1008,6 +1008,7 @@ routes.rules = async (kind = "user") => {
       ${row("referral_bonus_paisa", "প্রতি সফল রেফারে রেফারকারী পাবে", "taka")}
       ${row("referral_welcome_points", "নতুন ইউজার স্বাগত পয়েন্ট পাবে", "num")}
       ${row("referral_min_views", "রেফার সফল হতে নতুন ইউজারকে কতটি ভিডিও দেখতে হবে", "num")}
+      ${row("referral_add_days", "নতুন অ্যাকাউন্ট (Google সহ) কত দিনের মধ্যে পরে রেফার কোড দিতে পারবে", "num")}
       ${row("referral_block_same_device", "একই মোবাইলে আগে অন্য অ্যাকাউন্ট থাকলে রেফার বাতিল", "bool")}
       ${row("referral_require_device", "রেফার সফল হতে নতুন ইউজারকে অ্যাপ (APK) থেকে লগইন করতে হবে", "bool")}
     </div>

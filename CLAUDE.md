@@ -44,6 +44,8 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
 - Referral: signup takes `ref_no` (referrer's user_no) → `profiles.referred_by`. When the new user reaches `referral_min_views` valid views,
   `_check_referral` (called from `record_view`) pays the referrer `referral_bonus_paisa` (pending) + welcome points to the new user, and
   one-time tier bonuses from `referral_tiers` (`referral_tier_awards`). Admin edits all rates on the "Income rules" page.
+- Referral without signup form (Google): login page "🎁 বন্ধুর রেফার কোড আছে?" stores `localStorage.refNo`, `start()` calls
+  `set_referrer` once; Me page shows a "বন্ধুর রেফার কোড দিন" box while `referred_by` is null and the account is < `referral_add_days` old.
 - Categories: `videos.category` (natok/movie/funny/vlog/music/other); feed RPC takes `p_category`; set via `set_video_category` after upload.
 - Location: APK (≥ v1.0.3) blocks the app until coarse location is allowed; Android Geocoder gives country/city → `update_location`
   (stored rounded to ~1 km in `user_private`). Admin "User lookup" page (`admin_user_detail(user_no)`) shows profile, phone country,

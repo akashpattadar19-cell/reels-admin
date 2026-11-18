@@ -210,6 +210,10 @@ const ERR = {
   CALL_ENDED: "কল শেষ হয়ে গেছে",
   PK_OFF: "PK এখন বন্ধ আছে",
   PARTY_OFF: "পার্টি এখন বন্ধ আছে",
+  REF_ALREADY: "আপনি আগেই একজনের রেফারে যুক্ত আছেন",
+  REF_TOO_LATE: "নতুন অ্যাকাউন্ট খোলার কয়েক দিনের মধ্যেই শুধু রেফার কোড দেওয়া যায়",
+  REF_NOT_FOUND: "এই ID নম্বরের কোনো ইউজার পাওয়া যায়নি",
+  REF_SELF: "নিজের বা আপনার রেফার করা কারো কোড দেওয়া যাবে না",
   PRICE_RANGE: "এই রেট আপনার লেভেলের সীমার বাইরে",
   PK_BUSY: "এই হোস্ট এখন অন্য PK-তে আছে",
   PK_EXPIRED: "PK চ্যালেঞ্জের সময় শেষ",
@@ -369,6 +373,11 @@ $("#authPhone").onclick = () => { authShow("loginForm"); setLoginMode("phone"); 
 $("#authMore").onclick = () => $("#moreOpts").classList.toggle("hidden");
 $("#authEmail").onclick = () => { authShow("loginForm"); setLoginMode("email"); };
 $("#authNew").onclick = () => authShow("regForm");
+// রেফার কোড: লগইনের আগে লিখে রাখলে নতুন অ্যাকাউন্ট খোলার পরে নিজে থেকে যুক্ত হয় (Google দিয়ে খুললেও)
+$("#refTg").onclick = () => { $("#homeRef").classList.toggle("hidden"); $("#homeRef").focus(); };
+$("#homeRef").addEventListener("input", (e) => { const v = e.target.value.replace(/\D/g, ""); e.target.value = v; try { v ? localStorage.setItem("refNo", v) : localStorage.removeItem("refNo"); } catch { /* */ } });
+try { const r = localStorage.getItem("refNo"); if (r) { $("#homeRef").value = r; $("#homeRef").classList.remove("hidden"); } } catch { /* */ }
+const refDaysLeft = (me) => Math.max(0, Number(setting("referral_add_days", 7)) - (Date.now() - new Date(me.created_at)) / 864e5);
 $("#authGoogle").onclick = () => {
   if (!$("#agreeHome").checked) { $("#authErr").textContent = "আগে নিচের শর্তে টিক দিন"; return; }
   if (!GOOGLE_WEB_CLIENT_ID) { $("#authErr").textContent = "Google লগইন খুব শিগগিরই চালু হবে — এখন মোবাইল নম্বর দিয়ে লগইন করুন"; return; }
@@ -509,6 +518,11 @@ async function start() {
     $("#main").classList.add("hidden"); $("#auth").classList.remove("hidden"); authShow("pwForm"); return;
   }
   S.me = me;
+  try {
+    const rn = localStorage.getItem("refNo");
+    if (rn && !me.referred_by) rpc("set_referrer", { p_ref_no: rn }).then((r) => { S.me.referred_by = true; toast(`🎁 @${r.username}-এর রেফারে যুক্ত হয়েছেন`); }).catch(() => {}).finally(() => localStorage.removeItem("refNo"));
+    else if (rn) localStorage.removeItem("refNo");
+  } catch { /* */ }
   S.settings = Object.fromEntries((settings ?? []).map((s) => [s.key, s.value]));
   S.ads = Object.fromEntries((ads ?? []).map((a) => [a.key, a]));
   $("#auth").classList.add("hidden");
@@ -3459,6 +3473,7 @@ R.me = async () => {
     <div class="me-create"><b>＋ পোস্ট করুন</b><div><a href="#upload"><i>🎬</i>ভিডিও</a><a href="#newphoto"><i>📷</i>ফটো</a><a href="#newstory"><i>📖</i>স্টোরি</a>
       <a href="#texts" onclick="setTimeout(()=>document.getElementById('newT')?.click(),300)"><i>✍️</i>লেখা</a></div></div>
     ${p.coin_seller ? `<a href="#seller" class="me-banner seller"><span>💰 কয়েন সেলার প্যানেল</span><b>বিক্রি করুন ›</b></a>` : ""}
+    ${!p.referred_by && refDaysLeft(p) > 0 ? `<div class="me-ref"><span>🎁 বন্ধুর রেফার কোড দিন</span><input id="meRef" inputmode="numeric" maxlength="12" placeholder="ID নম্বর"><button id="meRefOk">যুক্ত করুন</button></div>` : ""}
     <a href="#invite" class="me-banner"><span>রেফার করে আয় করুন</span><b>${tk(refs?.earned_paisa ?? 0)} ›</b></a>
     <div class="me-menu">
       ${p.account_type === "host" ? `<a href="#callprice"><i class="mi c1"><svg viewBox="0 0 24 24"><path d="M6.5 3.5l3 3.5-2 2.5a12 12 0 0 0 7 7l2.5-2 3.5 3-1.6 2.6c-.4.6-1.1.9-1.8.8C10 20 4 14 3.1 7.4c-.1-.7.2-1.4.8-1.8z"/></svg></i>আমার কলের রেট<em>🪙 ${n(p.call_video_rate ?? setting("call_video_coins_per_min", 60))}/মিনিট ›</em></a>` : ""}
@@ -3471,6 +3486,13 @@ R.me = async () => {
       <a href="#u/${p.id}"><i class="mi c5"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.2-4 4.2-5.5 7.5-5.5s6.3 1.5 7.5 5.5"/></svg></i>আমার প্রোফাইল<em>›</em></a>
       <a href="#settings"><i class="mi c6"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></i>সেটিংস<em>›</em></a>
     </div></div>`;
+  $("#meRefOk")?.addEventListener("click", async (e) => {
+    const v = $("#meRef").value.replace(/\D/g, "");
+    if (!v) return toast("বন্ধুর ID নম্বর দিন", true);
+    e.target.disabled = true;
+    try { const r = await rpc("set_referrer", { p_ref_no: v }); S.me.referred_by = true; toast(`🎁 @${r.username}-এর রেফারে যুক্ত হয়েছেন`); $(".me-ref")?.remove(); }
+    catch (er) { toast(errMsg(er), true); e.target.disabled = false; }
+  });
 };
 
 // ---------- আমার অ্যাকাউন্ট (আগের সেটিংস — এখন প্রোফাইল পেজে) ----------
