@@ -1131,7 +1131,10 @@
 "উত্তরের সময়ের লেখা (সাপোর্ট পেজে দেখাবে)": "Reply-time text (shown on the support page)",
 "সাপোর্ট ইমেইল": "Support email",
 "ইউজারদের জন্য সাপোর্ট টেলিগ্রাম ইউজারনেম (যেমন @ReelsEnjoySupport, খালি রাখলে দেখাবে না)": "Support Telegram username for users (e.g. @ReelsEnjoySupport; leave empty to hide)",
-"মেনে নিচ্ছি": "."
+"মেনে নিচ্ছি": ".",
+"👑প্রিমিয়াম": "👑Premium",
+"👑 এখনো কোনো প্রিমিয়াম ভিডিও নেই।": "👑 No premium videos yet.",
+"হোস্টরা ＋ চেপে ভিডিও দেওয়ার সময় \"প্রিমিয়াম ভিডিও\" চালু করলে, অ্যাডমিন অনুমোদনের পর এখানে দেখা যাবে।": "When hosts upload with ＋ and turn on \"Premium video\", it appears here after admin approval."
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });

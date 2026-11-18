@@ -321,7 +321,7 @@ const header = (title, showBack = true) => `<h1>${showBack ? `<button class="bac
 const notice = () => (setting("app_notice", "") ? `<div class="notice" translate="no">📢 ${esc(setting("app_notice", ""))}</div>` : "");
 
 // ---------------- FEED ----------------
-const CATS = [["", "সব"], ["natok", "🎭 নাটক"], ["movie", "🎬 মুভি"], ["funny", "😂 ফানি"], ["vlog", "📹 ব্লগ"], ["music", "🎵 গান"], ["other", "📦 অন্যান্য"]];
+const CATS = [["", "সব"], ["premium", "👑 প্রিমিয়াম"], ["natok", "🎭 নাটক"], ["movie", "🎬 মুভি"], ["funny", "😂 ফানি"], ["vlog", "📹 ব্লগ"], ["music", "🎵 গান"], ["other", "📦 অন্যান্য"]];
 R.feed = (cat) => openFeed({ type: "foryou", category: cat || "" });
 R.following = () => openFeed({ type: "following" });
 R.watch = (userId, videoId) => openFeed({ type: "user", user: userId, startId: Number(videoId) });
@@ -630,7 +630,7 @@ R.upload = () => {
       <b>ভিডিও বেছে নিন</b><div class="muted tiny">সর্বোচ্চ ${maxSec} সেকেন্ড · খাড়া (9:16) ভিডিও সবচেয়ে ভালো দেখায়</div></label>
     <video id="pv" class="preview hidden" controls playsinline></video>
     <label class="lbl">ক্যাটাগরি</label>
-    <select id="cat">${CATS.filter(([k]) => k).map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select>
+    <select id="cat">${CATS.filter(([k]) => k && k !== "premium").map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select>
     ${S.me.account_type !== "host" && S.me.role !== "admin" && String(setting("premium_upload_hosts_only", true)) === "true"
       ? `<p class="tiny muted" style="margin-top:12px">👑 প্রিমিয়াম ভিডিও শুধু হোস্টরা দিতে পারবে — সেটিংস থেকে হোস্ট হতে আবেদন করুন।</p><input type="checkbox" id="prem" class="hidden"><div id="premBox" class="hidden"><input id="premC"></div>` : `
     <div class="card" style="margin-top:12px">
@@ -1186,18 +1186,19 @@ S.disc = { lang: "", country: "" };
 try { Object.assign(S.disc, JSON.parse(localStorage.getItem("disc") || "{}")); } catch { /* */ }
 
 R.home = (tab = "video") => {
-  if (!["video", "photo", "contest"].includes(tab)) tab = "video";
+  if (!["video", "premium", "photo", "contest"].includes(tab)) tab = "video";
   const f = S.disc;
   const countries = Object.keys(COUNTRY_NAMES);
   screen.innerHTML = `<div class="disc">
     <div class="disc-top">
       <div class="disc-tabs">
         <a href="#home" class="${tab === "video" ? "on" : ""}">ভিডিও</a>
+        <a href="#home/premium" class="${tab === "premium" ? "on" : ""}">👑প্রিমিয়াম</a>
         <a href="#home/photo" class="${tab === "photo" ? "on" : ""}">ফটো</a>
         <a href="#home/contest" class="${tab === "contest" ? "on" : ""}">কম্পিটিশন</a>
         <a href="#top" class="rank" aria-label="র‍্যাংকিং"><svg viewBox="0 0 32 32"><path d="M4 27h24M7 27V17h5v10M13.5 27V7h5v20M20 27V12h5v15" /></svg></a>
       </div>
-      <div class="disc-filters ${tab === "video" ? "" : "hidden"}">
+      <div class="disc-filters ${tab === "video" || tab === "premium" ? "" : "hidden"}">
         <label>🅰️ <span id="flL">${f.lang ? langName(f.lang) : "সব"}</span><select id="fLang"><option value="">সব ভাষা</option>${LANGS.map(([k, l]) => `<option value="${k}" ${k === f.lang ? "selected" : ""}>${l}</option>`).join("")}</select></label>
         <label>📍 <span id="flC">${f.country ? flagOf(f.country) + " " + (COUNTRY_NAMES[f.country] ?? f.country) : "সব"}</span><select id="fCountry"><option value="">সব দেশ</option>${countries.map((c) => `<option value="${c}" ${c === f.country ? "selected" : ""}>${flagOf(c)} ${COUNTRY_NAMES[c]}</option>`).join("")}</select></label>
       </div>
@@ -1238,7 +1239,7 @@ R.home = (tab = "video") => {
       if (tab === "contest") { st.done = true; await contests(); return; }
       const rows = tab === "photo"
         ? await rpc("feed_posts", { p_kind: "photo", p_before: st.before, p_limit: 20, p_category: null, p_contest: null, p_user: null, p_sort: "new" })
-        : await rpc("feed", { p_type: "foryou", p_before: st.before, p_limit: 20, p_user: null, p_category: null, p_lang: S.disc.lang || null, p_country: S.disc.country || null });
+        : await rpc("feed", { p_type: "foryou", p_before: st.before, p_limit: 20, p_user: null, p_category: tab === "premium" ? "premium" : null, p_lang: S.disc.lang || null, p_country: S.disc.country || null });
       for (const v of rows) {
         const c0 = $("#c0"), c1 = $("#c1");
         if (!c0) return;
@@ -1246,7 +1247,7 @@ R.home = (tab = "video") => {
       }
       if (rows.length) st.before = rows[rows.length - 1].id;
       if (rows.length < 20) st.done = true;
-      $("#dmore").innerHTML = st.done && !st.count ? `<div class="empty">${tab === "photo" ? "এখনো কোনো ছবি নেই — 📷 চেপে প্রথম ছবি দিন" : "এখনো কোনো ভিডিও নেই"}</div>` : "";
+      $("#dmore").innerHTML = st.done && !st.count ? `<div class="empty">${tab === "photo" ? "এখনো কোনো ছবি নেই — 📷 চেপে প্রথম ছবি দিন" : tab === "premium" ? "👑 এখনো কোনো প্রিমিয়াম ভিডিও নেই।<br>হোস্টরা ＋ চেপে ভিডিও দেওয়ার সময় \"প্রিমিয়াম ভিডিও\" চালু করলে, অ্যাডমিন অনুমোদনের পর এখানে দেখা যাবে।" : "এখনো কোনো ভিডিও নেই"}</div>` : "";
     } catch (e) { $("#dmore").innerHTML = `<div class="empty">${esc(errMsg(e))}</div>`; }
     finally { st.loading = false; }
   }
