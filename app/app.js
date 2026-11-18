@@ -535,7 +535,7 @@ function checkUpdate() {
   g.innerHTML = `<div class="upd-card">
       <div class="upd-ic">🚀</div>
       <h2>নতুন আপডেট এসেছে</h2>
-      <p class="muted" translate="no">${esc(setting("update_message", ""))}</p>
+      <p class="muted" translate="no">${esc(settingL("update_message", ""))}</p>
       <div class="tiny muted">আপনার ভার্সন 1.0.${b} → নতুন ভার্সন 1.0.${latest}</div>
       <div class="progress hidden" id="updPg"><div></div></div>
       <div class="tiny" id="updMsg"></div>
@@ -658,8 +658,10 @@ function route() {
 }
 window.addEventListener("hashchange", route);
 const back = () => (history.length > 1 ? history.back() : (location.hash = "#home"));
+// এডমিনের লেখা নোটিশ: English বেছে নিলে <key>_en থাকলে সেটা দেখায়
+const settingL = (k, d = "") => (window.getLang?.() === "en" && setting(k + "_en", "")) || setting(k, d);
 const header = (title, showBack = true) => `<h1>${showBack ? `<button class="back" onclick="history.back()">←</button>` : ""}${title}</h1>`;
-const notice = () => (setting("app_notice", "") ? `<div class="notice" translate="no">📢 ${esc(setting("app_notice", ""))}</div>` : "");
+const notice = () => (settingL("app_notice", "") ? `<div class="notice" translate="no">📢 ${esc(settingL("app_notice", ""))}</div>` : "");
 
 // ---------------- FEED ----------------
 const CATS = [["", "সব"], ["premium", "👑 প্রিমিয়াম"], ["natok", "🎭 নাটক"], ["movie", "🎬 মুভি"], ["funny", "😂 ফানি"], ["vlog", "📹 ব্লগ"], ["music", "🎵 গান"], ["other", "📦 অন্যান্য"]];
@@ -1074,7 +1076,7 @@ R.upload = () => {
     <div class="card" style="margin-top:12px">
       <label class="toggle"><span><b>👑 প্রিমিয়াম ভিডিও</b><div class="tiny muted">দর্শক কয়েন দিয়ে দেখবে, আপনি পাবেন ${n(setting("premium_creator_pct", 60))}%। অনুমোদিত হোস্টরা ফ্রি দেখবে। অ্যাডমিন দেখে অনুমোদন দেবেন।</div></span><input type="checkbox" id="prem"></label>
       <div id="premBox" class="hidden"><span class="lbl">কত কয়েন লাগবে</span><input id="premC" type="number" min="1" max="100000" value="${Number(setting("premium_default_coins", 10))}">
-        <p class="notice tiny" translate="no">⚠️ ${esc(setting("premium_notice", ""))}</p></div></div>`}
+        <p class="notice tiny" translate="no">⚠️ ${esc(settingL("premium_notice", ""))}</p></div></div>`}
     <label class="lbl">ক্যাপশন (#হ্যাশট্যাগ, @মেনশন দিন)</label>
     <textarea id="cap" maxlength="2200" placeholder="ভিডিও সম্পর্কে লিখুন… #funny #bangla"></textarea>
     <button class="btn primary" id="up" disabled>আপলোড করুন</button>
@@ -1496,7 +1498,7 @@ R.cashin = async () => {
     ${offers.length ? `<div class="card"><b>🔥 বিশেষ অফার</b> <span class="tiny muted">— একটি বেছে নিন, ঠিক ততো টাকা পাঠান</span>
       <div class="offers" id="offers">${offers.map((o) => offerCard(o, coinPrice)).join("")}</div>
       <div class="tiny muted" id="ofSel" style="margin-top:6px"></div></div>` : ""}
-    ${setting("cashin_notice", "") ? `<div class="card rules-note"><b>📌 নিয়ম ও নোটিশ</b><div class="tiny" translate="no" style="white-space:pre-line;margin-top:6px">${esc(setting("cashin_notice", ""))}</div></div>` : ""}
+    ${settingL("cashin_notice", "") ? `<div class="card rules-note"><b>📌 নিয়ম ও নোটিশ</b><div class="tiny" translate="no" style="white-space:pre-line;margin-top:6px">${esc(settingL("cashin_notice", ""))}</div></div>` : ""}
     <form class="card" id="cf"><b>ধাপ ২:</b> পেমেন্টের তথ্য দিন
       <div class="methods">${nums.map((m, i) => `<label><input type="radio" name="m" value="${m}" ${i === 0 ? "checked" : ""}>${METHOD[m]}</label>`).join("")}</div>
       <input id="am" type="number" inputmode="numeric" min="1" placeholder="কত টাকা পাঠিয়েছেন" required>
@@ -1663,7 +1665,7 @@ R.seller = async () => {
       <button class="btn primary">কয়েন পাঠান</button>
       <p class="tiny muted">ক্রেতার কাছ থেকে টাকা নিশ্চিত হওয়ার পরেই কয়েন পাঠান। একবার পাঠালে ফেরত নেওয়া যায় না।</p></form>
     <h3>বিক্রির হিসাব</h3><div class="card list">${d.recent.length ? d.recent.map((r) => `<div class="li"><div><b>@${esc(r.username)}</b> <span class="tiny muted">ID ${r.user_no}</span>
-        <div class="tiny muted">${dt(r.created_at)}${r.taka_paisa ? ` · ${tk(r.taka_paisa)}` : ""}${r.note ? ` · <span translate="no">${esc(r.note)}</span>` : ""}</div></div>
+        <div class="tiny muted">${dt(r.created_at)}${r.taka_paisa ? ` · ${tk(r.taka_paisa)}` : ""}${r.note ? ` · <span>${esc(r.note)}</span>` : ""}</div></div>
         <span style="text-align:right"><b class="minus-amt">−🪙 ${n(r.coins)}</b>${Number(r.commission_coins) ? `<div class="tiny muted">কমিশন ${n(r.commission_coins)}</div>` : ""}</span></div>`).join("") : `<div class="empty">এখনো কোনো বিক্রি নেই</div>`}</div></div>`;
   let buyer = null, tm;
   const calc = () => {
@@ -1982,7 +1984,7 @@ function composeText(cat) {
     <div class="tprev" id="tp" style="background:${BGS.g1}"><textarea id="tt" maxlength="${maxC}" placeholder="এখানে লিখুন… (সর্বোচ্চ ${maxL} লাইন)"></textarea></div>
     <div class="bgs">${Object.entries(BGS).map(([k, v]) => `<button data-bg="${k}" style="background:${v}" class="${k === "g1" ? "on" : ""}"></button>`).join("")}</div>
     <div class="row tiny muted"><span id="lc">0/${maxL} লাইন</span><span id="cc">0/${maxC}</span></div>
-    <p class="notice tiny" translate="no">${esc(setting("text_notice", ""))}</p>
+    <p class="notice tiny" translate="no">${esc(settingL("text_notice", ""))}</p>
     <button class="btn primary" id="tsend">পোস্ট করুন</button>`);
   const ta = $("#tt", body);
   attachSuggest(ta);
@@ -2336,7 +2338,7 @@ const roomTopHtml = (hp, host, coins) => `<div class="rt"><div class="rt-host"><
 const roomMsgHtml = (m, hp) => m.kind === "rules" ? `<span class="rules" translate="no">📢 ${esc(m.body)}</span>`
   : m.kind === "fol" ? `${avatar(hp)}<span>আমাকে ফলো করুন</span><i>＋</i>`
   : m.kind === "chat" ? `<b translate="no">${esc(m.username || "")}</b> <span translate="no">${esc(m.body)}</span>`
-  : m.kind === "gift" ? `🎁 <b translate="no">${esc(m.username || "")}</b> পাঠিয়েছে <span translate="no">${esc(m.body)}</span>`
+  : m.kind === "gift" ? `🎁 <b translate="no">${esc(m.username || "")}</b> পাঠিয়েছে <span>${esc(m.body)}</span>`
   : m.kind === "like" ? `❤️ <b translate="no">${esc(m.username || "")}</b>`
   : m.kind === "join" ? `<b translate="no">${esc(m.username || "")}</b> রুমে যোগ দিয়েছে`
   : `<b translate="no">${esc(m.username || "")}</b> ${esc(m.body || "")}`;
@@ -2348,7 +2350,7 @@ async function audienceSheet(id) {
     <small class="lvb">✦Lv${u.level ?? 0}</small></span>${u.coins ? `<span class="cn">🪙 ${n(u.coins)}</span>` : ""}</a>`).join("") : `<div class="empty">এখন কোনো দর্শক নেই</div>`}</div>`;
 }
 async function roomTopWire(id, hp, host, addMsg) {
-  addMsg({ kind: "rules", body: setting("live_rules_notice", "অশ্লীল, অপ্রাপ্তবয়স্ক, অশালীন, সহিংস বা বেআইনি কিছু সম্পূর্ণ নিষিদ্ধ। নিয়ম ভাঙলে সঙ্গে সঙ্গে অ্যাকাউন্ট ব্যান করা হবে।") });
+  addMsg({ kind: "rules", body: settingL("live_rules_notice", "অশ্লীল, অপ্রাপ্তবয়স্ক, অশালীন, সহিংস বা বেআইনি কিছু সম্পূর্ণ নিষিদ্ধ। নিয়ম ভাঙলে সঙ্গে সঙ্গে অ্যাকাউন্ট ব্যান করা হবে।") });
   const follow = async () => {
     try { const on = await rpc("toggle_follow", { p_target: hp.id }); if (on) { $("#lvF")?.classList.add("hidden"); document.querySelectorAll(".lm.fol").forEach((x) => x.remove()); toast("✓ ফলো করেছেন"); } }
     catch (er) { toast(errMsg(er), true); }
@@ -3736,7 +3738,8 @@ R.myprofile = async () => {
   S.me = { ...S.me, ...p };
   const age = ageOf(pv?.birth_date);
   const mask = (x) => (x ? String(x).replace(/^(\+?\d{3})\d+(\d{3})$/, "$1•••••$2") : "");
-  const row = (k, label, val, edit = true) => `<button class="pr-row" data-k="${k}" ${edit ? "" : "disabled"}><span>${label}</span><b translate="no">${val || `<i class="muted">যোগ করুন</i>`}</b>${edit ? "<em>›</em>" : ""}</button>`;
+  const USERDATA = ["name", "bio", "loc", "phone", "email"];
+  const row = (k, label, val, edit = true) => `<button class="pr-row" data-k="${k}" ${edit ? "" : "disabled"}><span>${label}</span><b ${val && USERDATA.includes(k) ? 'translate="no"' : ""}>${val || `<i class="muted">যোগ করুন</i>`}</b>${edit ? "<em>›</em>" : ""}</button>`;
   screen.innerHTML = `<div class="page">${header("আমার প্রোফাইল")}
     <div class="pr-list">
       <a class="pr-row" href="#edit"><span>আমার ছবি</span><b>${avatar(p)}</b><em>›</em></a>

@@ -34,7 +34,10 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
 - Uploads start as `pending`; cron `auto_approve_videos` publishes them after `auto_approve_minutes` (0 = manual only). Admin approves/rejects in Videos → Pending.
 - Locked folder (`vault` private bucket + `vault_files`): per-user quota `vault_quota_mb` (enforced in `vault_add` and the storage insert policy); only the owner and admins can read.
 - Language: `i18n.js` (shared by admin and app) translates Bengali UI text to English at runtime from a phrase map when `localStorage.lang = 'en'`.
-  Elements with `translate="no"` (user captions, names, comments, bios, admin notice) are never translated. New UI text → add its English to the map.
+  Elements with `translate="no"` (user captions, names, comments, bios) are never translated — keep fixed UI text outside them.
+  New UI text → add its English to the map (audit: extract Bengali literals from app/app.js + SQL, run them through the map, list leftovers).
+  Admin-written notices are bilingual: `settingL(key)` shows `<key>_en` when English is chosen (app_notice, premium_notice, cashin_notice,
+  text_notice, live_rules_notice, update_message); admin panel has an English field next to each.
 - Referral: signup takes `ref_no` (referrer's user_no) → `profiles.referred_by`. When the new user reaches `referral_min_views` valid views,
   `_check_referral` (called from `record_view`) pays the referrer `referral_bonus_paisa` (pending) + welcome points to the new user, and
   one-time tier bonuses from `referral_tiers` (`referral_tier_awards`). Admin edits all rates on the "Income rules" page.

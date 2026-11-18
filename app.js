@@ -886,7 +886,7 @@ routes.devices = async (arg = "") => {
 // ---------- অ্যাপ আপডেট (বাধ্যতামূলক / ঐচ্ছিক) ----------
 routes.appupdate = async () => {
   view.innerHTML = `<h1>📲 অ্যাপ আপডেট</h1><div class="empty">লোড হচ্ছে…</div>`;
-  const keys = ["latest_app_build", "min_app_build", "apk_url", "update_message", "play_latest_build", "play_min_build"];
+  const keys = ["latest_app_build", "min_app_build", "apk_url", "update_message", "update_message_en", "play_latest_build", "play_min_build"];
   const [{ data }, vers] = await Promise.all([sb.from("settings").select("key,value").in("key", keys), rpc("admin_app_versions").catch(() => [])]);
   const S2 = Object.fromEntries((data ?? []).map((r) => [r.key, r.value]));
   const latest = Number(S2.latest_app_build || 0), min = Number(S2.min_app_build || 0);
@@ -900,6 +900,7 @@ routes.appupdate = async () => {
       <label class="small">এর নিচের ভার্সন খুলবে না (বাধ্যতামূলক)</label><input id="um" type="number" value="${min}">
       <label class="small">APK লিংক</label><input id="uu" value="${esc(S2.apk_url ?? "")}">
       <label class="small">ইউজারকে বার্তা</label><textarea id="ums" rows="2">${esc(S2.update_message ?? "")}</textarea>
+      <label class="small">ইউজারকে বার্তা — English</label><textarea id="umsE" rows="2">${esc(S2.update_message_en ?? "")}</textarea>
       <div class="toolbar"><button class="btn good" id="usave">সেভ</button><button class="btn warn" id="uforce">🔒 সবার জন্য বাধ্যতামূলক করুন</button><button class="btn" id="usoft">ঐচ্ছিক করুন</button></div>
     </div>
     <h2>▶️ Google Play ভার্সন</h2>
@@ -912,7 +913,7 @@ routes.appupdate = async () => {
     <h2>কে কোন ভার্সন ব্যবহার করছে</h2>
     <div class="table-wrap"><table><tr><th>ভার্সন</th><th>ইউজার</th></tr>${vers.map((v) => `<tr><td>${esc(v.app_version)}${Number(String(v.app_version).split(".")[2]) < latest ? ' <span class="pill pending">পুরনো</span>' : ""}</td><td>${num(v.users)}</td></tr>`).join("") || `<tr><td colspan="2" class="muted">ডেটা নেই (v1.0.6+ থেকে গণনা হয়)</td></tr>`}</table></div>`;
   const save = async (over = {}) => {
-    const vals = { latest_app_build: Number($("#ul").value) || 0, min_app_build: Number($("#um").value) || 0, apk_url: $("#uu").value.trim(), update_message: $("#ums").value.trim(), ...over };
+    const vals = { latest_app_build: Number($("#ul").value) || 0, min_app_build: Number($("#um").value) || 0, apk_url: $("#uu").value.trim(), update_message: $("#ums").value.trim(), update_message_en: $("#umsE").value.trim(), ...over };
     for (const [k, v] of Object.entries(vals)) await rpc("admin_set_setting", { p_key: k, p_value: v });
   };
   $("#usave").onclick = () => act(() => save(), "সেভ হয়েছে").then(() => routes.appupdate());
@@ -1002,7 +1003,9 @@ routes.rules = async (kind = "user") => {
       ${row("premium_upload_hosts_only", "শুধু হোস্টরা প্রিমিয়াম ভিডিও দিতে পারবে", "bool")}
       ${row("premium_download_coins", "প্রিমিয়াম ভিডিও ডাউনলোড করতে কত কয়েন লাগবে (০ = প্রিমিয়াম ডাউনলোড বন্ধ; ক্রিয়েটর প্রিমিয়ামের % পাবে)", "num")}
       ${row("premium_notice", "প্রিমিয়াম আপলোডের নোটিশ (হোস্টরা আপলোডের সময় দেখবে)", "text")}
+      ${row("premium_notice_en", "প্রিমিয়াম আপলোডের নোটিশ — English (English বেছে নেওয়া ইউজাররা দেখবে)", "text")}
       ${row("cashin_notice", "কয়েন কেনার পেজের নোটিশ (সব ইউজার নম্বরের নিচে দেখবে)", "text")}
+      ${row("cashin_notice_en", "কয়েন কেনার পেজের নোটিশ — English (English বেছে নেওয়া ইউজাররা দেখবে)", "text")}
     </div>
     <h2>🎁 নতুন ইউজার বোনাস ও শেয়ার</h2><div class="list">
       ${row("welcome_bonus_enabled", "নতুন ইউজার প্রথমবার অ্যাপ খুললে বোনাস পাবে (একটি মোবাইলে একবারই)", "bool")}
@@ -1029,6 +1032,7 @@ routes.rules = async (kind = "user") => {
       ${row("text_max_lines", "লেখায় সর্বোচ্চ লাইন", "num")}
       ${row("text_max_chars", "লেখায় সর্বোচ্চ অক্ষর", "num")}
       ${row("text_notice", "টেক্সট আর্নিং নোটিশ", "text")}
+      ${row("text_notice_en", "টেক্সট আর্নিং নোটিশ — English", "text")}
     </div>
     <h2>📖 স্টোরি</h2><div class="list">
       ${row("stories_enabled", "স্টোরি চালু", "bool")}
@@ -1133,7 +1137,7 @@ routes.live = async () => {
   view.innerHTML = `<h1>🔴 লাইভ ও 📞 কল</h1><div class="empty">লোড হচ্ছে…</div>`;
   let d;
   try { d = await rpc("admin_live_overview"); } catch (e) { view.innerHTML = `<h1>🔴 লাইভ ও 📞 কল</h1><div class="empty err">${esc(errMsg(e))}</div>`; return; }
-  const { data: st } = await sb.from("settings").select("key,value").in("key", ["live_enabled", "live_hosts_only", "live_max_cohosts", "calls_enabled", "call_video_coins_per_min", "call_audio_coins_per_min", "call_host_pct", "live_gift_host_pct", "coin_price_paisa", "pk_enabled", "pk_duration_sec", "pk_winner_bonus_pct", "pk_bonus_cap_paisa", "party_enabled", "party_hosts_only", "party_max_seats", "party_gift_pct", "live_rules_notice"]);
+  const { data: st } = await sb.from("settings").select("key,value").in("key", ["live_enabled", "live_hosts_only", "live_max_cohosts", "calls_enabled", "call_video_coins_per_min", "call_audio_coins_per_min", "call_host_pct", "live_gift_host_pct", "coin_price_paisa", "pk_enabled", "pk_duration_sec", "pk_winner_bonus_pct", "pk_bonus_cap_paisa", "party_enabled", "party_hosts_only", "party_max_seats", "party_gift_pct", "live_rules_notice", "live_rules_notice_en"]);
   const pks = (await rpc("admin_pk_recent").catch(() => [])) ?? [];
   const S2 = Object.fromEntries((st ?? []).map((x) => [x.key, x.value]));
   const cp = Number(S2.coin_price_paisa || 100);
@@ -1155,6 +1159,7 @@ routes.live = async () => {
     <p class="muted small">১ কয়েন = ৳${(cp / 100).toFixed(2)}। যেমন ভিডিও কল ${num(S2.call_video_coins_per_min)} 🪙/মিনিট = ৳${((S2.call_video_coins_per_min * cp) / 100).toFixed(2)}/মিনিট, যার ${num(S2.call_host_pct)}% হোস্ট পাবে, বাকিটা আপনার। কোনো হোস্টের জন্য আলাদা রেট দিতে "ইউজার খুঁজুন" পেজে যান।</p>
     <div class="list" id="lrules">
       ${row("live_rules_notice", "📢 লাইভ ও পার্টিতে সবার আগে দেখানো নিয়মের নোটিশ", "text")}
+      ${row("live_rules_notice_en", "📢 নিয়মের নোটিশ — English", "text")}
       ${row("live_enabled", "লাইভ চালু", "bool")}
       ${row("live_hosts_only", "শুধু অনুমোদিত হোস্টরা লাইভ করতে পারবে", "bool")}
       ${row("live_max_cohosts", "লাইভে একসাথে কতজন অতিথি যোগ দিতে পারবে", "num")}
@@ -1725,7 +1730,7 @@ routes.settings = async () => {
     ["ক্রিয়েটর ইনকাম", ["earnings_enabled", "view_rate_paisa_per_1000", "like_rate_paisa", "comment_rate_paisa", "creator_daily_view_cap_paisa", "pending_hold_hours", "min_watch_ms"]],
     ["দর্শক পয়েন্ট", ["watch_points", "viewer_daily_points_cap", "point_value_paisa", "points_convert_min"]],
     ["ভিডিও ও লক ফোল্ডার", ["auto_approve_minutes", "max_video_sec", "vault_quota_mb"]],
-    ["অন্যান্য", ["app_notice"]],
+    ["অন্যান্য", ["app_notice", "app_notice_en"]],
   ];
   const byKey = Object.fromEntries(data.map((s) => [s.key, s]));
   const hint = (k, v) => (k.endsWith("_paisa") ? ` = ${taka(v)}` : "");
