@@ -62,6 +62,9 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
 - Analytics: app sends `track_time` every minute → `app_usage`; admin "অ্যানালিটিক্স" (`admin_analytics`): time, categories, posts, countries.
 - APK ≥ v1.0.4: asks camera, photos/videos, notifications; camera capture for photos; `notify(title, body)` local notifications
   while the app is in background (no Firebase push yet).
+- Buy coins: notice text `settings.cashin_notice` (admin Income rules page) shown under the numbers; optional payment
+  screenshot → private bucket `proofs` (`<uid>/<id>-*.jpg`) via `set_cash_in_proof`; admin sees it on Cash-in page (signed URL).
+- APK ≥ v1.0.5 is edge-to-edge: native pushes `--safe-t/--safe-b` CSS vars; `ReelsAndroid.setDarkBars(bool)` per page.
 - TODO (owner postponed): move video storage to Cloudflare R2 (account opened; needs bucket + API keys) and allow 1 s – 59 min videos.
 - Adult/18+ content: owner asked for a paid 18+ folder; declined (illegal in BD/KSA, breaks AdMob policy, CSAM risk). Don't build it.
 - Live streaming: not built yet (owner postponed; needs ZEGOCLOUD/Agora + FLAG_SECURE in the APK for no screenshots).

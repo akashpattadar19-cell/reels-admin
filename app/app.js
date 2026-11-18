@@ -799,30 +799,51 @@ R.cashin = async () => {
     ${nums.length ? `<div class="card"><b>ধাপ ১:</b> <span>নিচের নম্বরে Send Money করুন</span>
       ${nums.map((m) => `<div class="row" style="margin-top:8px"><span>${METHOD[m]}</span><span class="copy" data-copy="${esc(setting(m + "_number"))}">${esc(setting(m + "_number"))}</span></div>`).join("")}
       <p class="tiny muted" style="margin:10px 0 0">৳১ = 🪙 ${n(100 / coinPrice)} কয়েন · সর্বনিম্ন ৳${n(setting("min_cash_in_taka", 20))}</p></div>
+    ${setting("cashin_notice", "") ? `<div class="card rules-note"><b>📌 নিয়ম ও নোটিশ</b><div class="tiny" translate="no" style="white-space:pre-line;margin-top:6px">${esc(setting("cashin_notice", ""))}</div></div>` : ""}
     <form class="card" id="cf"><b>ধাপ ২:</b> পেমেন্টের তথ্য দিন
       <div class="methods">${nums.map((m, i) => `<label><input type="radio" name="m" value="${m}" ${i === 0 ? "checked" : ""}>${METHOD[m]}</label>`).join("")}</div>
       <input id="am" type="number" inputmode="numeric" min="1" placeholder="কত টাকা পাঠিয়েছেন" required>
       <div class="tiny muted" id="cv"></div>
       <input id="sn" inputmode="numeric" placeholder="যে নম্বর থেকে পাঠিয়েছেন (01XXXXXXXXX)" required>
       <input id="tx" placeholder="TrxID (যেমন 9AB7C6D5E4)" autocapitalize="characters" required>
+      <label class="proofpick"><input type="file" id="pf" accept="image/*" class="hidden"><span id="pfl">📎 পেমেন্টের স্ক্রিনশট দিন (ঐচ্ছিক)</span></label>
       <button class="btn primary">রিকোয়েস্ট পাঠান</button>
       <p class="tiny muted">অ্যাডমিন যাচাই করার পর কয়েন যোগ হবে। ভুল/ভুয়া TrxID দিলে অ্যাকাউন্ট ব্লক হবে।</p></form>`
     : `<div class="card">ক্যাশ-ইন এখন বন্ধ আছে। পরে চেষ্টা করুন।</div>`}
     <h3>আপনার রিকোয়েস্ট</h3><div class="card list" id="cl"><div class="spinner"></div></div></div>`;
   $("#am")?.addEventListener("input", (e) => ($("#cv").textContent = e.target.value ? `আপনি পাবেন 🪙 ${n(Math.floor(e.target.value * 100 / coinPrice))} কয়েন` : ""));
+  let proof = null;
+  $("#pf")?.addEventListener("change", async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    try {
+      const img = new Image(); img.src = URL.createObjectURL(f); await img.decode();
+      const sc = Math.min(1, 1280 / Math.max(img.width, img.height));
+      const c = document.createElement("canvas"); c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      proof = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.85));
+      $("#pfl").innerHTML = `<img src="${URL.createObjectURL(proof)}" alt=""> ✅ স্ক্রিনশট যুক্ত হয়েছে (বদলাতে চাপুন)`;
+    } catch { proof = null; toast("ছবিটি খোলা যায়নি", true); }
+  });
   $("#cf")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const b = e.submitter; b.disabled = true;
     try {
-      await rpc("request_cash_in", { p_method: $("input[name=m]:checked").value, p_amount_taka: Math.floor(Number($("#am").value)),
+      const id = await rpc("request_cash_in", { p_method: $("input[name=m]:checked").value, p_amount_taka: Math.floor(Number($("#am").value)),
         p_sender: cleanPhone($("#sn").value), p_trx: $("#tx").value.trim() });
+      if (proof && id) {
+        try {
+          const path = `${S.me.id}/${id}-${Date.now()}.jpg`;
+          await xhrUpload("proofs", path, proof, "image/jpeg", () => {});
+          await rpc("set_cash_in_proof", { p_id: id, p_path: path });
+        } catch { toast("স্ক্রিনশট যায়নি, তবে রিকোয়েস্ট পাঠানো হয়েছে", true); }
+      }
       toast("রিকোয়েস্ট পাঠানো হয়েছে — যাচাইয়ের পর কয়েন যোগ হবে");
       R.cashin();
     } catch (er) { toast(errMsg(er), true); b.disabled = false; }
   });
   const { data } = await sb.from("cash_in_requests").select("*").eq("user_id", S.me.id).order("id", { ascending: false }).limit(20);
   $("#cl").innerHTML = data?.length ? data.map((c) => `<div class="li"><div><b>${tk(c.amount_paisa)}</b> · ${METHOD[c.method]} · 🪙 ${n(c.coins)}
-    <div class="tiny muted">${dt(c.created_at)} · TrxID ${esc(c.trx_id)}${c.reject_reason ? " · " + esc(c.reject_reason) : ""}</div></div><span class="pill ${c.status}">${STATUS[c.status]}</span></div>`).join("")
+    <div class="tiny muted">${dt(c.created_at)} · TrxID ${esc(c.trx_id)}${c.proof_path ? " · 📎" : ""}${c.reject_reason ? " · " + esc(c.reject_reason) : ""}</div></div><span class="pill ${c.status}">${STATUS[c.status]}</span></div>`).join("")
     : `<div class="empty">কোনো রিকোয়েস্ট নেই</div>`;
 };
 

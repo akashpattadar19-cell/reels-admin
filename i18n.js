@@ -1030,7 +1030,15 @@
 "। যেমন উইথড্র মিনিমাম ৫০০ টাকা = 50000।": ". e.g. withdraw minimum 500 taka = 50000.",
 "বার": "times",
 "পোস্টটি আর": "This post",
-"চ্যাট": "Chats"
+"চ্যাট": "Chats",
+"📌 নিয়ম ও নোটিশ": "📌 Rules & notice",
+"📎 পেমেন্টের স্ক্রিনশট দিন (ঐচ্ছিক)": "📎 Add payment screenshot (optional)",
+"✅ স্ক্রিনশট যুক্ত হয়েছে (বদলাতে চাপুন)": "✅ Screenshot added (tap to change)",
+"স্ক্রিনশট যায়নি, তবে রিকোয়েস্ট পাঠানো হয়েছে": "Screenshot failed, but the request was sent",
+"📎 পেমেন্টের স্ক্রিনশট দেখুন": "📎 View payment screenshot",
+"স্ক্রিনশট দেয়নি": "No screenshot",
+"কয়েন কেনার পেজের নোটিশ (সব ইউজার নম্বরের নিচে দেখবে)": "Buy-coin page notice (everyone sees it under the numbers)",
+"কয়েন কেনার পেজের নোটিশ": "Buy-coin page notice"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });

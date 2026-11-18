@@ -243,12 +243,21 @@ routes.cashins = async (tab = "pending") => {
         <b>${METHOD[c.method]}</b> · পাঠিয়েছে ${copyable(c.sender_number)} · TrxID ${copyable(c.trx_id)}<br>
         <a href="#user/${c.user_id}">@${esc(c.profiles?.username)}</a> পাবে <b>${num(c.coins)} কয়েন</b> · ${dt(c.created_at)}
         ${c.reject_reason ? `<br>কারণ: ${esc(c.reject_reason)}` : ""}
+        ${c.proof_path ? `<br><button class="btn sm" data-proof="${esc(c.proof_path)}">📎 পেমেন্টের স্ক্রিনশট দেখুন</button><div class="proof"></div>` : `<br><span class="muted small">স্ক্রিনশট দেয়নি</span>`}
       </div>
       ${c.status === "pending" ? `<div class="actions">
         <button class="btn sm good" data-ok="1" data-id="${c.id}">টাকা পেয়েছি — অ্যাপ্রুভ</button>
         <button class="btn sm bad" data-ok="0" data-id="${c.id}">রিজেক্ট</button></div>` : ""}
     </div>`).join("");
   list.onclick = async (e) => {
+    const pf = e.target.closest("button[data-proof]");
+    if (pf) {
+      const { data: su, error: er } = await sb.storage.from("proofs").createSignedUrl(pf.dataset.proof, 600);
+      if (er) return toast(errMsg(er), true);
+      pf.nextElementSibling.innerHTML = `<a href="${su.signedUrl}" target="_blank" rel="noopener"><img src="${su.signedUrl}" style="max-width:100%;max-height:420px;border-radius:10px;margin-top:8px"></a>`;
+      pf.remove();
+      return;
+    }
     const b = e.target.closest("button[data-ok]");
     if (!b) return;
     const ok = b.dataset.ok === "1";
@@ -786,6 +795,7 @@ routes.rules = async () => {
       ${row("premium_creator_pct", "প্রিমিয়াম আনলকের কত % ক্রিয়েটর পাবে", "num")}
       ${row("premium_upload_hosts_only", "শুধু হোস্টরা প্রিমিয়াম ভিডিও দিতে পারবে", "bool")}
       ${row("premium_notice", "প্রিমিয়াম আপলোডের নোটিশ (হোস্টরা আপলোডের সময় দেখবে)", "text")}
+      ${row("cashin_notice", "কয়েন কেনার পেজের নোটিশ (সব ইউজার নম্বরের নিচে দেখবে)", "text")}
     </div>
     <h2>🖼️ ফটো, ✍️ টেক্সট আর্নিং ও কম্পিটিশন</h2><div class="list">
       ${row("post_like_rate_paisa", "প্রতি লাইকে পোস্টের মালিক পাবে", "taka")}
