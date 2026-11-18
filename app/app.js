@@ -31,6 +31,109 @@ const setting = (k, d = 0) => (S.settings[k] ?? d);
 const notifOn = () => { try { return localStorage.getItem("notif") !== "off"; } catch { return true; } };
 const METHOD = { bkash: "bKash", nagad: "Nagad", rocket: "Rocket" };
 const STATUS = { pending: "পেন্ডিং", approved: "অ্যাপ্রুভড", paid: "পেমেন্ট সম্পন্ন", rejected: "রিজেক্টেড" };
+// ---------------- 🎵 ব্যাকগ্রাউন্ড গান ও 🎨 ফিল্টার ----------------
+const FX_PRESETS = [["none", "আসল", ""], ["warm", "উষ্ণ", "sepia(.25) saturate(1.25) hue-rotate(-8deg)"], ["cool", "ঠান্ডা", "saturate(1.1) hue-rotate(14deg) brightness(1.03)"],
+  ["vivid", "ঝলমলে", "saturate(1.6) contrast(1.1)"], ["bw", "সাদা-কালো", "grayscale(1) contrast(1.1)"], ["vintage", "ভিনটেজ", "sepia(.5) contrast(.9) brightness(1.05)"],
+  ["fade", "ফেড", "contrast(.85) brightness(1.1) saturate(.8)"], ["drama", "ড্রামা", "contrast(1.35) saturate(1.2) brightness(.95)"], ["rose", "গোলাপি", "sepia(.2) saturate(1.3) hue-rotate(-20deg) brightness(1.05)"]];
+const fxCss = (fx) => {
+  if (!fx) return "";
+  const pre = FX_PRESETS.find((x) => x[0] === fx.f)?.[2] ?? "";
+  const adj = [["brightness", fx.b], ["contrast", fx.c], ["saturate", fx.s]].filter(([, v]) => v && Number(v) !== 100).map(([k, v]) => `${k}(${v}%)`).join(" ");
+  return `${pre} ${adj}`.trim();
+};
+const fxEmpty = (fx) => !fx || ((!fx.f || fx.f === "none") && [fx.b, fx.c, fx.s].every((v) => !v || Number(v) === 100));
+const BGM = new Audio();
+BGM.preload = "auto";
+BGM.addEventListener("ended", () => { try { BGM.currentTime = BGM._start || 0; } catch { /* */ } BGM.play().catch(() => {}); });
+function bgmPlay(url, start = 0) {
+  if (!url) return bgmStop();
+  if (BGM._url !== url || BGM._start !== start) {
+    BGM._url = url; BGM._start = start; BGM.src = url;
+    BGM.addEventListener("loadedmetadata", () => { try { BGM.currentTime = start; } catch { /* */ } }, { once: true });
+  }
+  BGM.muted = !!S.muted;
+  BGM.play().catch(() => {});
+}
+function bgmStop() { BGM.pause(); if (BGM._url) { BGM._url = null; BGM.removeAttribute("src"); BGM.load(); } }
+const mmss = (sec) => `${Math.floor((sec || 0) / 60)}:${String(Math.floor((sec || 0) % 60)).padStart(2, "0")}`;
+
+// গানের তালিকা থেকে বাছাই (Promise → {music} বা null বা "remove")
+function pickMusic(cur) {
+  return new Promise(async (resolve) => {
+    let done = false;
+    const finish = (v) => { if (done) return; done = true; bgmStop(); closeSheet(); resolve(v); };
+    const body = sheet(`<h3>🎵 গান বেছে নিন</h3><input id="mq" placeholder="গান বা শিল্পীর নাম খুঁজুন…"><div class="chiprow" id="mcat"></div>
+      <div id="ml" class="mlist"><div class="spinner"></div></div>${cur ? `<button class="btn" id="mrm" style="margin-top:8px">🚫 গান বাদ দিন</button>` : ""}`);
+    const { data } = await sb.from("music").select("id,title,artist,category,url,duration_sec,uses_count").eq("active", true).order("sort").order("uses_count", { ascending: false }).limit(300);
+    const all = data ?? [];
+    const cats = [...new Set(all.map((m) => m.category).filter(Boolean))];
+    let cat = "", playing = null;
+    $("#mcat", body).innerHTML = cats.length ? [["", "সব"], ...cats.map((c) => [c, c])].map(([k, l]) => `<a href="javascript:void 0" data-c="${esc(k)}" class="${k === cat ? "on" : ""}" translate="no">${esc(l)}</a>`).join("") : "";
+    const draw = () => {
+      const q = ($("#mq", body)?.value || "").trim().toLowerCase();
+      const list = all.filter((m) => (!cat || m.category === cat) && (!q || `${m.title} ${m.artist ?? ""}`.toLowerCase().includes(q)));
+      $("#ml", body).innerHTML = list.length ? list.map((m) => `<div class="mrow ${cur?.id === m.id ? "on" : ""}" data-id="${m.id}">
+          <button class="mplay" data-p="${m.id}">${playing === m.id ? "⏸" : "▶"}</button>
+          <span class="mt-t"><b translate="no">${esc(m.title)}</b><small translate="no">${esc(m.artist ?? "")}${m.duration_sec ? " · " + mmss(m.duration_sec) : ""}${m.uses_count ? ` · ${n(m.uses_count)} বার ব্যবহার` : ""}</small></span>
+          <button class="btn small primary" data-s="${m.id}">বাছুন</button></div>`).join("")
+        : `<div class="empty">${all.length ? "কিছু পাওয়া যায়নি" : "এখনো কোনো গান যোগ করা হয়নি"}</div>`;
+    };
+    draw();
+    $("#mq", body).oninput = draw;
+    $("#mcat", body).onclick = (e) => { const a = e.target.closest("[data-c]"); if (!a) return; cat = a.dataset.c; $("#mcat", body).querySelectorAll("a").forEach((x) => x.classList.toggle("on", x === a)); draw(); };
+    $("#ml", body).onclick = (e) => {
+      const pb = e.target.closest("[data-p]"), sb2 = e.target.closest("[data-s]");
+      if (pb) { const m = all.find((x) => x.id === Number(pb.dataset.p)); if (playing === m.id) { playing = null; bgmStop(); } else { playing = m.id; S.muted = false; bgmPlay(m.url, 0); } draw(); }
+      else if (sb2) finish({ music: all.find((x) => x.id === Number(sb2.dataset.s)) });
+    };
+    $("#mrm", body)?.addEventListener("click", () => finish("remove"));
+    const obs = new MutationObserver(() => { if ($("#sheet").classList.contains("hidden")) { obs.disconnect(); finish(null); } });
+    obs.observe($("#sheet"), { attributes: true, attributeFilter: ["class"] });
+  });
+}
+
+// আপলোড পেজের গান + ফিল্টার + এডিট টুল। st = {music, start, mute, fx}
+function mediaTools(box, preview, { kind = "video", st = {} } = {}) {
+  Object.assign(st, { music: st.music ?? null, start: st.start ?? 0, mute: st.mute ?? false, fx: st.fx ?? { f: "none", b: 100, c: 100, s: 100 } });
+  box.innerHTML = `<div class="mtools">
+    <button type="button" class="mt-music" id="mtM"><span class="ic">🎵</span><span class="t">গান যোগ করুন</span><em>›</em></button>
+    <div id="mtMO" class="mt-opt hidden">
+      <label class="tiny muted">গান শুরু হবে: <b id="mtSt">0:00</b></label><input type="range" id="mtS" min="0" max="60" step="1" value="0">
+      ${kind === "video" ? `<label class="agree"><input type="checkbox" id="mtMute"> <span>ভিডিওর আসল সাউন্ড বন্ধ রাখুন (শুধু গান শোনা যাবে)</span></label>` : ""}
+    </div>
+    <span class="lbl">🎨 ফিল্টার</span>
+    <div class="fxrow" id="mtF">${FX_PRESETS.map(([k, l, c]) => `<button type="button" data-f="${k}" class="${st.fx.f === k ? "on" : ""}"><i style="filter:${c}"></i><span>${l}</span></button>`).join("")}</div>
+    <details class="fx-adj"><summary>✏️ এডিট — উজ্জ্বলতা, কনট্রাস্ট, রং</summary>
+      ${[["b", "☀️ উজ্জ্বলতা"], ["c", "◐ কনট্রাস্ট"], ["s", "🌈 রং"]].map(([k, l]) => `<label class="tiny">${l} <b id="mtv${k}">${st.fx[k]}%</b></label><input type="range" min="50" max="150" value="${st.fx[k]}" data-k="${k}">`).join("")}
+      <button type="button" class="btn small" id="mtR">↺ রিসেট</button></details></div>`;
+  const apply = () => { preview.style.filter = fxCss(st.fx); };
+  const syncMusic = () => {
+    $("#mtM", box).querySelector(".t").innerHTML = st.music ? `<b translate="no">${esc(st.music.title)}</b><small translate="no">${esc(st.music.artist ?? "")}</small>` : "গান যোগ করুন";
+    $("#mtM", box).classList.toggle("on", !!st.music);
+    $("#mtMO", box).classList.toggle("hidden", !st.music);
+    if (st.music) { const r = $("#mtS", box); r.max = Math.max(0, (st.music.duration_sec || 60) - 5); r.value = st.start; $("#mtSt", box).textContent = mmss(st.start); }
+  };
+  const preview2 = () => { if (!st.music) return bgmStop(); S.muted = false; bgmPlay(st.music.url, st.start); if (preview.tagName === "VIDEO") { preview.muted = st.mute; if (preview.paused) preview.play().catch(() => {}); } };
+  $("#mtM", box).onclick = async () => {
+    const r = await pickMusic(st.music);
+    if (r === "remove") { st.music = null; st.start = 0; bgmStop(); }
+    else if (r?.music) { st.music = r.music; st.start = 0; preview2(); }
+    syncMusic();
+  };
+  $("#mtS", box).oninput = (e) => { st.start = Number(e.target.value); $("#mtSt", box).textContent = mmss(st.start); };
+  $("#mtS", box).onchange = preview2;
+  $("#mtMute", box)?.addEventListener("change", (e) => { st.mute = e.target.checked; if (preview.tagName === "VIDEO") preview.muted = st.mute; });
+  $("#mtF", box).onclick = (e) => { const b = e.target.closest("[data-f]"); if (!b) return; st.fx.f = b.dataset.f; $("#mtF", box).querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); apply(); };
+  box.querySelectorAll(".fx-adj input[type=range]").forEach((r) => (r.oninput = () => { st.fx[r.dataset.k] = Number(r.value); $("#mtv" + r.dataset.k, box).textContent = r.value + "%"; apply(); }));
+  $("#mtR", box).onclick = () => { Object.assign(st.fx, { b: 100, c: 100, s: 100 }); box.querySelectorAll(".fx-adj input[type=range]").forEach((r) => { r.value = 100; $("#mtv" + r.dataset.k, box).textContent = "100%"; }); apply(); };
+  if (preview.tagName === "VIDEO") {
+    preview.addEventListener("play", () => { if (st.music) bgmPlay(st.music.url, st.start); });
+    preview.addEventListener("pause", () => BGM.pause());
+  }
+  syncMusic(); apply();
+  return st;
+}
+
 // #হ্যাশট্যাগ ও @মেনশন লিংক (esc করার পরে)
 const TAG_RE = /(^|[^&\w\u0980-\u09FF])#([A-Za-z0-9_\u0980-\u09FF\u0900-\u097F\u0600-\u06FF]{1,60})/g;
 const AT_RE = /(^|[^A-Za-z0-9_.&])@([A-Za-z0-9_.]{1,29}[A-Za-z0-9_])/g;
@@ -97,6 +200,8 @@ const ERR = {
   USER_BANNED: "এই ইউজার ব্যান করা",
   BAD_AMOUNT: "সঠিক পরিমাণ দিন",
   TOO_MANY: "সর্বোচ্চ ৫টি নম্বর সেভ করা যায়",
+  STORIES_OFF: "স্টোরি এখন বন্ধ আছে",
+  DOWNLOADS_OFF: "ডাউনলোড এখন বন্ধ আছে",
   INSUFFICIENT_BALANCE: "ব্যালেন্স যথেষ্ট নেই",
   INSUFFICIENT_POINTS: "পয়েন্ট যথেষ্ট নেই",
   BELOW_MIN: "সর্বনিম্ন পরিমাণের চেয়ে কম",
@@ -472,10 +577,11 @@ function route() {
   if (!S.me) return;
   if (cleanup) { try { cleanup(); } catch { /* */ } cleanup = null; }
   closeSheet();
+  bgmStop();
   let [name, a, b, c] = (location.hash.slice(1) || "home").split("/");
   if (!R[name]) name = "home";
   if (S.me.jailed && !["jail", "cashin", "history"].includes(name)) name = "jail";
-  const TABS = { home: ["home", "post", "contest", "newphoto", "top", "tag", "tags", "at"], feed: ["feed", "following", "watch", "play"],
+  const TABS = { home: ["home", "post", "contest", "newphoto", "top", "tag", "tags", "at", "story", "newstory"], feed: ["feed", "following", "watch", "play"],
     me: ["me", "seller", "creator", "support", "policy", "delacct", "invite", "rules", "settings", "vault", "edit", "level", "wallet", "history", "withdraw", "cashin", "inbox", "chat"] };
   document.querySelectorAll(".tabbar a").forEach((x) => x.classList.toggle("on", x.dataset.t === name || (TABS[x.dataset.t] ?? []).includes(name)));
   screen.classList.remove("full");
@@ -586,12 +692,26 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
             : "এখনো কোনো ভিডিও নেই।<br><br><a class='btn small' href='#upload'>প্রথম ভিডিও আপলোড করুন</a>"}</div></div>`;
         }
       }
+      const newEls = [];
       for (const v of rows) {
         const el = slideEl(v, st.slides.length);
-        st.slides.push(el);
+        st.slides.push(el); newEls.push(el);
         feedEl.appendChild(el);
         obs.observe(el);
       }
+      if (rows.length) sb.from("videos").select("id,music_id,music_start,fx,orig_muted,music:music_id(url,title,artist)").in("id", rows.map((r) => r.id)).then(({ data }) => {
+        for (const x of data ?? []) {
+          const el = newEls.find((e) => e._v.id === x.id); if (!el) continue;
+          el._x = x;
+          const vd = el.querySelector("video");
+          if (x.fx) vd.style.filter = fxCss(x.fx);
+          if (x.music?.url) {
+            el.querySelector(".info .tiny")?.insertAdjacentHTML("beforebegin", `<div class="mtag"><span class="disc">🎵</span><span class="mq" translate="no">${esc(x.music.title)}${x.music.artist ? " · " + esc(x.music.artist) : ""}</span></div>`);
+            if (st.active === el) slideMusic(el);
+          }
+          if (x.orig_muted) vd.muted = true;
+        }
+      });
       if (rows.length) st.before = rows[rows.length - 1].id;
     } catch (e) { toast(errMsg(e), true); }
     st.loading = false;
@@ -613,7 +733,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
         <button class="act cm"><span class="ic svg"><svg viewBox="0 0 24 24"><path d="M12 3.5c5 0 9 3.4 9 7.7s-4 7.7-9 7.7c-1 0-2-.1-2.9-.4L4.5 20.5l1.2-3.9C4 15.2 3 13.3 3 11.2 3 6.9 7 3.5 12 3.5z"/></svg></span><span class="c">${n(v.comments_count)}</span></button>
         ${v.allow_gifts && v.user_id !== S.me.id ? `<button class="act gf"><span class="ic svg gft"><svg viewBox="0 0 24 24"><rect x="3.5" y="9" width="17" height="4" rx="1"/><path d="M5 13v7.5h14V13M12 9v11.5M12 9S10.5 4.3 8 4.9C6 5.4 7 9 12 9zM12 9s1.5-4.7 4-4.1c2 .5 1 4.1-4 4.1z"/></svg></span><span>গিফট</span></button>` : ""}
         <button class="act sh"><span class="ic svg"><svg viewBox="0 0 24 24"><path d="M13.5 4.5 21 11.5l-7.5 7v-4c-5 0-8.3 1.4-10.5 5 .8-5.5 3.6-10 10.5-10.8z"/></svg></span><span class="c">${n(v.shares_count)}</span></button>
-        ${setting("downloads_enabled", true) !== false && !v.is_premium ? `<button class="act dl"><span class="ic svg dlic"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 19.5h14"/></svg></span><span>সেভ</span></button>` : ""}
+        ${setting("downloads_enabled", true) !== false && (!v.is_premium || v.user_id === S.me.id || Number(setting("premium_download_coins", 0)) > 0) ? `<button class="act dl ${v.is_premium ? "pdl" : ""}"><span class="ic svg dlic"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 19.5h14"/></svg></span><span>${v.is_premium && v.user_id !== S.me.id ? `🪙${n(setting("premium_download_coins", 0))}` : "সেভ"}</span></button>` : ""}
         ${v.user_id !== S.me.id ? `<button class="act rp"><span class="ic svg sm"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4.5h12l-2.5 4 2.5 4H5"/></svg></span></button>` : ""}
       </div>
       <div class="info">
@@ -648,13 +768,14 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
       if (tapT) { clearTimeout(tapT); tapT = null; doLike(el, true, e); return; }
       tapT = setTimeout(() => {
         tapT = null;
-        if (video.paused) { video.play().catch(() => {}); el.querySelector(".paused-ic")?.remove(); }
-        else { video.pause(); el.insertAdjacentHTML("beforeend", `<div class="paused-ic">▶</div>`); }
+        if (video.paused) { video.play().catch(() => {}); el.querySelector(".paused-ic")?.remove(); if (el._x?.music?.url) bgmPlay(el._x.music.url, el._x.music_start || 0); }
+        else { video.pause(); BGM.pause(); el.insertAdjacentHTML("beforeend", `<div class="paused-ic">▶</div>`); }
       }, 260);
     });
     el.querySelector(".mute").onclick = () => {
       S.muted = !S.muted;
-      document.querySelectorAll(".slide video").forEach((x) => (x.muted = S.muted));
+      document.querySelectorAll(".slide").forEach((x) => { const vd = x.querySelector("video"); if (vd) vd.muted = S.muted || !!x._x?.orig_muted; });
+      BGM.muted = S.muted;
       document.querySelectorAll(".mute").forEach((x) => (x.textContent = S.muted ? "🔇" : "🔊"));
     };
     el.querySelector(".like").onclick = () => doLike(el, false);
@@ -679,6 +800,13 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
     return el;
   }
 
+  function slideMusic(el) {
+    const x = el?._x;
+    if (!x?.music?.url || el._v.locked) return bgmStop();
+    const vd = el.querySelector("video");
+    if (x.orig_muted) vd.muted = true;
+    if (!vd.paused || vd.readyState < 2) bgmPlay(x.music.url, x.music_start || 0);
+  }
   function setSrc(el, on) {
     if (!el) return;
     const video = el.querySelector("video");
@@ -693,7 +821,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
     const idx = Number(el.dataset.idx);
     st.slides.forEach((s, i) => setSrc(s, Math.abs(i - idx) <= 1 || (i === idx + 2)));
     const video = el.querySelector("video");
-    video.muted = S.muted;
+    video.muted = S.muted || !!el._x?.orig_muted;
     video.currentTime = 0;
     video.play().catch(() => {
       S.muted = true;
@@ -701,9 +829,10 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
       video.muted = true;
       video.play().catch(() => {});
     });
+    bgmStop(); slideMusic(el);
     st.swipes++;
     if (inter && Native?.showInterstitial && inter.every_n_videos && st.swipes > 1 && st.swipes % inter.every_n_videos === 0) {
-      video.pause();
+      video.pause(); BGM.pause();
       try { Native.showInterstitial(inter.unit_id_android); } catch { /* */ }
     }
     if (idx >= st.slides.length - 3) more();
@@ -724,8 +853,8 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
     }
   }, 500);
 
-  window.onAdClosed = () => { st.active?.querySelector("video")?.play().catch(() => {}); };
-  const onVis = () => { if (document.hidden) st.active?.querySelector("video")?.pause(); };
+  window.onAdClosed = () => { st.active?.querySelector("video")?.play().catch(() => {}); slideMusic(st.active); };
+  const onVis = () => { if (document.hidden) { st.active?.querySelector("video")?.pause(); BGM.pause(); } };
   document.addEventListener("visibilitychange", onVis);
   cleanup = () => {
     clearInterval(st.timer);
@@ -858,11 +987,12 @@ function doReport(v) {
 R.upload = () => {
   const maxSec = Number(setting("max_video_sec", 90));
   screen.innerHTML = `<div class="page">${header("আপলোড", false)}
-    <div class="seg" style="margin-top:0"><button class="on">🎬 ভিডিও</button><button onclick="location.hash='#newphoto'">📷 ফটো</button><button onclick="location.hash='#texts';setTimeout(()=>document.getElementById('newT')?.click(),300)">✍️ লেখা</button></div>
+    <div class="seg" style="margin-top:0"><button class="on">🎬 ভিডিও</button><button onclick="location.hash='#newphoto'">📷 ফটো</button><button onclick="location.hash='#newstory'">📖 স্টোরি</button><button onclick="location.hash='#texts';setTimeout(()=>document.getElementById('newT')?.click(),300)">✍️ লেখা</button></div>
     <label class="pick" id="pickL"><input type="file" id="vf" accept="video/*" class="hidden"><div class="ic">🎬</div>
       <b>ভিডিও বেছে নিন</b><div class="muted tiny">সর্বোচ্চ ${maxSec} সেকেন্ড · খাড়া (9:16) ভিডিও সবচেয়ে ভালো দেখায়</div></label>
     <video id="pv" class="preview hidden" controls playsinline></video>
     <div id="vframe"></div>
+    <div id="mtools" class="hidden"></div>
     <label class="lbl">ক্যাটাগরি</label>
     <select id="cat">${CATS.filter(([k]) => k && k !== "premium").map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select>
     ${S.me.account_type !== "host" && S.me.role !== "admin" && String(setting("premium_upload_hosts_only", true)) === "true"
@@ -882,7 +1012,7 @@ R.upload = () => {
   attachSuggest($("#cap"));
   if (S.tagDraft) { $("#cap").value = S.tagDraft; S.tagDraft = null; }
   const vf = $("#vf"), pv = $("#pv");
-  let file = null, duration = 0, vFrame = "orig";
+  let file = null, duration = 0, vFrame = "orig", mt = null;
   $("#prem").onchange = (e) => $("#premBox").classList.toggle("hidden", !e.target.checked);
   rpc("my_upload_quota").then((q) => {
     const left = Math.max(0, q.limit - q.used);
@@ -899,6 +1029,7 @@ R.upload = () => {
       duration = Math.round(pv.duration || 0);
       if (duration > maxSec + 1) { toast(`ভিডিও ${duration} সেকেন্ড — সর্বোচ্চ ${maxSec} সেকেন্ড`, true); file = null; $("#up").disabled = true; return; }
       $("#up").disabled = false;
+      if (!mt) { $("#mtools").classList.remove("hidden"); mt = mediaTools($("#mtools"), pv, { kind: "video" }); }
       const vw = pv.videoWidth, vh = pv.videoHeight;
       $("#msg").textContent = `${duration} সেকেন্ড · ${(file.size / 1048576).toFixed(1)}MB`;
       const fr = nearestFrame(vw, vh);
@@ -941,6 +1072,7 @@ R.upload = () => {
       const id = await rpc("create_video", { p_video_path: vPath, p_video_url: vUrl, p_thumb_url: tUrl, p_caption: $("#cap").value, p_duration: duration });
       await rpc("set_video_category", { p_id: id, p_category: $("#cat").value }).catch(() => {});
       if (vFrame !== "orig") await rpc("set_video_frame", { p_video: id, p_frame: vFrame }).catch(() => {});
+      if (mt && (mt.music || !fxEmpty(mt.fx))) await rpc("set_media_extras", { p_kind: "video", p_id: id, p_music: mt.music?.id ?? null, p_start: mt.start, p_fx: fxEmpty(mt.fx) ? null : mt.fx, p_mute: !!mt.mute }).catch(() => {});
       const prem = $("#prem").checked;
       if (prem) await rpc("set_video_premium", { p_video: id, p_premium: true, p_coins: Number($("#premC").value) || null });
       setP(100, "✅ আপলোড সম্পন্ন!");
@@ -1528,6 +1660,12 @@ R.post = async (id) => {
       ${postActions(v)}</div></div>`;
   bindPost($("#pc"), v);
   if (v.kind === "text") secureOn();
+  const { data: px } = await sb.from("posts").select("music_start,music:music_id(url,title,artist)").eq("id", v.id).maybeSingle();
+  if (px?.music?.url) {
+    $("#pc .pimg")?.insertAdjacentHTML("afterend", `<button class="mtag light" id="pmus"><span class="disc">🎵</span><span class="mq" translate="no">${esc(px.music.title)}${px.music.artist ? " · " + esc(px.music.artist) : ""}</span><b>⏸</b></button>`);
+    S.muted = false; bgmPlay(px.music.url, px.music_start || 0);
+    $("#pmus").onclick = () => { if (BGM.paused) { bgmPlay(px.music.url, px.music_start || 0); $("#pmus b").textContent = "⏸"; } else { BGM.pause(); $("#pmus b").textContent = "▶"; } };
+  }
 };
 
 // কপি/স্ক্রিনশট বন্ধ (টেক্সট আর্নিং)
@@ -1646,14 +1784,16 @@ function photoFramer(box, img, fixedRatio = 0) {
   view.onpointerup = view.onpointercancel = () => (drag = null);
   layout();
   window.addEventListener("resize", layout, { once: true });
-  return async (maxSide = 1440) => {
+  return async (maxSide = 1440, filterCss = "") => {
     const r = st.ratio || nat;
     let sw = img.naturalWidth, sh = img.naturalHeight;
     if (st.ratio) { if (sw / sh > r) sw = sh * r; else sh = sw / r; }
     const sx = (img.naturalWidth - sw) * st.x, sy = (img.naturalHeight - sh) * st.y;
     const k = Math.min(1, maxSide / Math.max(sw, sh));
     const c = document.createElement("canvas"); c.width = Math.round(sw * k); c.height = Math.round(sh * k);
-    c.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+    const cx = c.getContext("2d");
+    if (filterCss) cx.filter = filterCss;
+    cx.drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
     return await new Promise((res) => c.toBlob(res, "image/jpeg", 0.86));
   };
 }
@@ -1662,12 +1802,13 @@ R.newphoto = (contestId) => {
   screen.innerHTML = `<div class="page">${header(contestId ? "🏆 কম্পিটিশনে ছবি দিন" : "🖼️ ফটো আপলোড")}
     <label class="pick"><input type="file" id="pf" accept="image/*" class="hidden"><div class="ic">📷</div><b>ক্যামেরা বা গ্যালারি থেকে ছবি বেছে নিন</b></label>
     <div id="crop" class="crop hidden"><div class="crop-view"><img alt=""></div><div class="crop-info tiny muted"></div>${frameChips("frs", "orig")}</div>
+    <div id="mtools" class="hidden"></div>
     <label class="lbl">ক্যাপশন</label><textarea id="pcap" maxlength="500" placeholder="ছবি সম্পর্কে লিখুন…"></textarea>
     <button class="btn primary" id="pup" disabled>আপলোড করুন</button>
     <div class="progress hidden" id="pg"><div></div></div>
     <p class="muted tiny">লাইক, কমেন্ট, শেয়ার ও গিফট থেকে আয় হবে। অশ্লীল বা অন্যের ছবি দিলে পোস্ট মুছে যাবে এবং অ্যাকাউন্ট জেলে যেতে পারে।</p></div>`;
   attachSuggest($("#pcap"));
-  let render = null;
+  let render = null, mt = null;
   $("#pf").onchange = async (e) => {
     const f = e.target.files[0]; if (!f) return;
     const img = new Image(); img.src = URL.createObjectURL(f);
@@ -1676,17 +1817,20 @@ R.newphoto = (contestId) => {
     const pk = $("#pf").closest(".pick"); pk.classList.add("pick-sm"); pk.querySelector("b").textContent = "📷 অন্য ছবি বেছে নিন";
     $("#crop .crop-view img").src = img.src;
     render = photoFramer($("#crop"), img);
+    $("#mtools").classList.remove("hidden");
+    mt = mediaTools($("#mtools"), $("#crop .crop-view img"), { kind: "photo", st: mt ?? {} });
     $("#pup").disabled = false;
   };
   $("#pup").onclick = async (e) => {
     if (!render) return;
     e.target.disabled = true; $("#pg").classList.remove("hidden");
     try {
-      const blob = await render(1440);
+      const blob = await render(1440, mt ? fxCss(mt.fx) : "");
       const path = `${S.me.id}/${Date.now()}.jpg`;
       await xhrUpload("photos", path, blob, "image/jpeg", (x) => ($("#pg").firstElementChild.style.width = Math.round(x * 100) + "%"));
       const url = sb.storage.from("photos").getPublicUrl(path).data.publicUrl;
       const id = await rpc("create_post", { p_kind: "photo", p_body: $("#pcap").value, p_image_path: path, p_image_url: url, p_category: null, p_bg: null, p_contest: contestId ? Number(contestId) : null });
+      if (mt?.music) await rpc("set_media_extras", { p_kind: "post", p_id: id, p_music: mt.music.id, p_start: mt.start, p_fx: null, p_mute: false }).catch(() => {});
       toast("✅ ছবি পোস্ট হয়েছে");
       location.replace(contestId ? "#contest/" + contestId : "#post/" + id);
     } catch (er) { toast(errMsg(er), true); e.target.disabled = false; }
@@ -1773,9 +1917,24 @@ R.creator = async (days = "30") => {
 };
 
 // ---------------- ভিডিও ডাউনলোড (ওয়াটারমার্কসহ, APK ≥ 1.0.8) ----------------
-function downloadVideo(v) {
-  if (!v.video_url) return;
+async function downloadVideo(v) {
   if (!Native?.downloadVideo) return toast("ডাউনলোড করতে নতুন অ্যাপ (APK) ইনস্টল করুন", true);
+  if (v.is_premium && v.user_id !== S.me.id && !v._dlPaid) {
+    if (v.locked) return toast("আগে ভিডিওটি আনলক করুন, তারপর ডাউনলোড করুন", true);
+    const fee = Number(setting("premium_download_coins", 0));
+    const owned = await sb.from("premium_downloads").select("video_id").eq("user_id", S.me.id).eq("video_id", v.id).maybeSingle().then((r) => !!r.data).catch(() => false);
+    if (!owned && !confirm(`👑 প্রিমিয়াম ভিডিও ডাউনলোড করতে 🪙 ${n(fee)} কয়েন লাগবে। ডাউনলোড করবেন?`)) return;
+    try {
+      const r = await rpc("premium_download", { p_video: v.id });
+      v.video_url = r.video_url; v._dlPaid = true;
+      if (r.charged) toast(`🪙 ${n(r.charged)} কয়েন কাটা হয়েছে`);
+    } catch (er) {
+      toast(errMsg(er), true);
+      if (String(er.message).includes("INSUFFICIENT_COINS")) setTimeout(() => (location.hash = "#cashin"), 900);
+      return;
+    }
+  }
+  if (!v.video_url) return;
   let bar = $("#dlbar");
   if (!bar) {
     bar = document.createElement("div"); bar.id = "dlbar"; bar.className = "dlbar";
@@ -1796,6 +1955,228 @@ function downloadVideo(v) {
   show("⬇️ ডাউনলোড শুরু হচ্ছে…", 0);
   Native.downloadVideo(v.video_url, String(setting("watermark_text", "Reels Enjoy") || "Reels Enjoy"), v.username || "", "");
 }
+
+// ---------------- 📖 স্টোরি ----------------
+// হোম পেজের স্টোরি সারি
+async function storyRow(box) {
+  if (!box || setting("stories_enabled", true) === false) return;
+  const rows = await rpc("story_feed", { p_limit: 40 }).catch(() => []);
+  S.storyQueue = rows.map((r) => r.user_id);
+  const mine = rows.find((r) => r.is_me);
+  box.innerHTML = `<a class="st-it me" href="${mine ? `#story/${S.me.id}` : "#newstory"}"><span class="st-ring ${mine ? (mine.unseen ? "new" : "seen") : "none"}">${avatar(S.me)}</span>
+      <b class="st-plus" onclick="event.preventDefault();event.stopPropagation();location.hash='#newstory'">＋</b><small>আপনার স্টোরি</small></a>
+    ${rows.filter((r) => !r.is_me).map((r) => `<a class="st-it" href="#story/${r.user_id}"><span class="st-ring ${r.unseen ? "new" : "seen"} ${r.account_type === "host" ? "host" : ""}">${avatar(r)}</span><small translate="no">${esc(r.full_name || r.username)}</small></a>`).join("")}`;
+  box.classList.remove("hidden");
+}
+
+// স্টোরি দেখা: #story/<userId>
+R.story = async (uid) => {
+  screen.classList.add("full");
+  screen.innerHTML = `<div class="stv"><div class="spinner" style="margin-top:40vh"></div></div>`;
+  try { Native?.setDarkBars?.(true); } catch { /* */ }
+  document.body.classList.add("story-open");
+  cleanup = () => document.body.classList.remove("story-open");
+  const [list, { data: p }] = await Promise.all([rpc("user_stories", { p_user: uid }).catch(() => []), sb.from("profiles").select("id,username,full_name,avatar_url,account_type").eq("id", uid).maybeSingle()]);
+  if (!list.length || !p) { toast("কোনো স্টোরি নেই", true); history.back(); return; }
+  const mine = uid === S.me.id;
+  let i = Math.max(0, list.findIndex((x) => !x.seen)); if (mine) i = 0;
+  let timer = null, startT = 0, dur = 5000, elapsed = 0, paused = false, gone = false;
+  screen.innerHTML = `<div class="stv">
+    <div class="stv-bars">${list.map(() => `<i><b></b></i>`).join("")}</div>
+    <div class="stv-head"><a href="#u/${p.id}">${avatar(p)}<span><b translate="no">${esc(p.full_name || p.username)}</b>${p.account_type === "host" ? " 👑" : ""}<small id="stAgo"></small></span></a>
+      <button class="stv-x" id="stX">✕</button></div>
+    <div class="stv-media" id="stM"></div>
+    <div class="stv-mus hidden" id="stMu"></div>
+    <div class="stv-tap l" id="tapL"></div><div class="stv-tap r" id="tapR"></div>
+    <div class="stv-foot">${mine ? `<button class="stv-btn" id="stEye">👁 <span id="stVc">0</span></button><button class="stv-btn" id="stDel">🗑️ মুছুন</button><a class="stv-btn" href="#newstory">＋ নতুন</a>`
+      : `<form id="stRf"><input id="stR" placeholder="উত্তর দিন…" maxlength="300" autocomplete="off"><button type="button" class="stv-heart" id="stH">❤️</button><button class="stv-send">➤</button></form>`}</div></div>`;
+  const bars = [...screen.querySelectorAll(".stv-bars b")];
+  const media = $("#stM");
+  const stop = () => { clearInterval(timer); timer = null; const v = media.querySelector("video"); v?.pause(); BGM.pause(); };
+  const close = () => { if (gone) return; gone = true; stop(); bgmStop(); history.back(); };
+  const nextUser = () => {
+    const q = S.storyQueue ?? []; const k = q.indexOf(uid);
+    const nx = k >= 0 ? q[k + 1] : null;
+    if (nx) { gone = true; stop(); location.replace(`#story/${nx}`); } else close();
+  };
+  const tick = () => {
+    if (paused) return;
+    elapsed = Date.now() - startT;
+    const v = media.querySelector("video");
+    const pr = v && v.duration ? v.currentTime / Math.min(v.duration, Number(setting("story_max_sec", 60))) : elapsed / dur;
+    bars[i].style.width = Math.min(100, pr * 100) + "%";
+    if (pr >= 1) go(1);
+  };
+  const show = () => {
+    stop();
+    const x = list[i];
+    bars.forEach((b, k) => (b.style.width = k < i ? "100%" : "0%"));
+    $("#stAgo").textContent = " · " + ago(x.created_at);
+    const flt = x.fx ? `filter:${fxCss(x.fx)}` : "";
+    media.innerHTML = x.kind === "text" ? `<div class="stv-text" style="background:${BGS[x.bg] ?? BGS.g1}" translate="no"><div>${rich(x.body)}</div></div>`
+      : x.kind === "photo" ? `<img src="${esc(x.media_url)}" alt="" style="${flt}">`
+      : `<video src="${esc(x.media_url)}" playsinline webkit-playsinline ${x.thumb_url ? `poster="${esc(x.thumb_url)}"` : ""} style="${flt}"></video>${x.body ? `<div class="stv-cap" translate="no">${rich(x.body)}</div>` : ""}`;
+    $("#stMu").classList.toggle("hidden", !x.music_url);
+    if (x.music_url) $("#stMu").innerHTML = `<span class="disc">🎵</span><span class="mq" translate="no">${esc(x.music_title)}${x.music_artist ? " · " + esc(x.music_artist) : ""}</span>`;
+    if (mine) $("#stVc").textContent = n(x.views_count ?? 0);
+    else if (!x.seen) { x.seen = true; rpc("view_story", { p_id: x.id }).catch(() => {}); }
+    dur = x.kind === "text" ? Math.min(12000, 4000 + (x.body?.length ?? 0) * 60) : 6000;
+    S.muted = false;
+    const v = media.querySelector("video");
+    if (v) {
+      v.muted = !!x.music_url;
+      v.play().catch(() => { v.muted = true; v.play().catch(() => {}); });
+      v.onended = () => go(1);
+    }
+    if (x.music_url) bgmPlay(x.music_url, x.music_start || 0); else bgmStop();
+    startT = Date.now(); elapsed = 0;
+    timer = setInterval(tick, 80);
+  };
+  const go = (d) => {
+    i += d;
+    if (i < 0) { i = 0; return show(); }
+    if (i >= list.length) return mine ? close() : nextUser();
+    show();
+  };
+  const pause = (on) => {
+    paused = on; const v = media.querySelector("video");
+    if (on) { v?.pause(); BGM.pause(); } else { startT = Date.now() - elapsed; v?.play().catch(() => {}); if (list[i].music_url) bgmPlay(list[i].music_url, list[i].music_start || 0); }
+  };
+  let holdT = null, held = false;
+  ["tapL", "tapR"].forEach((idn) => {
+    const el = $("#" + idn);
+    el.onpointerdown = () => { held = false; holdT = setTimeout(() => { held = true; pause(true); }, 220); };
+    el.onpointerup = () => { clearTimeout(holdT); if (held) { pause(false); return; } go(idn === "tapL" ? -1 : 1); };
+    el.onpointercancel = () => { clearTimeout(holdT); if (held) pause(false); };
+  });
+  $("#stX").onclick = close;
+  $("#stR")?.addEventListener("focus", () => pause(true));
+  $("#stR")?.addEventListener("blur", () => pause(false));
+  const reply = async (text) => {
+    try { await rpc("send_message", { p_to: uid, p_body: `📖 স্টোরির উত্তর: ${text}` }); toast("✅ পাঠানো হয়েছে"); }
+    catch (er) { toast(errMsg(er), true); }
+  };
+  $("#stRf")?.addEventListener("submit", (e) => { e.preventDefault(); const t = $("#stR").value.trim(); if (!t) return; $("#stR").value = ""; $("#stR").blur(); reply(t); });
+  $("#stH")?.addEventListener("click", () => { reply("❤️"); const h = document.createElement("div"); h.className = "big-heart"; h.textContent = "❤️"; screen.querySelector(".stv").appendChild(h); setTimeout(() => h.remove(), 900); });
+  $("#stDel")?.addEventListener("click", async () => {
+    pause(true);
+    if (!confirm("এই স্টোরি মুছবেন?")) return pause(false);
+    try { await rpc("delete_story", { p_id: list[i].id }); list.splice(i, 1); toast("মুছে ফেলা হয়েছে"); if (!list.length) return close(); i = Math.min(i, list.length - 1); screen.querySelectorAll(".stv-bars i")[0]?.remove(); bars.splice(0, 1); show(); }
+    catch (er) { toast(errMsg(er), true); pause(false); }
+  });
+  $("#stEye")?.addEventListener("click", async () => {
+    pause(true);
+    const rows = await rpc("story_viewers", { p_id: list[i].id }).catch(() => []);
+    const b = sheet(`<h3>👁 যারা দেখেছে (${n(rows.length)})</h3><div class="list">${rows.length ? rows.map((r) => `<a class="li" href="#u/${r.user_id}" style="display:flex;gap:10px;align-items:center">${avatar(r)}<span style="flex:1"><b translate="no">${esc(r.full_name || r.username)}</b><div class="tiny muted">${ago(r.viewed_at)}</div></span></a>`).join("") : `<div class="empty">এখনো কেউ দেখেনি</div>`}</div>`);
+    void b;
+    const ob = new MutationObserver(() => { if ($("#sheet").classList.contains("hidden")) { ob.disconnect(); if (!gone && location.hash.startsWith("#story/")) pause(false); } });
+    ob.observe($("#sheet"), { attributes: true, attributeFilter: ["class"] });
+  });
+  const onVis = () => { if (document.hidden) pause(true); };
+  document.addEventListener("visibilitychange", onVis);
+  cleanup = () => { gone = true; stop(); document.body.classList.remove("story-open"); document.removeEventListener("visibilitychange", onVis); try { Native?.setDarkBars?.(false); } catch { /* */ } };
+  show();
+};
+
+// নতুন স্টোরি: #newstory
+R.newstory = () => {
+  if (setting("stories_enabled", true) === false) { screen.innerHTML = `<div class="page">${header("📖 স্টোরি")}<div class="empty">স্টোরি এখন বন্ধ আছে</div></div>`; return; }
+  const maxSec = Number(setting("story_max_sec", 60));
+  screen.innerHTML = `<div class="page">${header("📖 নতুন স্টোরি")}
+    <div class="seg" style="margin-top:0"><button class="on" data-k="media">📷 ছবি / 🎬 ভিডিও</button><button data-k="text">✍️ লেখা</button></div>
+    <label class="pick" id="sPick"><input type="file" id="sf" accept="image/*,video/*" class="hidden"><div class="ic">📷</div><b>ক্যামেরা বা গ্যালারি থেকে বেছে নিন</b>
+      <div class="muted tiny">ছবি বা ${maxSec} সেকেন্ড পর্যন্ত ভিডিও · ২৪ ঘণ্টা পর নিজে থেকে মুছে যাবে</div></label>
+    <div class="st-prev hidden" id="sPrev"><div class="st-stage" id="sStage"></div></div>
+    <div id="sTextBox" class="hidden"><div class="st-prev"><div class="st-stage"><div class="stv-text" id="sTP" style="background:${BGS.g1}"><textarea id="sTT" maxlength="300" placeholder="কিছু লিখুন…"></textarea></div></div></div>
+      <div class="bgs" id="sBgs">${Object.entries(BGS).map(([k, v]) => `<button data-bg="${k}" style="background:${v}" class="${k === "g1" ? "on" : ""}"></button>`).join("")}</div></div>
+    <div id="sCapW" class="hidden"><label class="lbl">স্টোরিতে লেখা (ঐচ্ছিক)</label><input id="sCap" maxlength="120" placeholder="ছবির উপর লেখা দেখাবে…"></div>
+    <div id="mtools" class="hidden"></div>
+    <button class="btn primary" id="sUp" disabled>📖 স্টোরি দিন</button>
+    <div class="progress hidden" id="pg"><div></div></div>
+    <p class="muted tiny">অশ্লীল বা অন্যের কপিরাইট করা কিছু দিলে অ্যাকাউন্ট জেলে যেতে পারে।</p></div>`;
+  let mode = "media", file = null, kind = null, duration = 0, img = null, bg = "g1", mt = null;
+  const prevBox = $("#sStage");
+  const setMode = (m) => {
+    mode = m;
+    screen.querySelectorAll(".seg [data-k]").forEach((b) => b.classList.toggle("on", b.dataset.k === m));
+    $("#sPick").classList.toggle("hidden", m !== "media"); $("#sPrev").classList.toggle("hidden", m !== "media" || !file);
+    $("#sCapW").classList.toggle("hidden", m !== "media" || !file); $("#sTextBox").classList.toggle("hidden", m !== "text");
+    $("#mtools").classList.toggle("hidden", m === "media" && !file);
+    if (m === "text") { if (!mt) mt = mediaTools($("#mtools"), $("#sTP"), { kind: "story" }); $("#mtools").querySelector(".lbl")?.classList.add("hidden"); $("#mtF")?.classList.add("hidden"); $("#mtools .fx-adj")?.classList.add("hidden"); }
+    $("#sUp").disabled = m === "media" ? !file : !$("#sTT").value.trim();
+  };
+  screen.querySelectorAll(".seg [data-k]").forEach((b) => (b.onclick = () => setMode(b.dataset.k)));
+  $("#sTT").oninput = () => { $("#sUp").disabled = !$("#sTT").value.trim(); };
+  attachSuggest($("#sTT")); attachSuggest($("#sCap"));
+  $("#sBgs").onclick = (e) => { const b = e.target.closest("[data-bg]"); if (!b) return; bg = b.dataset.bg; $("#sTP").style.background = BGS[bg]; $("#sBgs").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); };
+  $("#sCap").oninput = () => { const c = prevBox.querySelector(".stv-cap"); if (c) c.textContent = $("#sCap").value; };
+  $("#sf").onchange = async () => {
+    const f = $("#sf").files[0]; if (!f) return;
+    file = null; img = null;
+    const isV = (f.type || "").startsWith("video");
+    if (isV && f.size > 50 * 1048576) return toast(`ফাইল ${(f.size / 1048576).toFixed(0)}MB — সর্বোচ্চ 50MB`, true);
+    const url = URL.createObjectURL(f);
+    if (isV) {
+      prevBox.innerHTML = `<video src="${url}" playsinline loop controls></video><div class="stv-cap"></div>`;
+      const v = prevBox.querySelector("video");
+      await new Promise((r) => { v.onloadedmetadata = r; setTimeout(r, 4000); });
+      duration = Math.round(v.duration || 0);
+      if (duration > maxSec + 1) { toast(`ভিডিও ${duration} সেকেন্ড — স্টোরিতে সর্বোচ্চ ${maxSec} সেকেন্ড`, true); prevBox.innerHTML = ""; return; }
+      kind = "video";
+    } else {
+      img = new Image(); img.src = url;
+      try { await img.decode(); } catch { return toast("ছবিটি খোলা যায়নি", true); }
+      prevBox.innerHTML = `<img src="${url}" alt=""><div class="stv-cap"></div>`;
+      kind = "photo";
+    }
+    file = f;
+    $("#sPick").classList.add("pick-sm"); $("#sPick b").textContent = "📷 অন্য ছবি/ভিডিও বেছে নিন";
+    $("#mtools").classList.remove("hidden");
+    mt = mediaTools($("#mtools"), prevBox.querySelector("img,video"), { kind: kind === "video" ? "video" : "photo", st: mt ?? {} });
+    prevBox.querySelector(".stv-cap").textContent = $("#sCap").value;
+    setMode("media");
+  };
+  $("#sUp").onclick = async (e) => {
+    const btn = e.currentTarget; btn.disabled = true;
+    const pg = $("#pg"); pg.classList.remove("hidden");
+    const setP = (x) => (pg.firstElementChild.style.width = Math.round(x * 100) + "%");
+    try {
+      const stamp = Date.now(), fx = mt && !fxEmpty(mt.fx) ? mt.fx : null;
+      let args = { p_kind: "text", p_media_url: null, p_media_path: null, p_thumb_url: null, p_body: null, p_bg: null, p_music: mt?.music?.id ?? null, p_music_start: mt?.start ?? 0, p_fx: null, p_duration: null };
+      if (mode === "text") { args.p_body = $("#sTT").value.trim(); args.p_bg = bg; }
+      else if (kind === "photo") {
+        const k = Math.min(1, 1440 / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement("canvas"); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+        const cx = c.getContext("2d"); if (fx) cx.filter = fxCss(fx); cx.drawImage(img, 0, 0, c.width, c.height); cx.filter = "none";
+        const cap = $("#sCap").value.trim();
+        if (cap) {
+          const fs = Math.round(c.width / 16); cx.font = `700 ${fs}px sans-serif`; cx.textAlign = "center";
+          const y = c.height * 0.82, w = Math.min(c.width * 0.9, cx.measureText(cap).width + fs);
+          cx.fillStyle = "rgba(0,0,0,.45)"; cx.fillRect((c.width - w) / 2, y - fs * 1.1, w, fs * 1.5);
+          cx.fillStyle = "#fff"; cx.fillText(cap, c.width / 2, y, c.width * 0.88);
+        }
+        const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.86));
+        const path = `${S.me.id}/stories/${stamp}.jpg`;
+        await xhrUpload("photos", path, blob, "image/jpeg", setP);
+        Object.assign(args, { p_kind: "photo", p_media_path: path, p_media_url: sb.storage.from("photos").getPublicUrl(path).data.publicUrl });
+      } else {
+        const v = prevBox.querySelector("video");
+        const thumb = await makeThumb(v);
+        const ext = ((file.name || "").split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "") || "mp4";
+        const path = `${S.me.id}/stories/${stamp}.${ext}`;
+        await xhrUpload("videos", path, file, file.type || "video/mp4", (x) => setP(x * 0.95));
+        let tUrl = null;
+        if (thumb) { const tp = `${S.me.id}/stories/${stamp}.jpg`; await xhrUpload("thumbs", tp, thumb, "image/jpeg", () => {}); tUrl = sb.storage.from("thumbs").getPublicUrl(tp).data.publicUrl; }
+        Object.assign(args, { p_kind: "video", p_media_path: path, p_media_url: sb.storage.from("videos").getPublicUrl(path).data.publicUrl, p_thumb_url: tUrl,
+          p_body: $("#sCap").value.trim() || null, p_fx: fx, p_duration: duration });
+      }
+      await rpc("create_story", args);
+      setP(1); bgmStop(); toast("✅ স্টোরি দেওয়া হয়েছে");
+      location.replace(`#story/${S.me.id}`);
+    } catch (er) { toast(errMsg(er), true); btn.disabled = false; }
+  };
+  setMode("media");
+};
 
 // ---------------- HOME (Discover grid) ----------------
 const LANGS = [["Bengali", "বাংলা"], ["English", "English"], ["Hindi", "हिन्दी"], ["Urdu", "اردو"], ["Arabic", "العربية"], ["Nepali", "नेपाली"]];
@@ -1825,6 +2206,7 @@ R.home = (tab = "video") => {
       </div>
     </div>
     ${notice() ? `<div style="padding:0 10px">${notice()}</div>` : ""}
+    ${tab === "video" ? `<div class="st-row hidden" id="stRow"></div>` : ""}
     ${tab === "video" || tab === "photo" ? `<div class="trend-row hidden" id="trend"></div>` : ""}
     <div class="disc-grid"><div class="disc-col" id="c0"></div><div class="disc-col" id="c1"></div></div>
     <div id="dmore" style="padding:10px"></div>
@@ -1832,6 +2214,7 @@ R.home = (tab = "video") => {
   const save = () => { try { localStorage.setItem("disc", JSON.stringify(S.disc)); } catch { /* */ } };
   $("#fLang").onchange = (e) => { S.disc.lang = e.target.value; save(); R.home(tab); };
   $("#fCountry").onchange = (e) => { S.disc.country = e.target.value; save(); R.home(tab); };
+  storyRow($("#stRow"));
   if ($("#trend")) rpc("trending_tags", { p_days: 7, p_limit: 12 }).then((tr) => {
     if (!tr?.length || !$("#trend")) return;
     $("#trend").innerHTML = `<a class="tr-all" href="#tags">🔥 ট্রেন্ডিং</a>${tr.map((t) => `<a href="#tag/${encodeURIComponent(t.tag)}" translate="no">#${esc(t.tag)}</a>`).join("")}`;
@@ -2173,12 +2556,16 @@ R.u = async (id) => {
   if (!p) { screen.innerHTML = `<div class="page"><div class="empty">ইউজার পাওয়া যায়নি</div></div>`; return; }
   if (mine) S.me = p;
   let following = !!fl.data;
+  sb.from("stories").select("id", { count: "exact", head: true }).eq("user_id", id).eq("status", "active").gt("expires_at", new Date().toISOString()).then(({ count }) => {
+    const av = $("#pAv"); if (!av || !count) return;
+    av.classList.add("has-story"); av.onclick = () => (location.hash = `#story/${id}`);
+  });
   const host = p.account_type === "host", seller = host && p.coin_seller;
   const grid = (list) => list.map((v) => `<a href="#watch/${id}/${v.id}">${v.thumb_url ? `<img src="${esc(v.thumb_url)}" loading="lazy" alt="">` : ""}<span class="vc">▶ ${n(v.views_count)}</span></a>`).join("");
   const lv = levelOf(p.followers_count);
   screen.innerHTML = `<div class="cover${seller ? " seller" : host ? " host" : ""}" ${p.cover_url ? `style="background-image:url('${esc(p.cover_url)}')"` : ""}><button class="back" onclick="history.back()">←</button></div>
     <div class="page${host ? " hostpage" : ""}${seller ? " sellerpage" : ""}" style="padding-top:0">
-    <div class="prof${host ? " host" : ""}${seller ? " seller" : ""}">${host ? `<div class="avwrap">${avatar(p)}<span class="crown">👑</span></div>` : avatar(p)}<h2 translate="no">${esc(p.full_name ?? "")} ${p.is_verified ? "✔️" : ""}</h2><div class="muted">@${esc(p.username)}</div>
+    <div class="prof${host ? " host" : ""}${seller ? " seller" : ""}">${host ? `<div class="avwrap" id="pAv">${avatar(p)}<span class="crown">👑</span></div>` : `<div class="avplain" id="pAv">${avatar(p)}</div>`}<h2 translate="no">${esc(p.full_name ?? "")} ${p.is_verified ? "✔️" : ""}</h2><div class="muted">@${esc(p.username)}</div>
       <div class="rbadges">${host ? `<span class="rbadge host">👑 HOST</span>` : `<span class="rbadge user">👤 ইউজার</span>`}${seller ? `<span class="rbadge seller">💰 কয়েন সেলার</span>` : ""}<span class="rbadge lv">Lv${lv}</span>${p.country_code ? `<span class="rbadge">${flagOf(p.country_code)}</span>` : ""}</div>
       <div class="idtag" data-copy="${p.user_no}">ID: ${p.user_no} ⧉</div>
       <div class="counts"><div><b>${n(p.videos_count)}</b><span>ভিডিও</span></div><div><b id="fc">${n(p.followers_count)}</b><span>ফলোয়ার</span></div><div><b>${n(p.following_count)}</b><span>ফলোয়িং</span></div></div>

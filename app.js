@@ -996,6 +996,7 @@ routes.rules = async (kind = "user") => {
       ${row("premium_default_coins", "প্রিমিয়াম ভিডিও দেখার ডিফল্ট কয়েন", "num")}
       ${row("premium_creator_pct", "প্রিমিয়াম আনলকের কত % ক্রিয়েটর পাবে", "num")}
       ${row("premium_upload_hosts_only", "শুধু হোস্টরা প্রিমিয়াম ভিডিও দিতে পারবে", "bool")}
+      ${row("premium_download_coins", "প্রিমিয়াম ভিডিও ডাউনলোড করতে কত কয়েন লাগবে (০ = প্রিমিয়াম ডাউনলোড বন্ধ; ক্রিয়েটর প্রিমিয়ামের % পাবে)", "num")}
       ${row("premium_notice", "প্রিমিয়াম আপলোডের নোটিশ (হোস্টরা আপলোডের সময় দেখবে)", "text")}
       ${row("cashin_notice", "কয়েন কেনার পেজের নোটিশ (সব ইউজার নম্বরের নিচে দেখবে)", "text")}
     </div>
@@ -1024,6 +1025,11 @@ routes.rules = async (kind = "user") => {
       ${row("text_max_lines", "লেখায় সর্বোচ্চ লাইন", "num")}
       ${row("text_max_chars", "লেখায় সর্বোচ্চ অক্ষর", "num")}
       ${row("text_notice", "টেক্সট আর্নিং নোটিশ", "text")}
+    </div>
+    <h2>📖 স্টোরি</h2><div class="list">
+      ${row("stories_enabled", "স্টোরি চালু", "bool")}
+      ${row("story_daily_limit", "একজন দিনে কয়টি স্টোরি দিতে পারবে", "num")}
+      ${row("story_max_sec", "ভিডিও স্টোরির সর্বোচ্চ সেকেন্ড", "num")}
     </div>
     <h2>💬 মেসেজ</h2><div class="list">
       ${row("dm_enabled", "ইউজাররা একে অপরকে মেসেজ দিতে পারবে", "bool")}
@@ -1115,6 +1121,83 @@ routes.hostRules = async () => {
     const value = kind === "bool" ? raw === "true" : kind === "taka" ? Math.round(Number(raw) * 100) : Math.round(Number(raw));
     if (kind !== "bool" && (isNaN(value) || value < 0 || (kind === "pct" && value > 100))) return toast("সঠিক সংখ্যা দিন", true);
     await act(() => rpc("admin_set_setting", { p_key: it.dataset.key, p_value: value }), "সেভ হয়েছে");
+  };
+};
+
+// ---------- 🎵 মিউজিক লাইব্রেরি ----------
+routes.music = async () => {
+  view.innerHTML = `<h1>🎵 মিউজিক</h1>
+    <div class="card" style="border-color:#7c2d12;background:#2a1408"><b>⚠️ কপিরাইট সতর্কতা</b>
+      <p class="small" style="margin:6px 0 0">শুধু সেই গান দিন যেগুলোর অনুমতি আপনার আছে: নিজের বানানো, কিনে নেওয়া লাইসেন্স, বা রয়্যালটি-ফ্রি (যেমন Pixabay Music, YouTube Audio Library-র "No attribution" গান)। জনপ্রিয় সিনেমা/শিল্পীর গান অনুমতি ছাড়া দিলে Google Play অ্যাপ সরিয়ে দিতে পারে এবং কপিরাইট মামলা হতে পারে।</p></div>
+    <div class="card" style="max-width:560px"><b>➕ নতুন গান যোগ করুন</b>
+      <label>গানের ফাইল (MP3/M4A, সর্বোচ্চ 15MB)<input type="file" id="mf" accept="audio/*"></label>
+      <audio id="ma" controls class="hidden" style="width:100%;margin-top:6px"></audio>
+      <label>গানের নাম<input id="mt" maxlength="80" placeholder="যেমন: সুন্দর সকাল"></label>
+      <label>শিল্পী (ঐচ্ছিক)<input id="mar" maxlength="60"></label>
+      <label>ক্যাটাগরি (ঐচ্ছিক)<input id="mc" maxlength="30" list="mcats" placeholder="যেমন: রোমান্টিক, মজার, দুঃখের, ইসলামিক"><datalist id="mcats"></datalist></label>
+      <button class="btn primary" id="mup">আপলোড করুন</button><div id="mpg" class="muted small"></div></div>
+    <h2>গানের তালিকা</h2><div id="mlst" class="table-wrap"><div class="empty">লোড হচ্ছে…</div></div>`;
+  let dur = null;
+  $("#mf").onchange = () => {
+    const f = $("#mf").files[0]; if (!f) return;
+    const a = $("#ma"); a.src = URL.createObjectURL(f); a.classList.remove("hidden");
+    a.onloadedmetadata = () => (dur = Math.round(a.duration || 0));
+    if (!$("#mt").value) $("#mt").value = f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").slice(0, 80);
+  };
+  $("#mup").onclick = async (e) => {
+    const f = $("#mf").files[0]; if (!f) return toast("গানের ফাইল বাছুন", true);
+    if (f.size > 15 * 1048576) return toast("ফাইল 15MB-এর বেশি", true);
+    if (!$("#mt").value.trim()) return toast("গানের নাম দিন", true);
+    e.target.disabled = true; $("#mpg").textContent = "আপলোড হচ্ছে…";
+    try {
+      const ext = (f.name.split(".").pop() || "mp3").toLowerCase().replace(/[^a-z0-9]/g, "") || "mp3";
+      const path = `${Date.now()}.${ext}`;
+      const { error } = await sb.storage.from("music").upload(path, f, { contentType: f.type || "audio/mpeg", upsert: false });
+      if (error) throw error;
+      const url = sb.storage.from("music").getPublicUrl(path).data.publicUrl;
+      await rpc("admin_save_music", { p_id: null, p_title: $("#mt").value, p_artist: $("#mar").value, p_category: $("#mc").value, p_url: url, p_path: path, p_duration: dur, p_active: true, p_sort: 0 });
+      toast("✅ গান যোগ হয়েছে"); routes.music();
+    } catch (er) { toast(errMsg(er), true); e.target.disabled = false; $("#mpg").textContent = ""; }
+  };
+  const { data } = await sb.from("music").select("*").order("sort").order("id", { ascending: false });
+  const rows = data ?? [];
+  $("#mcats").innerHTML = [...new Set(rows.map((r) => r.category).filter(Boolean))].map((c) => `<option value="${esc(c)}">`).join("");
+  $("#mlst").innerHTML = rows.length ? `<table><tr><th>গান</th><th>ক্যাটাগরি</th><th class="num">সময়</th><th class="num">ব্যবহার</th><th>অবস্থা</th><th></th></tr>
+    ${rows.map((m) => `<tr><td><b translate="no">${esc(m.title)}</b><br><span class="muted small" translate="no">${esc(m.artist ?? "")}</span><audio src="${esc(m.url)}" controls preload="none" style="width:200px;height:32px;display:block;margin-top:4px"></audio></td>
+      <td translate="no">${esc(m.category ?? "—")}</td><td class="num">${m.duration_sec ? `${Math.floor(m.duration_sec / 60)}:${String(m.duration_sec % 60).padStart(2, "0")}` : "—"}</td><td class="num">${num(m.uses_count)}</td>
+      <td>${m.active ? '<span class="pill approved">চালু</span>' : '<span class="pill rejected">বন্ধ</span>'}</td>
+      <td style="white-space:nowrap"><button class="btn sm" data-t="${m.id}">${m.active ? "বন্ধ" : "চালু"}</button> <button class="btn sm bad" data-d="${m.id}">মুছুন</button></td></tr>`).join("")}</table>`
+    : `<div class="empty">এখনো কোনো গান নেই — উপর থেকে যোগ করুন</div>`;
+  $("#mlst").onclick = async (e) => {
+    const t = e.target.closest("[data-t]"), d = e.target.closest("[data-d]");
+    if (t) { const m = rows.find((x) => x.id == t.dataset.t); try { await act(() => rpc("admin_save_music", { p_id: m.id, p_title: m.title, p_artist: m.artist, p_category: m.category, p_url: null, p_path: null, p_duration: null, p_active: !m.active, p_sort: m.sort }), "হয়েছে"); routes.music(); } catch { /* */ } }
+    if (d) {
+      if (!confirm("গানটি মুছবেন?")) return;
+      const m = rows.find((x) => x.id == d.dataset.d);
+      try { const r = await rpc("admin_delete_music", { p_id: m.id });
+        if (r === "deleted" && m.path) await sb.storage.from("music").remove([m.path]).catch(() => {});
+        toast(r === "deleted" ? "মুছে ফেলা হয়েছে" : "এই গান ব্যবহার হয়েছে, তাই শুধু বন্ধ করা হলো"); routes.music(); } catch (er) { toast(errMsg(er), true); }
+    }
+  };
+};
+
+// ---------- 📖 স্টোরি ----------
+routes.stories = async () => {
+  view.innerHTML = `<h1>📖 স্টোরি</h1><p class="muted small">গত ৩ দিনের স্টোরি। স্টোরি ২৪ ঘণ্টা পর নিজে থেকে লুকিয়ে যায়। নিয়ম ভাঙলে মুছে দিন।</p>
+    <div id="sl" class="videos"><div class="empty">লোড হচ্ছে…</div></div>`;
+  const rows = await rpc("admin_stories", { p_limit: 200 }).catch(() => []);
+  const BG = { g1: "linear-gradient(135deg,#8b5cf6,#ec4899)", g2: "linear-gradient(135deg,#0ea5e9,#6366f1)", g3: "linear-gradient(135deg,#f59e0b,#ef4444)" };
+  $("#sl").innerHTML = rows.length ? rows.map((x) => `<div class="vcard" data-id="${x.id}">
+      ${x.kind === "photo" ? `<img src="${esc(x.media_url)}" style="width:100%;aspect-ratio:9/16;object-fit:cover" loading="lazy">`
+        : x.kind === "video" ? `<video src="${esc(x.media_url)}" ${x.thumb_url ? `poster="${esc(x.thumb_url)}"` : ""} preload="none" controls playsinline style="width:100%;aspect-ratio:9/16"></video>`
+        : `<div style="aspect-ratio:9/16;display:grid;place-items:center;padding:12px;text-align:center;color:#fff;font-weight:700;background:${BG[x.bg] ?? BG.g1}" translate="no">${esc(x.body ?? "")}</div>`}
+      <div class="body"><div><a href="#lookup/${x.user_no}">@${esc(x.username)}</a> ${x.status === "removed" ? '<span class="pill rejected">মুছে ফেলা</span>' : new Date(x.expires_at) < Date.now() ? '<span class="pill">মেয়াদ শেষ</span>' : '<span class="pill approved">চলছে</span>'}</div>
+        ${x.body && x.kind !== "text" ? `<div class="cap" translate="no">${esc(x.body)}</div>` : ""}
+        <div class="muted small">👁 ${num(x.views)} · ${dt(x.created_at)}${x.music ? ` · 🎵 <span translate="no">${esc(x.music)}</span>` : ""}</div>
+        ${x.status !== "removed" ? `<button class="btn sm bad" data-del="${x.id}">মুছুন</button>` : ""}</div></div>`).join("") : `<div class="empty">কোনো স্টোরি নেই</div>`;
+  $("#sl").onclick = async (e) => {
+    const b = e.target.closest("[data-del]"); if (!b || !confirm("স্টোরিটি মুছবেন?")) return;
+    try { await act(() => rpc("delete_story", { p_id: Number(b.dataset.del) }), "মুছে ফেলা হয়েছে"); routes.stories(); } catch { /* */ }
   };
 };
 

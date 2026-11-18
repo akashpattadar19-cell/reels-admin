@@ -113,6 +113,13 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
   App: `rich()` turns #tag → `#tag/<tag>` and @user → `#at/<username>`; `attachSuggest(el)` shows @user/#tag suggestions while
   typing (captions, text posts, comments); Home shows a trending chips row; `#tags/<1|7|30>` trending list; `#tag/<tag>/<v|p>/<top|new>`.
   Admin `#hashtags/<days>` (trending + who used a tag), lookup page shows the user's tags.
+- Music & filters: admin uploads licensed/royalty-free songs on "🎵 মিউজিক" (`music` bucket + table). Upload pages use
+  `mediaTools(box, preview, {kind})` (song via `pickMusic`, start offset, mute original, filter presets `FX_PRESETS` + brightness/
+  contrast/saturation). Videos store `music_id/music_start/fx/orig_muted` via `set_media_extras`; feed fetches them per batch and
+  plays the song with the shared `BGM` audio (stopped on every route change). Photo filters are baked into the JPEG; photo songs play on `#post`.
+- Stories (24 h): `#newstory` (photo/video/text, filter, caption, song), `#story/<uid>` full-screen viewer (progress, tap/hold,
+  replies via DM, viewers for owner); Home story row (`story_feed`), profile avatar ring. Admin "📖 স্টোরি" page + settings.
+- Premium download: `premium_download(video)` charges `premium_download_coins` once (creator gets premium %); feed shows 🪙N on the save button.
 - TODO (owner postponed): move video storage to Cloudflare R2 (account opened; needs bucket + API keys) and allow 1 s – 59 min videos.
 - Adult/18+ content: owner asked for a paid 18+ folder; declined (illegal in BD/KSA, breaks AdMob policy, CSAM risk). Don't build it.
 - Live streaming: not built yet (owner postponed; needs ZEGOCLOUD/Agora + FLAG_SECURE in the APK for no screenshots).

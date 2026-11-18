@@ -1,0 +1,11 @@
+-- 025 (applied as "stories_music_premium_download"):
+-- music bucket (public, audio, 15 MB, admin-only insert/delete) + table music(title, artist, category, url, path, duration_sec,
+--   active, uses_count, sort); admin_save_music / admin_delete_music (disables if used).
+-- videos: music_id, music_start, fx jsonb {f, b, c, s}, orig_muted; posts: music_id, music_start.
+--   set_media_extras(kind video|post, id, music, start, fx, mute) — owner/admin only, bumps music.uses_count.
+-- stories(kind photo|video|text, media_url/path under own folder, thumb_url, body, bg, music_id/start, fx, duration_sec,
+--   views_count, status active|removed, expires_at = +24h) + story_views; settings stories_enabled, story_daily_limit (20),
+--   story_max_sec (60). RPCs create_story, delete_story, story_feed (me → unseen → following → recent), user_stories(user),
+--   view_story, story_viewers (owner/admin), admin_stories.
+-- premium_downloads + premium_download(video): charges settings.premium_download_coins once per user/video
+--   (owner free; 0 = premium downloads off), creator gets premium_creator_pct (host rate via _urate) as pending.
