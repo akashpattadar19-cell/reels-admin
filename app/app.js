@@ -65,6 +65,8 @@ const ERR = {
   BAD_NAME: "আপনার নাম লিখুন",
   TRY_LATER: "একটু পরে চেষ্টা করুন",
   ACCOUNT_BANNED: "আপনার অ্যাকাউন্ট ব্লক করা হয়েছে",
+  JAILED: "আপনার অ্যাকাউন্ট জেলে আছে",
+  UPLOAD_LIMIT: "আজকের আপলোড সীমা শেষ — কাল আবার দিন",
   VAULT_FULL: "লক ফোল্ডারে জায়গা নেই",
   "Failed to fetch": "ইন্টারনেট সংযোগ নেই",
   NETWORK: "ইন্টারনেট সংযোগ নেই",
@@ -87,6 +89,7 @@ async function rpc(fn, args = {}) {
   const { data, error } = await sb.rpc(fn, args);
   if (error) {
     if (String(error.message).includes("ACCOUNT_BANNED")) { await sb.auth.signOut(); showAuth(ERR.ACCOUNT_BANNED); }
+    if (String(error.message).includes("JAILED") && S.me) { S.me.jailed = true; setTimeout(() => (location.hash = "#jail"), 50); }
     throw error;
   }
   return data;
@@ -273,14 +276,18 @@ function route() {
   if (!S.me) return;
   if (cleanup) { try { cleanup(); } catch { /* */ } cleanup = null; }
   closeSheet();
-  const [name, a, b] = (location.hash.slice(1) || "feed").split("/");
-  document.querySelectorAll(".tabbar a").forEach((x) => x.classList.toggle("on", x.dataset.t === name || (name === "following" && x.dataset.t === "feed") || (["invite", "rules", "settings", "vault", "edit"].includes(name) && x.dataset.t === "me")));
+  let [name, a, b] = (location.hash.slice(1) || "home").split("/");
+  if (!R[name]) name = "home";
+  if (S.me.jailed && !["jail", "cashin", "history"].includes(name)) name = "jail";
+  const TABS = { feed: ["feed", "following", "watch", "play"], me: ["me", "invite", "rules", "settings", "vault", "edit", "level", "wallet", "history", "withdraw", "cashin"] };
+  document.querySelectorAll(".tabbar a").forEach((x) => x.classList.toggle("on", x.dataset.t === name || (TABS[x.dataset.t] ?? []).includes(name)));
   screen.classList.remove("full");
+  $(".tabbar").classList.toggle("dark", TABS.feed.includes(name));
   screen.scrollTop = 0;
-  (R[name] ?? R.feed)(a, b);
+  R[name](a, b);
 }
 window.addEventListener("hashchange", route);
-const back = () => (history.length > 1 ? history.back() : (location.hash = "#feed"));
+const back = () => (history.length > 1 ? history.back() : (location.hash = "#home"));
 const header = (title, showBack = true) => `<h1>${showBack ? `<button class="back" onclick="history.back()">←</button>` : ""}${title}</h1>`;
 const notice = () => (setting("app_notice", "") ? `<div class="notice" translate="no">📢 ${esc(setting("app_notice", ""))}</div>` : "");
 
@@ -289,6 +296,7 @@ const CATS = [["", "সব"], ["natok", "🎭 নাটক"], ["movie", "🎬 �
 R.feed = (cat) => openFeed({ type: "foryou", category: cat || "" });
 R.following = () => openFeed({ type: "following" });
 R.watch = (userId, videoId) => openFeed({ type: "user", user: userId, startId: Number(videoId) });
+R.play = (videoId) => openFeed({ type: "play", startId: Number(videoId) });
 R.v = async (videoId) => {
   const { data } = await sb.from("videos").select("user_id").eq("id", videoId).maybeSingle();
   if (!data) { toast("ভিডিওটি আর নেই", true); location.replace("#feed"); return; }
@@ -299,7 +307,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
   screen.classList.add("full");
   screen.innerHTML = `
     <div class="feed-top">
-      ${type === "user" ? `<a class="back-l" href="javascript:history.back()">←</a>` : `
+      ${type === "user" || type === "play" ? `<a class="back-l" href="javascript:history.back()">←</a>` : `
       <a href="#following" class="${type === "following" ? "on" : ""}">ফলোয়িং</a>
       <a href="#feed" class="${type === "foryou" ? "on" : ""}">আপনার জন্য</a>`}
     </div>
@@ -318,7 +326,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
     if (st.loading || st.done) return;
     st.loading = true;
     try {
-      const rows = await rpc("feed", { p_type: type === "user" ? "foryou" : type, p_before: st.before, p_limit: 8, p_user: user, p_category: category || null });
+      const rows = await rpc("feed", { p_type: type === "user" || type === "play" ? "foryou" : type, p_before: st.before, p_limit: 8, p_user: user, p_category: category || null });
       if (!rows.length) {
         st.done = true;
         if (!st.slides.length) {
@@ -357,11 +365,28 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
         ${v.user_id !== S.me.id ? `<button class="act rp"><span class="ic" style="font-size:20px">⚑</span></button>` : ""}
       </div>
       <div class="info">
-        <div class="uname"><a href="#u/${v.user_id}">@${esc(v.username)}</a>${v.is_verified ? " ✔️" : ""}
+        <div class="uname"><a href="#u/${v.user_id}">@${esc(v.username)}</a>${v.is_verified ? " ✔️" : ""}${v.is_premium ? `<span class="premtag">👑 ${n(v.premium_coins)}</span>` : ""}
           ${v.user_id !== S.me.id ? `<button class="follow-btn ${v.following ? "on" : ""}">${v.following ? "ফলোয়িং" : "ফলো"}</button>` : ""}</div>
         <div class="cap" translate="no">${esc(v.caption ?? "").replace(/#([^\s#]+)/g, '<span class="tag">#$1</span>')}</div>
         <div class="tiny muted">👁 ${n(v.views_count)} · ${ago(v.created_at)}</div>
-      </div>`;
+      </div>
+      ${v.locked ? `<div class="lockov"><div><div class="crown">👑</div><h3 style="margin:6px 0">প্রিমিয়াম ভিডিও</h3>
+        <div class="muted">🪙 ${n(v.premium_coins)} কয়েন · হোস্টদের জন্য ফ্রি</div>
+        <button class="btn unl">🪙 ${n(v.premium_coins)} কয়েনে দেখুন</button></div></div>` : ""}`;
+    el.querySelector(".unl")?.addEventListener("click", async (e) => {
+      if (!confirm(`${v.premium_coins} কয়েন দিয়ে ভিডিওটি দেখবেন?`)) return;
+      e.currentTarget.disabled = true;
+      try {
+        const r = await rpc("unlock_premium", { p_video: v.id });
+        v.video_url = r.video_url; v.locked = false;
+        el.querySelector(".lockov")?.remove();
+        if (st.active === el) { setSrc(el, true); const vd = el.querySelector("video"); vd.muted = S.muted; vd.play().catch(() => {}); }
+        if (r.charged) toast(`👑 আনলক হয়েছে (−${r.charged} কয়েন)`);
+      } catch (er) {
+        toast(errMsg(er), true); e.target.disabled = false;
+        if (String(er.message).includes("INSUFFICIENT_COINS")) setTimeout(() => (location.hash = "#cashin"), 900);
+      }
+    });
     const video = el.querySelector("video");
     let tapT = null;
     video.addEventListener("click", (e) => {
@@ -401,7 +426,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
   function setSrc(el, on) {
     if (!el) return;
     const video = el.querySelector("video");
-    if (on && !video.getAttribute("src")) { video.src = el._v.video_url; video.preload = "auto"; }
+    if (on && !video.getAttribute("src") && el._v.video_url) { video.src = el._v.video_url; video.preload = "auto"; }
     if (!on && video.getAttribute("src")) { video.pause(); video.removeAttribute("src"); video.load(); }
   }
 
@@ -575,15 +600,25 @@ R.upload = () => {
     <video id="pv" class="preview hidden" controls playsinline></video>
     <label class="lbl">ক্যাটাগরি</label>
     <select id="cat">${CATS.filter(([k]) => k).map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select>
+    <div class="card" style="margin-top:12px">
+      <label class="toggle"><span><b>👑 প্রিমিয়াম ভিডিও</b><div class="tiny muted">দর্শক কয়েন দিয়ে দেখবে, আপনি পাবেন ${n(setting("premium_creator_pct", 60))}%। হোস্টরা ফ্রি দেখবে। অ্যাডমিন দেখে অনুমোদন দেবেন।</div></span><input type="checkbox" id="prem"></label>
+      <div id="premBox" class="hidden"><span class="lbl">কত কয়েন লাগবে</span><input id="premC" type="number" min="1" max="100000" value="${n(setting("premium_default_coins", 10))}"></div></div>
     <label class="lbl">ক্যাপশন (#হ্যাশট্যাগ দিন)</label>
     <textarea id="cap" maxlength="2200" placeholder="ভিডিও সম্পর্কে লিখুন… #funny #bangla"></textarea>
     <button class="btn primary" id="up" disabled>আপলোড করুন</button>
     <div class="progress hidden" id="pg"><div></div></div>
     <p id="msg" class="muted tiny"></p>
+    <p class="muted tiny" id="quota"></p>
     <p class="muted tiny">আপলোডের পর ভিডিও অল্প সময় পর্যালোচনায় থাকবে, তারপর সবাই দেখতে পাবে।</p>
     <p class="muted tiny">অশ্লীল, সহিংস বা অন্যের কপিরাইট করা ভিডিও আপলোড করলে অ্যাকাউন্ট ব্লক ও ইনকাম বাতিল হবে।</p></div>`;
   const vf = $("#vf"), pv = $("#pv");
   let file = null, duration = 0;
+  $("#prem").onchange = (e) => $("#premBox").classList.toggle("hidden", !e.target.checked);
+  rpc("my_upload_quota").then((q) => {
+    const left = Math.max(0, q.limit - q.used);
+    $("#quota").textContent = `আজকের আপলোড বাকি: ${left} / ${q.limit}`;
+    if (!left && S.me.role !== "admin") { $("#pickL").style.opacity = .5; vf.disabled = true; toast(ERR.UPLOAD_LIMIT, true); }
+  }).catch(() => {});
   vf.onchange = () => {
     file = vf.files[0];
     if (!file) return;
@@ -615,11 +650,13 @@ R.upload = () => {
       const vUrl = sb.storage.from("videos").getPublicUrl(vPath).data.publicUrl;
       const id = await rpc("create_video", { p_video_path: vPath, p_video_url: vUrl, p_thumb_url: tUrl, p_caption: $("#cap").value, p_duration: duration });
       await rpc("set_video_category", { p_id: id, p_category: $("#cat").value }).catch(() => {});
+      const prem = $("#prem").checked;
+      if (prem) await rpc("set_video_premium", { p_video: id, p_premium: true, p_coins: Number($("#premC").value) || null });
       setP(100, "✅ আপলোড সম্পন্ন!");
       const mins = Number(setting("auto_approve_minutes", 2));
-      toast(mins > 0 ? `আপলোড হয়েছে ✅ ${mins} মিনিটের মধ্যে প্রকাশিত হবে` : "আপলোড হয়েছে ✅ অ্যাডমিন অ্যাপ্রুভ করলে প্রকাশিত হবে");
+      toast(prem ? "আপলোড হয়েছে ✅ প্রিমিয়াম ভিডিও অ্যাডমিন অনুমোদনের পর প্রকাশিত হবে" : mins > 0 ? `আপলোড হয়েছে ✅ ${mins} মিনিটের মধ্যে প্রকাশিত হবে` : "আপলোড হয়েছে ✅ অ্যাডমিন অ্যাপ্রুভ করলে প্রকাশিত হবে");
       void id;
-      setTimeout(() => (location.hash = "#me"), 900);
+      setTimeout(() => (location.hash = "#u/" + S.me.id), 900);
     } catch (e) { toast(errMsg(e), true); $("#msg").textContent = "ব্যর্থ: " + errMsg(e); btn.disabled = false; }
   };
 };
@@ -664,14 +701,14 @@ const TX = {
   view_earning: "ভিউ থেকে আয়", like_earning: "লাইক থেকে আয়", comment_earning: "কমেন্ট থেকে আয়", gift_received: "গিফট পেয়েছেন",
   gift_sent: "গিফট পাঠিয়েছেন", watch_reward: "ভিডিও দেখে পয়েন্ট", ad_reward_viewer: "অ্যাড দেখে পয়েন্ট", ad_reward_creator: "আপনার ভিডিওতে অ্যাড",
   points_convert: "পয়েন্ট → টাকা", pending_release: "পেন্ডিং থেকে ব্যালেন্সে", cash_in: "ক্যাশ-ইন (কয়েন)", withdraw_hold: "উইথড্র রিকোয়েস্ট",
-  withdraw_refund: "উইথড্র ফেরত", admin_adjust: "অ্যাডমিন অ্যাডজাস্টমেন্ট",
+  withdraw_refund: "উইথড্র ফেরত", admin_adjust: "অ্যাডমিন অ্যাডজাস্টমেন্ট", premium_unlock: "প্রিমিয়াম ভিডিও আনলক", jail_release: "জেল থেকে মুক্তি",
 };
 R.wallet = async () => {
-  screen.innerHTML = `<div class="page">${header("ওয়ালেট", false)}<div class="spinner"></div></div>`;
+  screen.innerHTML = `<div class="page">${header("ওয়ালেট")}<div class="spinner"></div></div>`;
   const { data: w } = await sb.from("wallets").select("*").eq("user_id", S.me.id).single();
   const rew = S.ads.rewarded_points;
   const paint = (w) => {
-    screen.innerHTML = `<div class="page">${header("ওয়ালেট", false)}${notice()}
+    screen.innerHTML = `<div class="page">${header("ওয়ালেট")}${notice()}
       <div class="card hero"><div class="k">উইথড্রযোগ্য ব্যালেন্স</div><div class="v" id="wb">${tk(w.earning_paisa)}</div>
         <div class="stats"><div><b>${tk(w.pending_paisa)}</b><span>পেন্ডিং</span></div><div><b>🪙 ${n(w.coin_balance)}</b><span>কয়েন</span></div><div><b>⭐ ${n(w.points)}</b><span>পয়েন্ট</span></div></div>
       </div>
@@ -831,6 +868,122 @@ const COUNTRY_NAMES = { BD: "বাংলাদেশ", SA: "সৌদি আর
   FR: "ফ্রান্স", ES: "স্পেন", PT: "পর্তুগাল", GR: "গ্রিস", DE: "জার্মানি", RO: "রোমানিয়া", CA: "কানাডা", AU: "অস্ট্রেলিয়া", JP: "জাপান", KR: "দক্ষিণ কোরিয়া" };
 const flagOf = (cc) => (cc && cc.length === 2 ? String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 127397 + c.charCodeAt(0))) : "🌐");
 
+
+// ---------------- HOME (Discover grid) ----------------
+const LANGS = [["Bengali", "বাংলা"], ["English", "English"], ["Hindi", "हिन्दी"], ["Urdu", "اردو"], ["Arabic", "العربية"], ["Nepali", "नेपाली"]];
+const langName = (l) => (LANGS.find(([k]) => k === l)?.[1] ?? l ?? "");
+const LEVELS = [0, 10, 50, 200, 1000, 5000, 20000];
+const levelOf = (f) => { let l = 0; LEVELS.forEach((t, i) => { if (Number(f) >= t) l = i; }); return l; };
+const fmtDur = (sec) => { sec = Number(sec || 0); return sec ? `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}` : ""; };
+S.disc = { lang: "", country: "" };
+try { Object.assign(S.disc, JSON.parse(localStorage.getItem("disc") || "{}")); } catch { /* */ }
+
+R.home = (tab = "discover") => {
+  if (!["nearby", "discover", "friends"].includes(tab)) tab = "discover";
+  const f = S.disc;
+  const countries = Object.keys(COUNTRY_NAMES);
+  screen.innerHTML = `<div class="disc">
+    <div class="disc-top">
+      <div class="disc-tabs">
+        <a href="#home/nearby" class="${tab === "nearby" ? "on" : ""}">কাছাকাছি</a>
+        <a href="#home" class="${tab === "discover" ? "on" : ""}">ডিসকভার</a>
+        <a href="#home/friends" class="${tab === "friends" ? "on" : ""}">ফ্রেন্ডস</a>
+        <a href="#top" class="rank" aria-label="র‍্যাংকিং"><svg viewBox="0 0 32 32"><path d="M4 27h24M7 27V17h5v10M13.5 27V7h5v20M20 27V12h5v15" /></svg></a>
+      </div>
+      <div class="disc-filters">
+        <label>🅰️ <span id="flL">${f.lang ? langName(f.lang) : "সব"}</span><select id="fLang"><option value="">সব ভাষা</option>${LANGS.map(([k, l]) => `<option value="${k}" ${k === f.lang ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+        <label>📍 <span id="flC">${f.country ? flagOf(f.country) + " " + (COUNTRY_NAMES[f.country] ?? f.country) : "সব"}</span><select id="fCountry" ${tab === "nearby" ? "disabled" : ""}><option value="">সব দেশ</option>${countries.map((c) => `<option value="${c}" ${c === f.country ? "selected" : ""}>${flagOf(c)} ${COUNTRY_NAMES[c]}</option>`).join("")}</select></label>
+      </div>
+    </div>
+    ${notice() ? `<div style="padding:0 10px">${notice()}</div>` : ""}
+    <div class="disc-grid"><div class="disc-col" id="c0"></div><div class="disc-col" id="c1"></div></div>
+    <div id="dmore" style="padding:10px"></div></div>`;
+  const save = () => { try { localStorage.setItem("disc", JSON.stringify(S.disc)); } catch { /* */ } };
+  $("#fLang").onchange = (e) => { S.disc.lang = e.target.value; save(); R.home(tab); };
+  $("#fCountry").onchange = (e) => { S.disc.country = e.target.value; save(); R.home(tab); };
+  const st = { before: null, loading: false, done: false, count: 0 };
+  const card = (v, i) => {
+    const cc = v.country_code;
+    return `<a class="dcard ${i % 4 === 1 || i % 4 === 2 ? "tall" : ""}" href="#play/${v.id}">
+      <div class="ph ${v.locked ? "lock" : ""}">${v.thumb_url ? `<img src="${esc(v.thumb_url)}" loading="lazy" alt="">` : `<div class="noimg">▶</div>`}
+        ${v.is_premium ? `<span class="prem">👑 ${n(v.premium_coins)}</span>` : ""}
+        <div class="tags">${cc ? `<span>${flagOf(cc)} ${esc(cc)}</span>` : ""}<span>${esc(langName(v.language))}</span><span class="lv">✦Lv${v.level ?? 0}</span></div></div>
+      ${v.caption ? `<div class="cap" translate="no">${esc(v.caption)}</div>` : ""}
+      <div class="who">${avatar(v)}<span translate="no">${esc(v.full_name || v.username)}</span></div></a>`;
+  };
+  async function more() {
+    if (st.loading || st.done) return;
+    st.loading = true;
+    $("#dmore").innerHTML = `<div class="spinner"></div>`;
+    try {
+      if (tab === "nearby" && !S.me.country_code) {
+        st.done = true;
+        $("#dmore").innerHTML = `<div class="empty">📍 লোকেশন চালু হলে আপনার দেশের ভিডিও এখানে দেখা যাবে</div>`;
+        return;
+      }
+      const rows = await rpc("feed", { p_type: tab === "nearby" ? "nearby" : tab === "friends" ? "following" : "foryou", p_before: st.before, p_limit: 20,
+        p_user: null, p_category: null, p_lang: S.disc.lang || null, p_country: tab === "nearby" ? null : S.disc.country || null });
+      for (const v of rows) {
+        const c0 = $("#c0"), c1 = $("#c1");
+        if (!c0) return;
+        (c0.offsetHeight <= c1.offsetHeight ? c0 : c1).insertAdjacentHTML("beforeend", card(v, st.count++));
+      }
+      if (rows.length) st.before = rows[rows.length - 1].id;
+      if (rows.length < 20) st.done = true;
+      $("#dmore").innerHTML = st.done && !st.count ? `<div class="empty">${tab === "friends" ? "আপনি যাদের ফলো করেন তাদের ভিডিও এখানে দেখা যাবে" : "এখনো কোনো ভিডিও নেই"}</div>` : "";
+    } catch (e) { $("#dmore").innerHTML = `<div class="empty">${esc(errMsg(e))}</div>`; }
+    finally { st.loading = false; }
+  }
+  const onScroll = () => { if (screen.scrollTop + screen.clientHeight > screen.scrollHeight - 600) more(); };
+  screen.addEventListener("scroll", onScroll);
+  cleanup = () => screen.removeEventListener("scroll", onScroll);
+  more();
+};
+
+R.top = async () => {
+  screen.innerHTML = `<div class="page">${header("🏆 টপ ক্রিয়েটর")}<div class="spinner"></div></div>`;
+  const { data } = await sb.from("profiles").select("id,username,full_name,avatar_url,followers_count,videos_count,country_code").eq("status", "active").order("followers_count", { ascending: false }).limit(50);
+  screen.innerHTML = `<div class="page">${header("🏆 টপ ক্রিয়েটর")}<div class="card">${(data ?? []).map((p, i) => `<a class="top-row" href="#u/${p.id}">
+    <span class="rk">${i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}</span>${avatar(p)}
+    <span style="flex:1;min-width:0"><b translate="no">${esc(p.full_name || p.username)}</b><div class="tiny muted">${flagOf(p.country_code)} Lv${levelOf(p.followers_count)} · ${n(p.videos_count)} ভিডিও</div></span>
+    <b>${n(p.followers_count)}<div class="tiny muted" style="font-weight:400">ফলোয়ার</div></b></a>`).join("") || `<div class="empty">কেউ নেই</div>`}</div></div>`;
+};
+
+R.level = async () => {
+  const { data: p } = await sb.from("profiles").select("followers_count").eq("id", S.me.id).single();
+  const f = p?.followers_count ?? 0, lv = levelOf(f), next = LEVELS[lv + 1];
+  screen.innerHTML = `<div class="page">${header("👑 আমার লেভেল")}
+    <div class="lvbig"><div>আপনার লেভেল</div><b>Lv${lv}</b><div>${n(f)} জন ফলোয়ার</div>
+      ${next ? `<div class="progress"><div style="width:${Math.min(100, Math.round(((f - LEVELS[lv]) / (next - LEVELS[lv])) * 100))}%"></div></div><div class="tiny" style="margin-top:6px">Lv${lv + 1} হতে আরও ${n(next - f)} জন ফলোয়ার লাগবে</div>` : `<div class="tiny">সর্বোচ্চ লেভেল 🎉</div>`}</div>
+    <div class="card"><b>লেভেল কীভাবে বাড়ে</b><div class="list tiny">${LEVELS.map((t, i) => `<div class="li"><span>${i === lv ? "👉 " : ""}Lv${i}</span><b>${n(t)}+ ফলোয়ার</b></div>`).join("")}</div>
+    <p class="tiny muted">ভালো ভিডিও দিন, নিয়মিত পোস্ট করুন — ফলোয়ার বাড়লে লেভেল বাড়বে এবং আপনার ভিডিও বেশি মানুষ দেখবে।</p></div></div>`;
+};
+
+R.jail = async () => {
+  const [{ data: p }, { data: w }] = await Promise.all([
+    sb.from("profiles").select("jailed,jail_reason,jail_fee_coins,jailed_at").eq("id", S.me.id).single(),
+    sb.from("wallets").select("coin_balance").eq("user_id", S.me.id).maybeSingle(),
+  ]);
+  if (!p?.jailed) { S.me.jailed = false; location.replace("#home"); return; }
+  const fee = Number(p.jail_fee_coins ?? 0), bal = Number(w?.coin_balance ?? 0);
+  screen.innerHTML = `<div class="page jail"><div class="ic">🚫</div><h2>আপনার অ্যাকাউন্ট জেলে আছে</h2>
+    <div class="card" style="text-align:left"><div class="list">
+      <div class="li"><span>কারণ</span><b translate="no">${esc(p.jail_reason || "নিয়ম ভঙ্গ")}</b></div>
+      <div class="li"><span>তারিখ</span><span>${p.jailed_at ? dt(p.jailed_at) : "-"}</span></div>
+      <div class="li"><span>মুক্তির জন্য লাগবে</span><b>🪙 ${n(fee)} কয়েন</b></div>
+      <div class="li"><span>আপনার কয়েন</span><b>🪙 ${n(bal)}</b></div></div></div>
+    <p class="muted tiny">জেলে থাকা অবস্থায় ভিডিও আপলোড, লাইক, কমেন্ট, গিফট ও আয় বন্ধ থাকবে।</p>
+    ${bal >= fee ? `<button class="btn primary" id="pay">🔓 ${n(fee)} কয়েন দিয়ে মুক্ত হোন</button>` : `<a class="btn primary" href="#cashin">🪙 কয়েন কিনুন</a>`}
+    <button class="btn" id="lo" style="width:100%;margin-top:10px">🚪 লগআউট</button></div>`;
+  $("#pay")?.addEventListener("click", async (e) => {
+    if (!confirm(`${fee} কয়েন দিয়ে জেল থেকে মুক্ত হবেন?`)) return;
+    e.target.disabled = true;
+    try { await rpc("pay_jail_release"); S.me.jailed = false; toast("🔓 আপনি এখন মুক্ত"); location.hash = "#home"; }
+    catch (er) { toast(errMsg(er), true); e.target.disabled = false; }
+  });
+  $("#lo").onclick = async () => { await sb.auth.signOut(); S.me = null; location.hash = ""; showAuth(); };
+};
+
 R.me = async () => {
   screen.innerHTML = `<div class="page"><div class="spinner"></div></div>`;
   const [{ data: p }, { data: w }, refs] = await Promise.all([
@@ -839,45 +992,64 @@ R.me = async () => {
     rpc("my_referrals").catch(() => null),
   ]);
   S.me = p;
-  const en = window.getLang?.() === "en";
   const cc = p.country_code;
+  const host = p.account_type === "host";
   screen.innerHTML = `<div class="me">
     <div class="me-head">
       <div class="me-av">${avatar(p)}</div>
       <h2 translate="no">${esc(p.full_name || p.username)} ${p.is_verified ? "✔️" : ""}</h2>
-      <div class="me-sub">@${esc(p.username)} · <span data-copy="${p.user_no}">ID ${p.user_no} ⧉</span></div>
-      <div class="chips"><span>${flagOf(cc)} ${cc ? (COUNTRY_NAMES[cc] ?? cc) : "দেশ জানা নেই"}</span><span>🅰️ ${en ? "English" : "বাংলা"}</span></div>
+      <div class="me-sub">@${esc(p.username)} · <span data-copy="${p.user_no}">ID ${p.user_no} ⧉</span>${host ? ` · 🎤 হোস্ট` : ""}</div>
+      <div class="chips"><span>${flagOf(cc)} ${cc ? (COUNTRY_NAMES[cc] ?? cc) : "দেশ জানা নেই"}</span><span>🅰️ ${esc(langName(p.language))}</span></div>
       <div class="me-counts"><a href="#u/${p.id}"><b>${n(p.videos_count)}</b><span>ভিডিও</span></a><div><b>${n(p.following_count)}</b><span>ফলোয়িং</span></div><div><b>${n(p.followers_count)}</b><span>ফলোয়ার</span></div></div>
     </div>
     <div class="me-cards">
-      <a href="#cashin" class="mc coins"><span>আমার কয়েন</span><b>🪙 ${n(w?.coin_balance)}</b></a>
-      <a href="#wallet" class="mc money"><span>আমার ব্যালেন্স</span><b>${tk(w?.earning_paisa)}</b></a>
+      <a href="#cashin" class="mc coins"><span>আমার কয়েন</span><b>${n(w?.coin_balance)}</b><i class="deco">💎</i></a>
+      <a href="#wallet" class="mc money"><span>আমার ব্যালেন্স</span><b>${tk(w?.earning_paisa)}</b><i class="deco">💰</i></a>
     </div>
-    <a href="#invite" class="me-banner"><span>🤝 বন্ধুদের রেফার করে আয় করুন</span><b>${tk(refs?.earned_paisa ?? 0)} ›</b></a>
-    ${notice()}
+    <a href="#invite" class="me-banner"><span>রেফার করে আয় করুন</span><b>${tk(refs?.earned_paisa ?? 0)} ›</b></a>
     <div class="me-menu">
-      <a href="#inbox"><i>💬</i>নোটিফিকেশন<em>${S.unread ? `<b class="red"></b>` : ""}›</em></a>
-      <a href="#wallet"><i>💰</i>ওয়ালেট ও উইথড্র<em>›</em></a>
-      <a href="#invite"><i>🎁</i>আমার রেফার<em>${refs?.qualified ?? 0} জন সফল ›</em></a>
-      <a href="#rules"><i>📋</i>আয়ের নিয়ম<em>›</em></a>
-      <a href="#u/${p.id}"><i>🎬</i>আমার ভিডিও<em>${n(p.videos_count)} ›</em></a>
-      <a href="#vault"><i>🔒</i>লক ফোল্ডার<em>›</em></a>
-      <a href="#edit"><i>👤</i>আমার প্রোফাইল<em>›</em></a>
-      <a href="#settings"><i>⚙️</i>সেটিংস<em>›</em></a>
+      <a href="#inbox"><i class="mi" style="background:#ffe1e4">💬</i>মেসেজ<em>${S.unread ? `<b class="red"></b>` : ""}›</em></a>
+      <a href="#level"><i class="mi" style="background:#fff3d6">👑</i>আমার লেভেল<em>Lv${levelOf(p.followers_count)} ›</em></a>
+      <a href="#invite"><i class="mi" style="background:#ece6ff">🎁</i>আমার রেফার<em>পুরস্কার নিন <b class="red"></b> ›</em></a>
+      <a href="#rules"><i class="mi" style="background:#e4ecff">📋</i>আমার টাস্ক<em>›</em></a>
+      <a href="#u/${p.id}"><i class="mi" style="background:#efe7ff">📁</i>আমার প্রোফাইল<em>›</em></a>
+      <a href="#settings"><i class="mi" style="background:#e9e6ff">⚙️</i>সেটিংস<em>›</em></a>
     </div></div>`;
 };
 
-R.settings = () => {
+R.settings = async () => {
   const en = window.getLang?.() === "en";
+  const { data: p } = await sb.from("profiles").select("*").eq("id", S.me.id).single();
+  if (p) S.me = p;
+  const me = S.me, host = me.account_type === "host", pending = !host && me.host_requested_at;
   screen.innerHTML = `<div class="page">${header("সেটিংস")}
+    <div class="card"><b>অ্যাকাউন্টের ধরন</b>
+      <div class="acct">
+        <button data-t="user" class="${host ? "" : "on"}"><b>👤 ইউজার</b><small>প্রিমিয়াম ভিডিও কয়েন দিয়ে দেখবেন</small></button>
+        <button data-t="host" class="${host ? "on" : ""}"><b>🎤 হোস্ট</b><small>${pending ? "⏳ আবেদন অপেক্ষায়" : "সব প্রিমিয়াম ফ্রি"}</small></button>
+      </div>
+      <p class="tiny muted" style="margin:8px 0 0">হোস্ট হতে আবেদন করলে অ্যাডমিন যাচাই করে অনুমোদন দেবেন। হোস্টরা সব প্রিমিয়াম ভিডিও ফ্রিতে দেখতে পারেন।</p></div>
     <div class="card list">
-      <div class="li"><span>🌐 ভাষা / Language</span><button class="btn small" id="lang" translate="no">${en ? "বাংলা" : "English"}</button></div>
-      <div class="li"><span>🆔 আমার ID</span><b data-copy="${S.me.user_no}">${S.me.user_no} ⧉</b></div>
+      <a class="li" href="#wallet"><span>💰 ওয়ালেট ও উইথড্র</span><span>›</span></a>
+      <a class="li" href="#vault"><span>🔒 লক ফোল্ডার</span><span>›</span></a>
+      <a class="li" href="#edit"><span>✏️ প্রোফাইল এডিট</span><span>›</span></a>
+      <div class="li"><span>🌐 অ্যাপের ভাষা / Language</span><button class="btn small" id="lang" translate="no">${en ? "বাংলা" : "English"}</button></div>
+      <div class="li"><span>🆔 আমার ID</span><b data-copy="${me.user_no}">${me.user_no} ⧉</b></div>
       <div class="li"><span>📱 অ্যাপ ভার্সন</span><span class="muted">${esc(Native?.appVersion?.() ?? "web")}</span></div>
     </div>
-    <button class="btn" id="lo" style="width:100%;color:#ff8a8a">🚪 লগআউট</button></div>`;
+    <button class="btn" id="lo" style="width:100%;color:#e5484d">🚪 লগআউট</button></div>`;
   $("#lang").onclick = () => window.setLang?.(en ? "bn" : "en");
   $("#lo").onclick = async () => { if (!confirm("লগআউট করবেন?")) return; await sb.auth.signOut(); S.me = null; location.hash = ""; showAuth(); };
+  document.querySelectorAll(".acct button").forEach((b) => (b.onclick = async () => {
+    const t = b.dataset.t;
+    if ((t === "host" && (host || pending)) || (t === "user" && !host && !pending)) return;
+    if (t === "user" && !confirm(host ? "হোস্ট থেকে ইউজারে ফিরবেন? আবার হোস্ট হতে অনুমোদন লাগবে।" : "হোস্ট আবেদন বাতিল করবেন?")) return;
+    try {
+      const r = await rpc("set_account_type", { p_type: t });
+      toast(r === "pending" ? "✅ হোস্ট আবেদন পাঠানো হয়েছে" : r === "host" ? "🎤 আপনি এখন হোস্ট" : "👤 ইউজার অ্যাকাউন্ট");
+      R.settings();
+    } catch (e) { toast(errMsg(e), true); }
+  }));
 };
 
 R.invite = async () => {
@@ -912,7 +1084,12 @@ R.invite = async () => {
 R.rules = async () => {
   const { data: tiers } = await sb.from("referral_tiers").select("*").eq("is_active", true).order("referrals");
   const rew = S.ads.rewarded_points;
-  screen.innerHTML = `<div class="page">${header("📋 আয়ের নিয়ম")}
+  screen.innerHTML = `<div class="page">${header("📋 আমার টাস্ক ও আয়ের নিয়ম")}
+    ${S.ads.rewarded_points && Native?.showRewarded ? `<div class="card hero"><b>🎬 অ্যাড দেখে পয়েন্ট নিন</b><div class="tiny" style="margin:4px 0 10px">প্রতি অ্যাডে ⭐ ${n(S.ads.rewarded_points.viewer_points)} · দিনে ${n(S.ads.rewarded_points.daily_cap)} বার</div><a class="btn" href="#wallet" style="background:#fff;color:#5b2bd0;border:0">ওয়ালেটে গিয়ে অ্যাড দেখুন</a></div>` : ""}
+    <div class="card"><b>✅ প্রতিদিনের টাস্ক</b><div class="list tiny">
+      <div class="li"><span>ভিডিও দেখুন (প্রতিটি ${Math.round(setting("min_watch_ms", 5000) / 1000)} সেকেন্ড)</span><b>⭐ ${n(setting("watch_points"))} / ভিডিও</b></div>
+      <div class="li"><span>ভিডিও আপলোড করুন</span><a href="#upload" class="btn small">আপলোড</a></div>
+      <div class="li"><span>বন্ধুকে রেফার করুন</span><a href="#invite" class="btn small">রেফার</a></div></div></div>
     <div class="card"><b>🎬 ভিডিও বানিয়ে (ক্রিয়েটর)</b><div class="list tiny">
       <div class="li"><span>প্রতি ১০০০ ভিউ</span><b>${tk(setting("view_rate_paisa_per_1000"))}</b></div>
       <div class="li"><span>প্রতি লাইক</span><b>${tk(setting("like_rate_paisa"))}</b></div>
@@ -989,6 +1166,7 @@ R.edit = () => {
     <span class="lbl">ইউজারনেম</span><input id="un" value="${esc(p.username)}" autocapitalize="off" maxlength="30">
     <span class="lbl">বায়ো</span><textarea id="bio" maxlength="300">${esc(p.bio ?? "")}</textarea>
     <span class="lbl">জন্মতারিখ</span><input id="bd" type="date">
+    <span class="lbl">আপনার ভাষা</span><select id="lg">${LANGS.map(([k, l]) => `<option value="${k}" ${k === p.language ? "selected" : ""}>${l}</option>`).join("")}</select>
     <button class="btn primary" id="sv">সেভ করুন</button></div>`;
   sb.from("user_private").select("birth_date").eq("user_id", S.me.id).maybeSingle().then(({ data }) => { if (data?.birth_date) $("#bd").value = data.birth_date; });
   let avatarBlob = null;
@@ -1014,6 +1192,7 @@ R.edit = () => {
       }
       await rpc("update_profile", { p_full_name: $("#fn").value, p_username: $("#un").value.trim().toLowerCase(), p_bio: $("#bio").value, p_avatar_url: url });
       if ($("#bd").value) await rpc("set_birth_date", { p_date: $("#bd").value });
+      if ($("#lg").value !== p.language) await rpc("set_language", { p_lang: $("#lg").value });
       toast("সেভ হয়েছে");
       location.hash = "#me";
     } catch (er) { toast(errMsg(er), true); e.target.disabled = false; }

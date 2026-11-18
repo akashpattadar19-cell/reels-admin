@@ -42,6 +42,17 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
 - Location: APK (≥ v1.0.3) blocks the app until coarse location is allowed; Android Geocoder gives country/city → `update_location`
   (stored rounded to ~1 km in `user_private`). Admin "User lookup" page (`admin_user_detail(user_no)`) shows profile, phone country,
   location, birth date, referrals, wallet and all posts.
+- App layout (Chamet-style, own icons): tabs Home (Discover 2-column grid: Nearby/Discover/Friends, language + country filters) ·
+  Reels (`#feed`, full-screen player, categories) · ＋ · Inbox · Me (compact profile that fits one screen). Light theme; reels stay dark.
+- Account type: `profiles.account_type` user|host. User asks in Settings → `set_account_type('host')` → admin approves (dashboard
+  "হোস্ট আবেদন" / lookup page) unless `host_auto_approve`. Hosts watch all premium free.
+- Premium videos: `videos.is_premium/premium_coins`, set via `set_video_premium` after upload; never auto-approved; viewers pay with
+  `unlock_premium` (creator gets `premium_creator_pct` as pending). Non-explicit content only.
+- Upload limit: `settings.daily_upload_limit` (5), per-user override `profiles.daily_upload_limit` (admin lookup page).
+- Jail: `admin_jail_user(user, true, reason, fee_coins)`; `_active_user()` raises JAILED so jailed users can't act; app shows `#jail`
+  and user pays `pay_jail_release()` (fee default `jail_release_coins`).
+- Level: `_level(followers)` thresholds 10/50/200/1000/5000/20000.
+- TODO (owner postponed): move video storage to Cloudflare R2 (account opened; needs bucket + API keys) and allow 1 s – 59 min videos.
 - Adult/18+ content: owner asked for a paid 18+ folder; declined (illegal in BD/KSA, breaks AdMob policy, CSAM risk). Don't build it.
 - Live streaming: not built yet (owner postponed; needs ZEGOCLOUD/Agora + FLAG_SECURE in the APK for no screenshots).
 

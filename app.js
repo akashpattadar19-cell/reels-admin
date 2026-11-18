@@ -154,7 +154,21 @@ routes.dashboard = async () => {
         ${s("ইউজারদের কাছে কয়েন", num(d.coins_outstanding))}
         ${s("ব্যান ইউজার", num(d.users_banned), "users")}
       </div>
+      <div id="hostReq"></div>
       <p class="muted small" style="margin-top:16px">অ্যাড রেভিনিউ দেখতে AdMob অ্যাপ/ওয়েবসাইট ব্যবহার করুন।</p>`;
+    const hr = await rpc("admin_host_requests").catch(() => []);
+    if (hr.length) {
+      $("#hostReq").innerHTML = `<h2>🎤 হোস্ট আবেদন (${num(hr.length)})</h2><div class="list">${hr.map((r) => `<div class="item" data-id="${r.id}">
+        <div class="top"><b><a href="#lookup/${r.user_no}">${r.user_no}</a> @${esc(r.username)}</b><span class="muted small">${dt(r.requested_at)}</span></div>
+        <div class="muted small">${num(r.followers)} ফলোয়ার · ${num(r.videos)} ভিডিও</div>
+        <div class="actions"><button class="btn sm good" data-h="1">অনুমোদন ✅</button><button class="btn sm bad" data-h="0">বাতিল</button></div></div>`).join("")}</div>`;
+      $("#hostReq").onclick = async (e) => {
+        const b = e.target.closest("[data-h]"); if (!b) return;
+        const it = b.closest(".item");
+        await act(() => rpc("admin_set_host", { p_user: it.dataset.id, p_host: b.dataset.h === "1" }), "হয়েছে");
+        it.remove();
+      };
+    }
   } catch (e) { view.innerHTML = `<div class="empty err">${esc(errMsg(e))}</div>`; }
 };
 
@@ -388,7 +402,8 @@ routes.videos = async (arg = "published") => {
       <div class="vcard" data-id="${v.id}">
         <video src="${esc(v.video_url)}" ${v.thumb_url ? `poster="${esc(v.thumb_url)}"` : ""} preload="none" controls playsinline></video>
         <div class="body">
-          <div><a href="#user/${v.user_id}">@${esc(v.profiles?.username)}</a> <span class="pill">${CAT_NAME[v.category] ?? ""}</span> ${v.is_featured ? "⭐" : ""} ${v.uploaded_by_admin ? '<span class="pill">অ্যাডমিন</span>' : ""}</div>
+          <div><a href="#user/${v.user_id}">@${esc(v.profiles?.username)}</a> <span class="pill">${CAT_NAME[v.category] ?? ""}</span> ${v.is_featured ? "⭐" : ""} ${v.uploaded_by_admin ? '<span class="pill">অ্যাডমিন</span>' : ""} ${v.is_premium ? `<span class="pill pending">👑 প্রিমিয়াম ${num(v.premium_coins)} কয়েন</span>` : ""}</div>
+          ${v.is_premium && v.status === "pending" ? `<div class="small" style="color:var(--warn)">প্রিমিয়াম ভিডিও অটো-অ্যাপ্রুভ হয় না — দেখে অ্যাপ্রুভ করুন। অশ্লীল কিছু থাকলে রিজেক্ট করুন।</div>` : ""}
           ${v.status === "pending" ? `<div class="small" style="color:var(--warn)">⏳ পেন্ডিং · ${dt(v.created_at)}</div>` : ""}
           <div class="cap" translate="no">${esc(v.caption ?? "")}</div>
           <div class="muted small">👁 ${num(v.views_count)} ❤️ ${num(v.likes_count)} 💬 ${num(v.comments_count)} 🎁 ${num(v.gifts_coins_total)} · ${dt(v.created_at)}</div>
@@ -512,7 +527,24 @@ routes.lookup = async (no) => {
       <div>গিফট পাঠিয়েছে</div><div>🪙 ${num(d.gifts_sent_coins)}</div>
       <div>গিফট থেকে আয়</div><div>${taka(d.gifts_received_paisa)}</div>
       <div>লক ফোল্ডার</div><div>${num(d.vault_files)} ফাইল · ${(Number(d.vault_bytes) / 1048576).toFixed(1)} MB</div>
+      <div>অ্যাকাউন্টের ধরন</div><div>${p.account_type === "host" ? "🎤 হোস্ট" : "👤 ইউজার"}${p.host_requested_at && p.account_type !== "host" ? ' <span class="pill pending">হোস্ট আবেদন</span>' : ""}</div>
+      <div>ভাষা</div><div>${esc(p.language ?? "-")}</div>
     </div></div>
+    <div class="card" id="ctl">
+      <h3 style="margin:0 0 10px">⚙️ নিয়ন্ত্রণ</h3>
+      <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <span>অ্যাকাউন্ট: <b>${p.account_type === "host" ? "🎤 হোস্ট" : "👤 ইউজার"}</b></span>
+        ${p.account_type === "host" ? `<button class="btn sm warn" data-c="unhost">ইউজার বানান</button>` : `<button class="btn sm good" data-c="host">হোস্ট বানান</button>`}
+      </div>
+      <div style="margin-bottom:12px"><b>দিনে আপলোড সীমা</b> <span class="muted small">(খালি রাখলে সবার জন্য নির্ধারিত সীমা)</span>
+        <div class="row" style="flex-wrap:nowrap;gap:8px"><input id="ul" type="number" min="0" value="${p.daily_upload_limit ?? ""}" placeholder="ডিফল্ট"><button class="btn sm good" data-c="limit">সেভ</button></div></div>
+      ${p.jailed ? `<div style="background:#3a0f12;border-radius:10px;padding:10px"><b>🚫 জেলে আছে</b>
+          <div class="small">কারণ: <span translate="no">${esc(p.jail_reason ?? "-")}</span> · মুক্তির ফি: 🪙 ${num(p.jail_fee_coins)} · ${p.jailed_at ? dt(p.jailed_at) : ""}</div>
+          <button class="btn sm good" data-c="unjail" style="margin-top:8px">জেল থেকে মুক্ত করুন</button></div>`
+        : `<div><b>🚫 জেলে দিন</b> <span class="muted small">(ইউজার আপলোড/লাইক/কমেন্ট/গিফট/আয় করতে পারবে না; কয়েন দিয়ে মুক্ত হতে পারবে)</span>
+          <input id="jr" placeholder="কারণ (ইউজার দেখবে)">
+          <div class="row" style="flex-wrap:nowrap;gap:8px"><input id="jf" type="number" min="0" placeholder="মুক্তির জন্য কত কয়েন"><button class="btn sm bad" data-c="jail">জেলে দিন</button></div></div>`}
+    </div>
     <div class="grid">
       <div class="card stat"><div class="k">উইথড্রযোগ্য ব্যালেন্স</div><div class="v">${taka(w.earning_paisa)}</div></div>
       <div class="card stat"><div class="k">পেন্ডিং</div><div class="v">${taka(w.pending_paisa)}</div></div>
@@ -532,6 +564,21 @@ routes.lookup = async (no) => {
       <div class="body"><div>${pill(v.status)} <span class="pill">${CAT_NAME[v.category] ?? ""}</span></div>
         <div class="cap" translate="no">${esc(v.caption ?? "")}</div>
         <div class="muted small">👁 ${num(v.views)} ❤️ ${num(v.likes)} · ${dt(v.created_at)}</div></div></div>`).join("") : `<div class="empty">কোনো পোস্ট নেই</div>`}</div>`;
+  sb.from("settings").select("value").eq("key", "jail_release_coins").maybeSingle().then(({ data }) => { if ($("#jf") && data) $("#jf").value = data.value; });
+  $("#ctl").onclick = async (e) => {
+    const b = e.target.closest("[data-c]"); if (!b) return;
+    const c = b.dataset.c;
+    if (c === "host" || c === "unhost") await act(() => rpc("admin_set_host", { p_user: p.id, p_host: c === "host" }), "হয়েছে");
+    else if (c === "limit") { const v = $("#ul").value.trim(); await act(() => rpc("admin_set_upload_limit", { p_user: p.id, p_limit: v === "" ? null : Number(v) }), "সেভ হয়েছে"); }
+    else if (c === "unjail") { if (!confirm("জেল থেকে মুক্ত করবেন?")) return; await act(() => rpc("admin_jail_user", { p_user: p.id, p_jail: false, p_reason: null, p_fee: null }), "মুক্ত করা হয়েছে"); }
+    else if (c === "jail") {
+      const reason = $("#jr").value.trim(); if (!reason) return toast("কারণ লিখুন", true);
+      const fee = Number($("#jf").value); if (isNaN(fee) || fee < 0) return toast("কয়েনের সংখ্যা দিন", true);
+      if (!confirm(`${p.username}-কে জেলে দেবেন? মুক্তির ফি ${fee} কয়েন`)) return;
+      await act(() => rpc("admin_jail_user", { p_user: p.id, p_jail: true, p_reason: reason, p_fee: fee }), "জেলে দেওয়া হয়েছে");
+    }
+    routes.lookup(no);
+  };
 };
 
 // ---------- ইনকাম রুলস ----------
@@ -579,6 +626,13 @@ routes.rules = async () => {
         <td><input name="is_active" type="checkbox" ${t.is_active ? "checked" : ""} style="width:auto"></td><td><button class="btn sm good" data-ts>সেভ</button> <button class="btn sm bad" data-td>মুছুন</button></td></tr>`).join("")}
       <tr data-id="new"><td><input name="referrals" type="number" min="1" placeholder="যেমন 200"></td><td><input name="bonus" type="number" step="0.01" min="0" placeholder="যেমন 2000"></td>
         <td><input name="is_active" type="checkbox" checked style="width:auto"></td><td><button class="btn sm" data-ts>যোগ করুন</button></td></tr></table></div>
+    <h2>📤 আপলোড, জেল, হোস্ট ও প্রিমিয়াম</h2><div class="list">
+      ${row("daily_upload_limit", "নতুন ইউজার দিনে কয়টি ভিডিও আপলোড করতে পারবে (কারো জন্য আলাদা করতে ইউজার খুঁজুন পেজে যান)", "num")}
+      ${row("jail_release_coins", "জেল থেকে মুক্ত হতে ডিফল্ট কয়েন", "num")}
+      ${row("host_auto_approve", "হোস্ট আবেদন অটো অনুমোদন", "bool")}
+      ${row("premium_default_coins", "প্রিমিয়াম ভিডিও দেখার ডিফল্ট কয়েন", "num")}
+      ${row("premium_creator_pct", "প্রিমিয়াম আনলকের কত % ক্রিয়েটর পাবে", "num")}
+    </div>
     <h2>💸 উইথড্র</h2><div class="list">
       ${row("withdraw_min_paisa", "সর্বনিম্ন উইথড্র", "taka")}
       ${row("withdraw_cooldown_days", "কত দিন পরপর উইথড্র", "num")}
