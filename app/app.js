@@ -1765,7 +1765,8 @@ R.chat = async (uid) => {
   const onUpd = (e) => { const m = e.detail; if (msgs.has(m.id)) repaint(m); };
   document.addEventListener("chatmsg", onMsg);
   document.addEventListener("msgupd", onUpd);
-  cleanup = () => { document.removeEventListener("chatmsg", onMsg); document.removeEventListener("msgupd", onUpd); S.chatWith = null; screen.classList.remove("chatmode"); };
+  let pipStop = null; livePip(uid, o).then((f) => { pipStop = f; });
+  cleanup = () => { document.removeEventListener("chatmsg", onMsg); document.removeEventListener("msgupd", onUpd); S.chatWith = null; screen.classList.remove("chatmode"); try { pipStop?.(); } catch { /* */ } document.querySelector(".chat-live")?.remove(); };
   $("#cf").onsubmit = async (e) => {
     e.preventDefault();
     const t = $("#ci").value.trim(); if (!t) return;
@@ -2200,16 +2201,72 @@ const needMedia = () => { if (Native && !Native.appVersion) return; const b = Nu
 const hms2 = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 const callRate = (p, kind) => Number((kind === "video" ? p.call_video_rate : p.call_audio_rate) ?? setting(kind === "video" ? "call_video_coins_per_min" : "call_audio_coins_per_min", kind === "video" ? 60 : 30));
 
-// লাইভ তালিকা (হোম → লাইভ ট্যাব)
+// লাইভ কার্ড (হোমের ভিডিও কার্ডের মতো) — ক্লিক = লাইভ দেখা, 📞 = কল
+const LIVE_HOSTS = new Map();
+const liveCard = (r, i) => {
+  LIVE_HOSTS.set(r.host_id, r);
+  const img = r.thumb_url || r.avatar_url || r.cover_url;
+  const callable = r.account_type === "host" && r.calls_on !== false && setting("calls_enabled", true) !== false && r.host_id !== S.me.id;
+  return `<a class="dcard live ${i % 4 === 1 || i % 4 === 2 ? "tall" : ""}" href="#live/${r.id}">
+    <div class="ph">${img ? `<img src="${esc(img)}" loading="lazy" alt="">` : `<div class="noimg">${esc((r.full_name || r.username || "?").charAt(0))}</div>`}
+      <span class="lbadge"><i class="eq"><b></b><b></b><b></b></i>LIVE${r.in_pk ? " · ⚔️PK" : ""}</span><span class="lview">👁 ${n(r.viewers)}</span>
+      <div class="tags">${r.country_code ? `<span>${flagOf(r.country_code)} ${esc(r.country_code)}</span>` : ""}${r.language ? `<span>${esc(langName(r.language))}</span>` : ""}<span class="lv">✦Lv${r.level ?? 0}</span></div></div>
+    ${r.title ? `<div class="cap" translate="no">${esc(r.title)}</div>` : ""}
+    <div class="who">${callable ? `<span class="lcall" data-call="${r.host_id}">📞</span>` : avatar(r)}<span translate="no">${esc(r.full_name || r.username)}</span>${r.account_type === "host" ? " 👑" : ""}</div></a>`;
+};
+function callChooser(h) {
+  const host = { id: h.host_id ?? h.id, call_video_rate: h.call_video_rate, call_audio_rate: h.call_audio_rate };
+  const body = sheet(`<div style="text-align:center">${avatar(h)}<h3 translate="no">${esc(h.full_name || h.username)}</h3>
+    <div class="callbtns"><button class="cb vid" data-k="video">📹 ভিডিও কল<small>🪙${n(callRate(host, "video"))}/মিনিট</small></button>
+    <button class="cb aud" data-k="audio">📞 অডিও কল<small>🪙${n(callRate(host, "audio"))}/মিনিট</small></button></div></div>`);
+  body.onclick = (e) => { const b = e.target.closest("[data-k]"); if (!b) return; closeSheet(); startCall(host, b.dataset.k); };
+}
+document.addEventListener("click", (e) => {
+  const c = e.target.closest("[data-call]"); if (!c) return;
+  e.preventDefault(); e.stopPropagation();
+  const h = LIVE_HOSTS.get(c.dataset.call); if (h) callChooser(h);
+}, true);
+const livesFor = async () => ((await rpc("list_lives", { p_limit: 60 }).catch(() => [])) ?? [])
+  .filter((r) => (!S.disc?.lang || r.language === S.disc.lang) && (!S.disc?.country || r.country_code === S.disc.country));
+
+// হোম → লাইভ ট্যাব
 async function liveGrid(box) {
-  const rows = (await rpc("list_lives", { p_limit: 40 }).catch(() => [])) ?? [];
+  const rows = await livesFor();
   const canGo = S.me.account_type === "host" || S.me.role === "admin" || setting("live_hosts_only", true) === false;
   box.innerHTML = `${canGo ? `<a class="golive-btn" href="#golive">🔴 লাইভে যান</a>` : ""}
-    ${rows.length ? `<div class="live-grid">${rows.map((r) => `<a class="lcard" href="#live/${r.id}">
-      <div class="lph" style="${r.cover_url ? `background-image:url('${esc(r.cover_url)}')` : ""}">${r.avatar_url ? `<img src="${esc(r.avatar_url)}" alt="">` : `<b>${esc((r.full_name || r.username || "?").charAt(0))}</b>`}
-        <span class="lbadge">● LIVE</span><span class="lview">👁 ${n(r.viewers)}</span></div>
-      <div class="lmeta"><b translate="no">${esc(r.full_name || r.username)}</b>${r.account_type === "host" ? " 👑" : ""}<small translate="no">${esc(r.title || "")}${r.country_code ? " · " + flagOf(r.country_code) : ""}</small></div></a>`).join("")}</div>`
+    ${rows.length ? `<div class="disc-grid" style="padding:0"><div class="disc-col" id="lc0"></div><div class="disc-col" id="lc1"></div></div>`
       : `<div class="empty">🔴 এখন কেউ লাইভে নেই।${canGo ? "<br>আপনিই প্রথম লাইভে যান!" : ""}</div>`}`;
+  rows.forEach((r, i) => { const c0 = $("#lc0"), c1 = $("#lc1"); (c0.offsetHeight <= c1.offsetHeight ? c0 : c1).insertAdjacentHTML("beforeend", liveCard(r, i)); });
+}
+
+// কেউ লাইভে থাকলে চ্যাটে ছোট ভাসমান লাইভ (শব্দ ছাড়া), চাপলে পুরো লাইভ
+async function livePip(uid, o) {
+  const L = await rpc("user_live", { p_user: uid }).catch(() => null);
+  if (!L || location.hash !== `#chat/${uid}`) return () => {};
+  const d = document.createElement("a");
+  d.className = "chat-live"; d.href = `#live/${L.id}`;
+  d.innerHTML = `${L.thumb_url || o.avatar_url ? `<img src="${esc(L.thumb_url || o.avatar_url)}" alt="">` : ""}<div class="clv" id="clv"></div>
+    <span class="lbadge"><i class="eq"><b></b><b></b><b></b></i>LIVE</span><b class="clp">▶</b><button class="clx" type="button">✕</button>`;
+  document.body.appendChild(d);
+  let client = null, gone = false;
+  const stop = () => { gone = true; d.remove(); try { client?.leave(); } catch { /* */ } client = null; };
+  d.querySelector(".clx").onclick = (e) => { e.preventDefault(); e.stopPropagation(); stop(); };
+  const av = document.querySelector(".chat-top .av"); if (av) av.parentElement.classList.add("is-live");
+  try {
+    const A = await loadAgora();
+    const tk = await agoraToken(`live_${L.id}`);
+    if (gone) return stop;
+    client = A.createClient({ mode: "live", codec: "vp8" });
+    await client.setClientRole("audience", { level: 1 });
+    client.on("user-published", async (user, type) => {
+      if (type !== "video" || gone) return;
+      await client.subscribe(user, "video");
+      const box = d.querySelector("#clv"); box.innerHTML = ""; user.videoTrack?.play(box); d.classList.add("on");
+    });
+    await client.join(tk.appId, `live_${L.id}`, tk.token, tk.uid);
+    if (gone) { client.leave(); client = null; }
+  } catch { /* ছবি দেখাবে */ }
+  return stop;
 }
 
 // লাইভ শুরুর আগের পেজ
@@ -2287,6 +2344,18 @@ R.live = async (rid) => {
     $("#lvGuest").classList.add("hidden");
     leaveRtc();
   };
+  const liveThumb = async () => {
+    try {
+      const f = cam?.getCurrentFrameData?.(); if (!f?.width) return;
+      const c = document.createElement("canvas"), sc = Math.min(1, 720 / Math.max(f.width, f.height));
+      const t = document.createElement("canvas"); t.width = f.width; t.height = f.height; t.getContext("2d").putImageData(f, 0, 0);
+      c.width = Math.round(f.width * sc); c.height = Math.round(f.height * sc); c.getContext("2d").drawImage(t, 0, 0, c.width, c.height);
+      const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.8));
+      const path = `${S.me.id}/live-${id}.jpg`;
+      await xhrUpload("photos", path, blob, "image/jpeg", () => {});
+      await rpc("live_set_thumb", { p_room: id, p_url: sb.storage.from("photos").getPublicUrl(path).data.publicUrl + "?t=" + Date.now() });
+    } catch { /* ছবি না গেলে প্রোফাইল ছবি দেখাবে */ }
+  };
   const leaveRtc = async () => { try { mic?.close(); cam?.close(); } catch { /* */ } mic = cam = null; try { await client?.leave(); } catch { /* */ } };
   const publish = async () => {
     const A = await loadAgora();
@@ -2294,7 +2363,7 @@ R.live = async (rid) => {
     await client.setClientRole("host");
     await client.publish([mic, cam]);
     myRole = "host";
-    if (host) { $("#lvMain").innerHTML = ""; cam.play($("#lvMain"), { mirror: facing === "user" }); }
+    if (host) { $("#lvMain").innerHTML = ""; cam.play($("#lvMain"), { mirror: facing === "user" }); setTimeout(liveThumb, 4000); }
     else { const g = $("#lvGuest"); g.classList.remove("hidden"); g.innerHTML = ""; cam.play(g, { mirror: true }); }
   };
   try {
@@ -2896,6 +2965,10 @@ R.home = (tab = "video") => {
     try {
       if (tab === "contest") { st.done = true; await contests(); return; }
       if (tab === "live") { st.done = true; $(".disc-grid").outerHTML = `<div id="liveBox" style="padding:0 10px"></div>`; await liveGrid($("#liveBox")); $("#dmore").innerHTML = ""; return; }
+      if (tab === "video" && st.before === null && !st.livesShown && setting("live_enabled", true) !== false) {
+        st.livesShown = true;
+        for (const r of await livesFor()) { const c0 = $("#c0"), c1 = $("#c1"); if (!c0) return; (c0.offsetHeight <= c1.offsetHeight ? c0 : c1).insertAdjacentHTML("beforeend", liveCard(r, st.count++)); }
+      }
       const rows = tab === "photo"
         ? await rpc("feed_posts", { p_kind: "photo", p_before: st.before, p_limit: 20, p_category: null, p_contest: null, p_user: null, p_sort: "new" })
         : await rpc("feed", { p_type: "foryou", p_before: st.before, p_limit: 20, p_user: null, p_category: tab === "premium" ? "premium" : null, p_lang: S.disc.lang || null, p_country: S.disc.country || null });
@@ -3207,6 +3280,11 @@ R.u = async (id) => {
   if (!p) { screen.innerHTML = `<div class="page"><div class="empty">ইউজার পাওয়া যায়নি</div></div>`; return; }
   if (mine) S.me = p;
   let following = !!fl.data;
+  if (!mine) rpc("user_live", { p_user: id }).then((L) => {
+    if (!L || !$("#pAv")) return;
+    const av = $("#pAv"); av.classList.add("is-live"); av.onclick = () => (location.hash = `#live/${L.id}`);
+    av.insertAdjacentHTML("afterend", `<a class="live-now" href="#live/${L.id}"><i class="eq"><b></b><b></b><b></b></i> এখন লাইভে — দেখুন</a>`);
+  }).catch(() => {});
   sb.from("stories").select("id", { count: "exact", head: true }).eq("user_id", id).eq("status", "active").gt("expires_at", new Date().toISOString()).then(({ count }) => {
     const av = $("#pAv"); if (!av || !count) return;
     av.classList.add("has-story"); av.onclick = () => (location.hash = `#story/${id}`);

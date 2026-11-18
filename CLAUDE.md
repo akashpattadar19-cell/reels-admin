@@ -142,6 +142,9 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
   `live_rooms.pk_id` set on both rooms; `live_gift` adds coins to score_a/score_b; split screen (2nd Agora client joins the other
   room as audience); `pk_finish` at time-out or host ends early; `_pk_settle` pays winner `pk_winner_bonus_pct` % of its PK gift value
   (cap `pk_bonus_cap_paisa`) as pending; cron `pk-cron`. Settings pk_enabled/pk_duration_sec on admin "🔴 লাইভ ও কল" page.
+- Live cards (028): `liveCard()` = home-card style (snapshot `live_rooms.thumb_url` uploaded by the host 4 s after going live via
+  `live_set_thumb`, else avatar), shown first in Home → ভিডিও and in the লাইভ tab; 📞 on a card opens `callChooser`. `user_live(uid)`:
+  chat shows a floating muted live preview (`livePip`, Agora audience, video only) → tap opens `#live/<id>`; profile avatar gets a LIVE ring.
 - Declined: real-money betting games in live (coins are bought with money and earnings withdraw → gambling, illegal in BD/KSA,
   banned by Play). Offer free point games instead. Call moderation must cover the whole call, not only the first minutes.
 

@@ -1545,7 +1545,8 @@
 "এই হোস্ট এখন অন্য PK-তে আছে": "This host is in another PK",
 "PK চ্যালেঞ্জের সময় শেষ": "The PK challenge expired",
 "PK ব্যাটল শুরু! গিফট দিয়ে আপনার হোস্টকে জেতান 🔥": "PK battle started! Send gifts to make your host win 🔥",
-"PK ড্র হয়েছে 🤝": "The PK is a draw 🤝"
+"PK ড্র হয়েছে 🤝": "The PK is a draw 🤝",
+"এখন লাইভে — দেখুন": "Live now — watch"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });

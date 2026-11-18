@@ -861,3 +861,21 @@ a.mention, span.mention { color: #2563eb; font-weight: 600; }
 .pk-res.win { color: #fde047; } .pk-res.lose { color: #cbd5e1; } .pk-res.draw { color: #a5f3fc; }
 .lv-b.pkb { background: linear-gradient(135deg, #f97316, #ef4444); }
 .lvroom.pk .lv-title { display: none; }
+/* live cards & pip */
+.dcard.live .ph { box-shadow: inset 0 0 0 2px #ef4444; }
+.dcard.live .lbadge, .chat-live .lbadge { display: inline-flex; align-items: center; gap: 4px; }
+.eq { display: inline-flex; align-items: flex-end; gap: 1.5px; height: 10px; font-style: normal; }
+.eq b { width: 2px; background: #fff; border-radius: 1px; animation: eqb .9s infinite ease-in-out; }
+.eq b:nth-child(1) { height: 5px; } .eq b:nth-child(2) { height: 10px; animation-delay: .2s; } .eq b:nth-child(3) { height: 7px; animation-delay: .4s; }
+@keyframes eqb { 50% { transform: scaleY(.4); } }
+.lcall { width: 26px; height: 26px; border-radius: 50%; display: inline-grid; place-items: center; background: linear-gradient(135deg, #f472b6, #c026d3); font-size: 13px; flex: none; }
+.chat-live { position: fixed; right: 10px; top: calc(64px + var(--safe-t, 0px)); width: 112px; height: 150px; border-radius: 14px; overflow: hidden; z-index: 60;
+  background: #222; box-shadow: 0 6px 18px rgba(0,0,0,.3); border: 2px solid #ef4444; color: #fff; }
+.chat-live > img, .chat-live .clv { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.chat-live .clv > div { width: 100% !important; height: 100% !important; }
+.chat-live .lbadge { position: absolute; top: 5px; left: 5px; background: #ef4444; font-size: 10px; font-weight: 800; border-radius: 6px; padding: 1px 5px; z-index: 2; }
+.chat-live .clp { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
+  background: linear-gradient(135deg, #f472b6, #c026d3); font-size: 15px; z-index: 2; animation: pulse 1.4s infinite; }
+.chat-live .clx { position: absolute; top: 3px; right: 3px; width: 22px; height: 22px; margin: 0; padding: 0; border-radius: 50%; border: 0; background: rgba(0,0,0,.5); color: #fff; font-size: 11px; z-index: 3; }
+.is-live .av, .av.is-live { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #ef4444; }
+.live-now { display: inline-flex; align-items: center; gap: 6px; margin: 6px auto 0; padding: 5px 12px; border-radius: 99px; background: #ef4444; color: #fff; font-weight: 700; font-size: 13px; }
