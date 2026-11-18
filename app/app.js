@@ -421,6 +421,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
       }
     });
     const video = el.querySelector("video");
+    video.addEventListener("loadedmetadata", () => { if (video.videoWidth && video.videoHeight < video.videoWidth * 1.2) el.classList.add("wide"); });
     let tapT = null;
     video.addEventListener("click", (e) => {
       if (tapT) { clearTimeout(tapT); tapT = null; doLike(el, true, e); return; }
@@ -633,6 +634,7 @@ R.upload = () => {
     <label class="pick" id="pickL"><input type="file" id="vf" accept="video/*" class="hidden"><div class="ic">🎬</div>
       <b>ভিডিও বেছে নিন</b><div class="muted tiny">সর্বোচ্চ ${maxSec} সেকেন্ড · খাড়া (9:16) ভিডিও সবচেয়ে ভালো দেখায়</div></label>
     <video id="pv" class="preview hidden" controls playsinline></video>
+    <div id="vframe"></div>
     <label class="lbl">ক্যাটাগরি</label>
     <select id="cat">${CATS.filter(([k]) => k && k !== "premium").map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select>
     ${S.me.account_type !== "host" && S.me.role !== "admin" && String(setting("premium_upload_hosts_only", true)) === "true"
@@ -667,7 +669,11 @@ R.upload = () => {
       duration = Math.round(pv.duration || 0);
       if (duration > maxSec + 1) { toast(`ভিডিও ${duration} সেকেন্ড — সর্বোচ্চ ${maxSec} সেকেন্ড`, true); file = null; $("#up").disabled = true; return; }
       $("#up").disabled = false;
+      const vw = pv.videoWidth, vh = pv.videoHeight;
       $("#msg").textContent = `${duration} সেকেন্ড · ${(file.size / 1048576).toFixed(1)}MB`;
+      const fr = nearestFrame(vw, vh);
+      $("#vframe").innerHTML = vw ? `<div class="frames ro">${FRAMES.slice(1).map(([k, l, r]) => `<span class="${l === fr ? "on" : ""}">${FRAME_ICON(r)}${l}</span>`).join("")}</div>
+        <div class="tiny muted">📐 ভিডিওর ফ্রেম: <b>${fr}</b> · ${vw}×${vh} — ${vh > vw * 1.2 ? "✅ খাড়া ভিডিও, পুরো স্ক্রিনে দেখাবে" : "পুরো ভিডিও দেখা যাবে, উপরে-নিচে কালো অংশ থাকবে। খাড়া (9:16) ভিডিও সবচেয়ে ভালো দেখায়"}</div>` : "";
     };
   };
   $("#up").onclick = async () => {
@@ -1123,24 +1129,87 @@ function composeText(cat) {
   };
 }
 
+// ---------- ফ্রেম সাইজ (Original / 1:1 / 9:16 / 16:9 / 3:4 / 4:3) ----------
+const FRAMES = [["orig", "মূল সাইজ", 0], ["1:1", "1:1", 1], ["9:16", "9:16", 9 / 16], ["16:9", "16:9", 16 / 9], ["3:4", "3:4", 3 / 4], ["4:3", "4:3", 4 / 3]];
+const FRAME_ICON = (r) => `<i class="fr-ic" style="aspect-ratio:${r || 0.8}"></i>`;
+function nearestFrame(w, h) {
+  if (!w || !h) return "";
+  const r = w / h;
+  let best = FRAMES[1];
+  for (const f of FRAMES.slice(1)) if (Math.abs(Math.log(f[2] / r)) < Math.abs(Math.log(best[2] / r))) best = f;
+  return Math.abs(Math.log(best[2] / r)) < 0.06 ? best[1] : `${(r >= 1 ? r : 1 / r).toFixed(2)}:1`;
+}
+function frameChips(id, sel) {
+  return `<div class="frames" id="${id}">${FRAMES.map(([k, l, r]) => `<button type="button" data-f="${k}" class="${k === sel ? "on" : ""}">${FRAME_ICON(r)}${l}</button>`).join("")}</div>`;
+}
+// ছবি ক্রপ: ফ্রেম বেছে নিন, ছবি টেনে সরান; আউটপুট JPEG blob
+function photoFramer(box, img) {
+  const st = { ratio: 0, x: 0.5, y: 0.5 };
+  const nat = img.naturalWidth / img.naturalHeight;
+  const view = box.querySelector(".crop-view"), pic = view.querySelector("img");
+  const layout = () => {
+    const r = st.ratio || nat;
+    const W = Math.min(box.clientWidth, window.innerHeight * 0.55 * r), H = W / r;
+    view.style.width = W + "px"; view.style.height = H + "px";
+    const s = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+    const dw = img.naturalWidth * s, dh = img.naturalHeight * s;
+    pic.style.width = dw + "px"; pic.style.height = dh + "px";
+    pic.style.left = -(dw - W) * st.x + "px"; pic.style.top = -(dh - H) * st.y + "px";
+    box.querySelector(".crop-info").textContent = `📐 ${st.ratio ? FRAMES.find((f) => f[2] === st.ratio)[1] : "মূল সাইজ " + nearestFrame(img.naturalWidth, img.naturalHeight)} · ${img.naturalWidth}×${img.naturalHeight}${st.ratio ? " · টেনে জায়গা ঠিক করুন" : ""}`;
+    view.classList.toggle("movable", !!st.ratio);
+  };
+  box.querySelectorAll(".frames button").forEach((b) => (b.onclick = () => {
+    box.querySelectorAll(".frames button").forEach((x) => x.classList.toggle("on", x === b));
+    st.ratio = FRAMES.find((f) => f[0] === b.dataset.f)[2]; st.x = st.y = 0.5; layout();
+  }));
+  let drag = null;
+  view.onpointerdown = (e) => { if (!st.ratio) return; drag = { x: e.clientX, y: e.clientY, sx: st.x, sy: st.y }; view.setPointerCapture(e.pointerId); };
+  view.onpointermove = (e) => {
+    if (!drag) return;
+    const ex = pic.offsetWidth - view.clientWidth, ey = pic.offsetHeight - view.clientHeight;
+    st.x = ex > 0 ? Math.min(1, Math.max(0, drag.sx - (e.clientX - drag.x) / ex)) : 0.5;
+    st.y = ey > 0 ? Math.min(1, Math.max(0, drag.sy - (e.clientY - drag.y) / ey)) : 0.5;
+    layout();
+  };
+  view.onpointerup = view.onpointercancel = () => (drag = null);
+  layout();
+  window.addEventListener("resize", layout, { once: true });
+  return async (maxSide = 1440) => {
+    const r = st.ratio || nat;
+    let sw = img.naturalWidth, sh = img.naturalHeight;
+    if (st.ratio) { if (sw / sh > r) sw = sh * r; else sh = sw / r; }
+    const sx = (img.naturalWidth - sw) * st.x, sy = (img.naturalHeight - sh) * st.y;
+    const k = Math.min(1, maxSide / Math.max(sw, sh));
+    const c = document.createElement("canvas"); c.width = Math.round(sw * k); c.height = Math.round(sh * k);
+    c.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+    return await new Promise((res) => c.toBlob(res, "image/jpeg", 0.86));
+  };
+}
+
 R.newphoto = (contestId) => {
   screen.innerHTML = `<div class="page">${header(contestId ? "🏆 কম্পিটিশনে ছবি দিন" : "🖼️ ফটো আপলোড")}
     <label class="pick"><input type="file" id="pf" accept="image/*" class="hidden"><div class="ic">📷</div><b>ক্যামেরা বা গ্যালারি থেকে ছবি বেছে নিন</b></label>
-    <img id="pi" class="preview hidden" alt="">
+    <div id="crop" class="crop hidden"><div class="crop-view"><img alt=""></div><div class="crop-info tiny muted"></div>${frameChips("frs", "orig")}</div>
     <label class="lbl">ক্যাপশন</label><textarea id="pcap" maxlength="500" placeholder="ছবি সম্পর্কে লিখুন…"></textarea>
     <button class="btn primary" id="pup" disabled>আপলোড করুন</button>
     <div class="progress hidden" id="pg"><div></div></div>
     <p class="muted tiny">লাইক, কমেন্ট, শেয়ার ও গিফট থেকে আয় হবে। অশ্লীল বা অন্যের ছবি দিলে পোস্ট মুছে যাবে এবং অ্যাকাউন্ট জেলে যেতে পারে।</p></div>`;
-  let blob = null;
+  let render = null;
   $("#pf").onchange = async (e) => {
     const f = e.target.files[0]; if (!f) return;
-    try { blob = await compressImage(f, 1440, 0.85); } catch { return toast("ছবিটি খোলা যায়নি", true); }
-    $("#pi").src = URL.createObjectURL(blob); $("#pi").classList.remove("hidden"); $("#pup").disabled = false;
+    const img = new Image(); img.src = URL.createObjectURL(f);
+    try { await img.decode(); } catch { return toast("ছবিটি খোলা যায়নি", true); }
+    $("#crop").classList.remove("hidden");
+    const pk = $("#pf").closest(".pick"); pk.classList.add("pick-sm"); pk.querySelector("b").textContent = "📷 অন্য ছবি বেছে নিন";
+    $("#crop .crop-view img").src = img.src;
+    render = photoFramer($("#crop"), img);
+    $("#pup").disabled = false;
   };
   $("#pup").onclick = async (e) => {
-    if (!blob) return;
+    if (!render) return;
     e.target.disabled = true; $("#pg").classList.remove("hidden");
     try {
+      const blob = await render(1440);
       const path = `${S.me.id}/${Date.now()}.jpg`;
       await xhrUpload("photos", path, blob, "image/jpeg", (x) => ($("#pg").firstElementChild.style.width = Math.round(x * 100) + "%"));
       const url = sb.storage.from("photos").getPublicUrl(path).data.publicUrl;

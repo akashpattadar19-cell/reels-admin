@@ -1160,7 +1160,13 @@
 "এই ইউজার এখনো নতুন অ্যাপ থেকে লগইন করেনি": "This user hasn't signed in from the new app yet",
 "এখনো কোনো ডিভাইস নেই — ইউজাররা নতুন APK খুললে দেখা যাবে": "No devices yet — they appear when users open the new APK",
 "একই মোবাইলে আগে অন্য অ্যাকাউন্ট থাকলে রেফার বাতিল": "Cancel referral if the phone already had another account",
-"রেফার সফল হতে নতুন ইউজারকে অ্যাপ (APK) থেকে লগইন করতে হবে": "New user must sign in from the app (APK) for the referral to count"
+"রেফার সফল হতে নতুন ইউজারকে অ্যাপ (APK) থেকে লগইন করতে হবে": "New user must sign in from the app (APK) for the referral to count",
+"মূল সাইজ": "Original",
+"টেনে জায়গা ঠিক করুন": "drag to adjust",
+"📷 অন্য ছবি বেছে নিন": "📷 Pick another photo",
+"📐 ভিডিওর ফ্রেম:": "📐 Video frame:",
+"✅ খাড়া ভিডিও, পুরো স্ক্রিনে দেখাবে": "✅ Vertical video, shows full screen",
+"পুরো ভিডিও দেখা যাবে, উপরে-নিচে কালো অংশ থাকবে। খাড়া (9:16) ভিডিও সবচেয়ে ভালো দেখায়": "The whole video will show with black bars above and below. Vertical (9:16) videos look best"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });
