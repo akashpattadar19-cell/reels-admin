@@ -1133,12 +1133,13 @@ routes.live = async () => {
   view.innerHTML = `<h1>🔴 লাইভ ও 📞 কল</h1><div class="empty">লোড হচ্ছে…</div>`;
   let d;
   try { d = await rpc("admin_live_overview"); } catch (e) { view.innerHTML = `<h1>🔴 লাইভ ও 📞 কল</h1><div class="empty err">${esc(errMsg(e))}</div>`; return; }
-  const { data: st } = await sb.from("settings").select("key,value").in("key", ["live_enabled", "live_hosts_only", "live_max_cohosts", "calls_enabled", "call_video_coins_per_min", "call_audio_coins_per_min", "call_host_pct", "live_gift_host_pct", "coin_price_paisa", "pk_enabled", "pk_duration_sec", "pk_winner_bonus_pct", "pk_bonus_cap_paisa", "party_enabled", "party_hosts_only", "party_max_seats", "party_gift_pct"]);
+  const { data: st } = await sb.from("settings").select("key,value").in("key", ["live_enabled", "live_hosts_only", "live_max_cohosts", "calls_enabled", "call_video_coins_per_min", "call_audio_coins_per_min", "call_host_pct", "live_gift_host_pct", "coin_price_paisa", "pk_enabled", "pk_duration_sec", "pk_winner_bonus_pct", "pk_bonus_cap_paisa", "party_enabled", "party_hosts_only", "party_max_seats", "party_gift_pct", "live_rules_notice"]);
   const pks = (await rpc("admin_pk_recent").catch(() => [])) ?? [];
   const S2 = Object.fromEntries((st ?? []).map((x) => [x.key, x.value]));
   const cp = Number(S2.coin_price_paisa || 100);
   const row = (key, label, kind) => `<div class="item" data-key="${key}" data-kind="${kind}"><div class="top"><b>${label}</b></div><div class="row" style="flex-wrap:nowrap">${kind === "bool"
     ? `<select name="v"><option value="true" ${S2[key] === true ? "selected" : ""}>চালু</option><option value="false" ${S2[key] === false ? "selected" : ""}>বন্ধ</option></select>`
+    : kind === "text" ? `<textarea name="v" rows="3" style="flex:1">${esc(S2[key] ?? "")}</textarea>`
     : `<input name="v" type="number" min="0" value="${esc(S2[key] ?? 0)}">${kind === "pct" ? '<span class="muted">%</span>' : kind === "coin" ? '<span class="muted">🪙</span>' : ""}`}<button class="btn sm good" data-save>সেভ</button></div></div>`;
   const t = d.today;
   view.innerHTML = `<h1>🔴 লাইভ ও 📞 কল</h1>
@@ -1153,6 +1154,7 @@ routes.live = async () => {
     <h2>⚙️ নিয়ম</h2>
     <p class="muted small">১ কয়েন = ৳${(cp / 100).toFixed(2)}। যেমন ভিডিও কল ${num(S2.call_video_coins_per_min)} 🪙/মিনিট = ৳${((S2.call_video_coins_per_min * cp) / 100).toFixed(2)}/মিনিট, যার ${num(S2.call_host_pct)}% হোস্ট পাবে, বাকিটা আপনার। কোনো হোস্টের জন্য আলাদা রেট দিতে "ইউজার খুঁজুন" পেজে যান।</p>
     <div class="list" id="lrules">
+      ${row("live_rules_notice", "📢 লাইভ ও পার্টিতে সবার আগে দেখানো নিয়মের নোটিশ", "text")}
       ${row("live_enabled", "লাইভ চালু", "bool")}
       ${row("live_hosts_only", "শুধু অনুমোদিত হোস্টরা লাইভ করতে পারবে", "bool")}
       ${row("live_max_cohosts", "লাইভে একসাথে কতজন অতিথি যোগ দিতে পারবে", "num")}
@@ -1189,8 +1191,8 @@ routes.live = async () => {
     if (eb) { if (!confirm("এই লাইভ বন্ধ করবেন?")) return; try { await act(() => rpc("live_end", { p_room: Number(eb.dataset.end), p_reason: "admin" }), "লাইভ বন্ধ করা হয়েছে"); routes.live(); } catch { /* */ } return; }
     const b = e.target.closest("[data-save]"); if (!b) return;
     const it = b.closest(".item"), raw = it.querySelector("[name=v]").value, kind = it.dataset.kind;
-    const value = kind === "bool" ? raw === "true" : Math.round(Number(raw));
-    if (kind !== "bool" && (isNaN(value) || value < 0 || (kind === "pct" && value > 100))) return toast("সঠিক সংখ্যা দিন", true);
+    const value = kind === "bool" ? raw === "true" : kind === "text" ? raw.trim() : Math.round(Number(raw));
+    if (kind !== "bool" && kind !== "text" && (isNaN(value) || value < 0 || (kind === "pct" && value > 100))) return toast("সঠিক সংখ্যা দিন", true);
     await act(() => rpc("admin_set_setting", { p_key: it.dataset.key, p_value: value }), "সেভ হয়েছে");
   };
 };

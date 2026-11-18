@@ -151,6 +151,12 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
   `live_gift(..., p_to)` sends to host or a seated guest (`party_gift_pct`, else live rule). App `#party/<id>`: audio-only Agora,
   host seat + seat grid, green glow from volume-indicator, tap seat = request / gift / host mute+remove. Settings party_* on admin live page.
   Uploads (video/photo/story/text) moved to the Me page "＋ পোস্ট করুন" row.
+- Room UI (030, Chamet-style) shared by live and party: `roomTopHtml/roomTopWire` (host chip with 🪙 room coins + ＋ follow,
+  top-3 gifters, viewer count → `live_audience` sheet, 👑 টপ ফ্যান chip from `room_state`), pinned rules notice (`settings.live_rules_notice`,
+  admin live page) + "Follow me" bubble, bottom bar 💬 (opens input) · 📞 call pill (`callPill`) · actions · ✕. Party = 3×3 tiles
+  (🏠 host, coins received per seat from `room_state.recv`, flag, mic). `#myprofile` list page (ID copy, name, gender, age from birth date,
+  region/location read-only, language, `language2`, `interests` chips via `set_profile_extra`, bio); interests show on profiles.
+- Not built on purpose: Chamet "BIG WIN"/"City PK" coin games (betting).
 - Declined: real-money betting games in live (coins are bought with money and earnings withdraw → gambling, illegal in BD/KSA,
   banned by Play). Offer free point games instead. Call moderation must cover the whole call, not only the first minutes.
 

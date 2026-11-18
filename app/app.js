@@ -599,7 +599,7 @@ function route() {
   if (!R[name]) name = "home";
   if (S.me.jailed && !["jail", "cashin", "history"].includes(name)) name = "jail";
   const TABS = { home: ["home", "golive", "live", "goparty", "party", "notifs", "post", "contest", "newphoto", "top", "tag", "tags", "at", "story", "newstory"], feed: ["feed", "following", "watch", "play"],
-    me: ["me", "seller", "creator", "support", "policy", "delacct", "invite", "rules", "settings", "vault", "edit", "level", "wallet", "history", "withdraw", "cashin", "inbox", "chat"] };
+    me: ["me", "myprofile", "seller", "creator", "support", "policy", "delacct", "invite", "rules", "settings", "vault", "edit", "level", "wallet", "history", "withdraw", "cashin", "inbox", "chat"] };
   document.querySelectorAll(".tabbar a").forEach((x) => x.classList.toggle("on", x.dataset.t === name || (TABS[x.dataset.t] ?? []).includes(name)));
   screen.classList.remove("full");
   $(".tabbar").classList.toggle("dark", TABS.feed.includes(name));
@@ -2278,6 +2278,65 @@ async function livePip(uid, o) {
   return stop;
 }
 
+// লাইভ ও পার্টির উপরের অংশ, নিয়মের নোটিশ, দর্শক তালিকা
+const roomTopHtml = (hp, host, coins) => `<div class="rt"><div class="rt-host"><a href="#u/${hp.id}">${avatar(hp)}</a>
+    <div class="rt-n"><b translate="no">${esc(hp.full_name || hp.username)}</b><small>🪙 <span id="lvG">${n(coins)}</span></small></div>
+    ${host ? "" : `<button class="rt-fol hidden" id="lvF" type="button">＋</button>`}</div>
+  <div class="rt-top" id="rtTop"></div><button class="rt-cnt" id="rtCnt" type="button"><span id="lvV">0</span></button></div>
+  <div class="rt-fan hidden" id="rtFan"></div>`;
+const roomMsgHtml = (m, hp) => m.kind === "rules" ? `<span class="rules" translate="no">📢 ${esc(m.body)}</span>`
+  : m.kind === "fol" ? `${avatar(hp)}<span>আমাকে ফলো করুন</span><i>＋</i>`
+  : m.kind === "chat" ? `<b translate="no">${esc(m.username || "")}</b> <span translate="no">${esc(m.body)}</span>`
+  : m.kind === "gift" ? `🎁 <b translate="no">${esc(m.username || "")}</b> পাঠিয়েছে <span translate="no">${esc(m.body)}</span>`
+  : m.kind === "like" ? `❤️ <b translate="no">${esc(m.username || "")}</b>`
+  : m.kind === "join" ? `<b translate="no">${esc(m.username || "")}</b> রুমে যোগ দিয়েছে`
+  : `<b translate="no">${esc(m.username || "")}</b> ${esc(m.body || "")}`;
+async function audienceSheet(id) {
+  const body = sheet(`<h3>👥 দর্শক</h3><div class="spinner"></div>`);
+  const list = (await rpc("live_audience", { p_room: id }).catch(() => [])) ?? [];
+  body.innerHTML = `<h3>👥 দর্শক (${n(list.length)})</h3><div class="list aud">${list.length ? list.map((u, i) => `<a class="li" href="#u/${u.id}">
+    <em class="rk ${i < 3 && u.coins ? "r" + (i + 1) : ""}">${u.coins ? i + 1 : ""}</em>${avatar(u)}<span style="flex:1;min-width:0"><b translate="no">${esc(u.full_name || u.username)}</b>
+    <small class="lvb">✦Lv${u.level ?? 0}</small></span>${u.coins ? `<span class="cn">🪙 ${n(u.coins)}</span>` : ""}</a>`).join("") : `<div class="empty">এখন কোনো দর্শক নেই</div>`}</div>`;
+}
+async function roomTopWire(id, hp, host, addMsg) {
+  addMsg({ kind: "rules", body: setting("live_rules_notice", "অশ্লীল, অপ্রাপ্তবয়স্ক, অশালীন, সহিংস বা বেআইনি কিছু সম্পূর্ণ নিষিদ্ধ। নিয়ম ভাঙলে সঙ্গে সঙ্গে অ্যাকাউন্ট ব্যান করা হবে।") });
+  const follow = async () => {
+    try { const on = await rpc("toggle_follow", { p_target: hp.id }); if (on) { $("#lvF")?.classList.add("hidden"); document.querySelectorAll(".lm.fol").forEach((x) => x.remove()); toast("✓ ফলো করেছেন"); } }
+    catch (er) { toast(errMsg(er), true); }
+  };
+  if (!host) {
+    const { data: f } = await sb.from("follows").select("follower_id").eq("follower_id", S.me.id).eq("following_id", hp.id).maybeSingle();
+    if (!f) { $("#lvF")?.classList.remove("hidden"); addMsg({ kind: "fol" }); }
+  }
+  $("#lvF")?.addEventListener("click", follow);
+  $("#lvM")?.addEventListener("click", (e) => { if (e.target.closest(".lm.fol")) follow(); });
+  $("#rtCnt").onclick = () => audienceSheet(id);
+  $("#rtTop").onclick = () => audienceSheet(id);
+  $("#rtFan").onclick = () => audienceSheet(id);
+  return async () => {
+    const st = await rpc("room_state", { p_room: id }).catch(() => null);
+    if (!st) return null;
+    if ($("#lvV")) $("#lvV").textContent = n(st.viewers);
+    if ($("#rtTop")) $("#rtTop").innerHTML = (st.top ?? []).map((u, i) => `<span class="tp t${i + 1}">${avatar(u)}</span>`).join("");
+    const f = st.top?.[0], fan = $("#rtFan");
+    if (fan) { fan.classList.toggle("hidden", !f); if (f) fan.innerHTML = `${avatar(f)}<b>টপ ফ্যান</b>`; }
+    return st;
+  };
+}
+// নিচের বার: 💬 চাপলে লেখার ঘর খোলে
+function roomChatWire(id) {
+  const box = $("#lvIn"), inp = $("#lvI");
+  $("#lvChat").onclick = () => { box.classList.remove("hidden"); inp.focus(); };
+  inp.addEventListener("blur", () => setTimeout(() => { if (document.activeElement !== inp) box.classList.add("hidden"); }, 250));
+  $("#lvF2").addEventListener("submit", async (e) => {
+    e.preventDefault(); const t = inp.value.trim(); if (!t) return; inp.value = "";
+    try { await rpc("live_send", { p_room: id, p_body: t, p_kind: "chat" }); } catch (er) { toast(errMsg(er), true); }
+  });
+  attachSuggest(inp);
+}
+const callPill = (hp, host) => !host && hp.account_type === "host" && hp.calls_on !== false && setting("calls_enabled", true) !== false
+  ? `<button class="call-pill" id="lvCall" type="button">📞 ${n(callRate(hp, "video"))}🪙/মিনিট</button>` : "";
+
 // মাঝের ＋ বাটন: লাইভ / পার্টি
 function plusSheet() {
   const canGo = S.me?.account_type === "host" || S.me?.role === "admin" || setting("live_hosts_only", true) === false;
@@ -2334,28 +2393,26 @@ R.live = async (rid) => {
   try { needMedia(); info = await rpc("live_join", { p_room: id }); }
   catch (e) { document.body.classList.remove("story-open"); toast(errMsg(e), true); location.replace("#home/live"); return; }
   const host = info.host_id === S.me.id;
-  const { data: hp } = await sb.from("profiles").select("id,username,full_name,avatar_url,user_no,account_type").eq("id", info.host_id).single();
+  const { data: hp } = await sb.from("profiles").select("id,username,full_name,avatar_url,user_no,account_type,calls_on,call_video_rate,call_audio_rate").eq("id", info.host_id).single();
   screen.innerHTML = `<div class="lvroom">
     <div class="lv-main" id="lvMain"><div class="lv-wait">${avatar(hp)}<div>লাইভ লোড হচ্ছে…</div></div></div>
     <div class="lv-guest hidden" id="lvGuest"></div><div class="lv-pk2 hidden" id="lvPk2"></div>
     <div class="pkbar hidden" id="pkBar"><div class="pk-names"><b id="pkNa" translate="no"></b><span id="pkTm"></span><b id="pkNb" translate="no"></b></div>
       <div class="pk-track"><i id="pkA"></i><i id="pkB"></i><span class="sa" id="pkSa">0</span><span class="sb" id="pkSb">0</span></div></div>
     <div class="pk-res hidden" id="pkRes"></div>
-    <div class="lv-top"><a class="lv-host" href="#u/${hp.id}">${avatar(hp)}<span><b translate="no">${esc(hp.full_name || hp.username)}</b><small>👁 <span id="lvV">${n(info.viewers)}</span> · ❤️ <span id="lvL">${n(info.likes)}</span></small></span></a>
-      ${host ? "" : `<button class="lv-follow" id="lvF">＋ ফলো</button>`}<span class="lv-gc">🪙 <span id="lvG">${n(info.gift_coins)}</span></span><button class="lv-x" id="lvX">✕</button></div>
+    ${roomTopHtml(hp, host, info.gift_coins)}
     ${info.title ? `<div class="lv-title" translate="no">${esc(info.title)}</div>` : ""}
     <div class="lv-msgs" id="lvM"></div>
     <div class="lv-hearts" id="lvH"></div>
-    <div class="lv-bar"><form id="lvF2"><input id="lvI" maxlength="200" placeholder="কিছু বলুন…" autocomplete="off"></form>
-      ${host ? `${setting("pk_enabled", true) !== false ? `<button class="lv-b pkb" id="lvPk">⚔️</button>` : ""}<button class="lv-b" id="lvReq">🙋<b id="lvRc" class="hidden"></b></button><button class="lv-b" id="lvCam">🔄</button><button class="lv-b" id="lvMic">🎤</button><button class="lv-b end" id="lvEnd">⏹</button>`
-        : `<button class="lv-b" id="lvJoin">🙋</button><button class="lv-b" id="lvGift">🎁</button><button class="lv-b" id="lvLike">❤️</button>`}</div></div>`;
+    <div class="lv-in hidden" id="lvIn"><form id="lvF2"><input id="lvI" maxlength="200" placeholder="কিছু বলুন…" autocomplete="off"><button class="lv-send">➤</button></form></div>
+    <div class="lv-bar"><button class="lv-b" id="lvChat" type="button">💬</button>${callPill(hp, host)}<span class="sp"></span>
+      ${host ? `${setting("pk_enabled", true) !== false ? `<button class="lv-b pkb" id="lvPk">⚔️</button>` : ""}<button class="lv-b" id="lvReq">🙋<b id="lvRc" class="hidden"></b></button><button class="lv-b" id="lvCam">🔄</button><button class="lv-b" id="lvMic">🎤</button>`
+        : `<button class="lv-b" id="lvJoin">🙋</button><button class="lv-b" id="lvLike">❤️</button><button class="lv-b gift" id="lvGift">🎁</button>`}<button class="lv-b" id="lvX">✕</button></div></div>`;
   const msgs = $("#lvM");
   const addMsg = (m) => {
     const d = document.createElement("div");
     d.className = "lm " + m.kind;
-    d.innerHTML = m.kind === "chat" ? `<b translate="no">${esc(m.username || "")}</b> <span translate="no">${esc(m.body)}</span>`
-      : m.kind === "gift" ? `🎁 <b translate="no">${esc(m.username || "")}</b> পাঠিয়েছে ${esc(m.body)}`
-      : m.kind === "like" ? `❤️ <b translate="no">${esc(m.username || "")}</b>` : `<b translate="no">${esc(m.username || "")}</b> ${esc(m.body || "")}`;
+    d.innerHTML = roomMsgHtml(m, hp);
     msgs.appendChild(d);
     while (msgs.children.length > 60) msgs.firstChild.remove();
     msgs.scrollTop = msgs.scrollHeight;
@@ -2363,8 +2420,12 @@ R.live = async (rid) => {
     if (m.kind === "like") heart();
   };
   const heart = () => { const h = document.createElement("i"); h.textContent = ["❤️", "💖", "💜", "💛", "🧡"][Math.floor(Math.random() * 5)]; h.style.left = 20 + Math.random() * 40 + "px"; $("#lvH")?.appendChild(h); setTimeout(() => h.remove(), 2200); };
+  const refreshTop = await roomTopWire(id, hp, host, addMsg);
   const { data: old } = await sb.from("live_messages").select("*").eq("room_id", id).order("id", { ascending: false }).limit(30);
   (old ?? []).reverse().forEach(addMsg);
+  refreshTop();
+  roomChatWire(id);
+  $("#lvCall")?.addEventListener("click", () => callChooser({ ...hp, host_id: hp.id }));
 
   // Agora
   let client = null, mic = null, cam = null, ended = false, myRole = "audience", facing = "user";
@@ -2509,7 +2570,7 @@ R.live = async (rid) => {
     })
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "live_messages", filter: `room_id=eq.${id}` }, (p) => {
       addMsg(p.new);
-      if (p.new.kind === "gift") rpc("live_heartbeat", { p_room: id }).then((h) => { if ($("#lvG")) $("#lvG").textContent = n(h.gift_coins); }).catch(() => {});
+      if (p.new.kind === "gift") { rpc("live_heartbeat", { p_room: id }).then((h) => { if ($("#lvG")) $("#lvG").textContent = n(h.gift_coins); }).catch(() => {}); refreshTop(); }
     })
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "live_rooms", filter: `id=eq.${id}` }, (p) => {
       if (p.new.status === "ended") showEnded(p.new.ended_reason === "admin" ? "অ্যাডমিন লাইভ বন্ধ করেছেন" : "");
@@ -2532,7 +2593,7 @@ R.live = async (rid) => {
     .subscribe();
   const hb = setInterval(() => rpc("live_heartbeat", { p_room: id }).then((h) => {
     if (h.status === "ended") return showEnded();
-    if ($("#lvV")) $("#lvV").textContent = n(h.viewers);
+    refreshTop();
   }).catch(() => {}), 20000);
 
   // হোস্টের অতিথি অনুরোধ
@@ -2562,9 +2623,7 @@ R.live = async (rid) => {
   $("#lvGift")?.addEventListener("click", () => openGifts({ _v: { username: hp.username, id: 0 } }, false, id));
   let likeT = 0;
   $("#lvLike")?.addEventListener("click", () => { heart(); if (Date.now() - likeT > 1500) { likeT = Date.now(); rpc("live_send", { p_room: id, p_body: "❤️", p_kind: "like" }).catch(() => {}); } });
-  $("#lvF")?.addEventListener("click", async (e) => { try { const on = await rpc("toggle_follow", { p_target: hp.id }); e.target.textContent = on ? "✓ ফলোয়িং" : "＋ ফলো"; } catch (er) { toast(errMsg(er), true); } });
-  $("#lvF2").addEventListener("submit", async (e) => { e.preventDefault(); const t = $("#lvI").value.trim(); if (!t) return; $("#lvI").value = ""; try { await rpc("live_send", { p_room: id, p_body: t, p_kind: "chat" }); } catch (er) { toast(errMsg(er), true); } });
-  attachSuggest($("#lvI"));
+
   $("#lvCam")?.addEventListener("click", async () => { facing = facing === "user" ? "environment" : "user"; try { await cam?.setDevice({ facingMode: facing }); } catch { toast("ক্যামেরা বদলানো যায়নি", true); } });
   $("#lvMic")?.addEventListener("click", async (e) => { if (!mic) return; const on = !mic.muted; await mic.setMuted(on); e.currentTarget.textContent = on ? "🔇" : "🎤"; });
   const endLive = async () => { await rpc("live_end", { p_room: id }).catch(() => {}); showEnded(); };
@@ -2621,37 +2680,50 @@ R.party = async (rid) => {
   ]);
   if (room?.kind !== "party") { location.replace(`#live/${id}`); return; }
   let free = !!room.free_seats;
+  const { data: hpx } = await sb.from("profiles").select("calls_on,call_video_rate,call_audio_rate").eq("id", hp.id).single();
+  Object.assign(hp, hpx ?? {});
   screen.innerHTML = `<div class="pty">
-    <div class="lv-top"><a class="lv-host" href="#u/${hp.id}">${avatar(hp)}<span><b translate="no">${esc(hp.full_name || hp.username)}</b><small>👁 <span id="lvV">${n(info.viewers)}</span> · ID ${hp.user_no}</small></span></a>
-      ${host ? "" : `<button class="lv-follow" id="lvF">＋ ফলো</button>`}<span class="lv-gc">🪙 <span id="lvG">${n(info.gift_coins)}</span></span><button class="lv-x" id="lvX">✕</button></div>
-    <div class="pty-title" translate="no">🎉 ${esc(room.title || "পার্টি")}</div>
-    <div class="pty-hostseat" data-u="${hp.id}" data-uno="${hp.user_no}">${avatar(hp)}<b translate="no">${esc(hp.full_name || hp.username)}</b><small>👑 হোস্ট</small></div>
-    <div class="pty-seats" id="pySeats"></div>
+    ${roomTopHtml(hp, host, info.gift_coins)}
+    <div class="pty-title" translate="no">🎉 ${esc(room.title || "পার্টি রুম")}</div>
+    <div class="pty-grid" id="pySeats"></div>
     <div class="lv-msgs pty-msgs" id="lvM"></div>
     <div class="lv-hearts" id="lvH"></div>
-    <div class="lv-bar"><form id="lvF2"><input id="lvI" maxlength="200" placeholder="কিছু বলুন…" autocomplete="off"></form>
-      ${host ? `<button class="lv-b" id="pyReq">🙋<b id="lvRc" class="hidden"></b></button><button class="lv-b" id="pyFree">${free ? "🔓" : "🔒"}</button><button class="lv-b" id="pyMic">🎤</button><button class="lv-b end" id="pyEnd">⏹</button>`
-        : `<button class="lv-b" id="pyMic" class="hidden">🎤</button><button class="lv-b" id="pyGift">🎁</button><button class="lv-b" id="pyLike">❤️</button>`}</div></div>`;
+    <div class="lv-in hidden" id="lvIn"><form id="lvF2"><input id="lvI" maxlength="200" placeholder="কিছু বলুন…" autocomplete="off"><button class="lv-send">➤</button></form></div>
+    <div class="lv-bar"><button class="lv-b" id="lvChat" type="button">💬</button>${callPill(hp, host)}<span class="sp"></span>
+      ${host ? `<button class="lv-b" id="pyReq">🙋<b id="lvRc" class="hidden"></b></button><button class="lv-b" id="pyFree">${free ? "🔓" : "🔒"}</button><button class="lv-b" id="pyMic">🎤</button>`
+        : `<button class="lv-b" id="pyMic">🎤</button><button class="lv-b" id="pyLike">❤️</button><button class="lv-b gift" id="pyGift">🎁</button>`}<button class="lv-b" id="lvX">✕</button></div></div>`;
   if (!host) $("#pyMic").style.display = "none";
   const msgs = $("#lvM");
   const heart = () => { const h = document.createElement("i"); h.textContent = ["❤️", "💖", "💜", "💛", "🧡"][Math.floor(Math.random() * 5)]; h.style.left = 20 + Math.random() * 40 + "px"; $("#lvH")?.appendChild(h); setTimeout(() => h.remove(), 2200); };
   const addMsg = (m) => {
     const d = document.createElement("div");
     d.className = "lm " + m.kind;
-    d.innerHTML = m.kind === "chat" ? `<b translate="no">${esc(m.username || "")}</b> <span translate="no">${esc(m.body)}</span>`
-      : m.kind === "gift" ? `🎁 <b translate="no">${esc(m.username || "")}</b> পাঠিয়েছে <span translate="no">${esc(m.body)}</span>`
-      : m.kind === "like" ? `❤️ <b translate="no">${esc(m.username || "")}</b>` : `<b translate="no">${esc(m.username || "")}</b> ${esc(m.body || "")}`;
+    d.innerHTML = roomMsgHtml(m, hp);
     msgs.appendChild(d);
     while (msgs.children.length > 60) msgs.firstChild.remove();
     msgs.scrollTop = msgs.scrollHeight;
     if (m.kind === "gift") { const f = document.createElement("div"); f.className = "gift-fly"; f.textContent = (m.body || "🎁").split(" ")[0]; document.body.appendChild(f); setTimeout(() => f.remove(), 1700); }
     if (m.kind === "like") heart();
   };
+  const refreshTop = await roomTopWire(id, hp, host, addMsg);
   const { data: old } = await sb.from("live_messages").select("*").eq("room_id", id).order("id", { ascending: false }).limit(30);
   (old ?? []).reverse().forEach(addMsg);
+  roomChatWire(id);
+  $("#lvCall")?.addEventListener("click", () => callChooser({ ...hp, host_id: hp.id }));
 
-  // সিট
-  let seatRows = [], me = null, reqs = [];
+  // সিট (৩ কলামের টাইল: ১ = হোস্ট 🏠)
+  let seatRows = [], me = null, reqs = [], rs = { recv: {}, cc: {} };
+  const tile = (num, u, p, muted, isHost) => `<div class="tile on" data-u="${u}" data-uno="${p?.user_no ?? ""}">
+      <span class="tn">${isHost ? "🏠" : num}</span><span class="tc">🪙 ${n(rs.recv?.[u] ?? 0)}</span>${avatar(p)}
+      <div class="tb">${rs.cc?.[u] ? `<i class="fl">${flagOf(rs.cc[u])}</i>` : ""}<b translate="no">${esc(p?.full_name || p?.username || "")}</b><i class="mc">${muted ? "🔇" : "🎙️"}</i></div></div>`;
+  const paintSeats = () => {
+    const box = $("#pySeats"); if (!box || ended) return;
+    box.innerHTML = tile(1, hp.id, hp, false, true) + Array.from({ length: room.seats }, (_, i) => {
+      const r = seatRows.find((x) => x.seat === i + 1);
+      return r ? tile(i + 2, r.user_id, r.profiles, r.muted, false) : `<div class="tile" data-empty="${i + 1}"><span class="tn">${i + 2}</span><i class="chair">🪑</i></div>`;
+    }).join("");
+  };
+  const refreshAll = async () => { const st = await refreshTop(); if (st) { rs = st; paintSeats(); } };
   const uidMap = new Map([[hp.user_no, hp.id]]);
   async function loadSeats() {
     const { data } = await sb.from("live_cohosts").select("user_id,status,seat,muted,profiles!live_cohosts_user_id_fkey(username,full_name,avatar_url,user_no)").eq("room_id", id).in("status", ["pending", "accepted"]);
@@ -2659,12 +2731,7 @@ R.party = async (rid) => {
     reqs = (data ?? []).filter((r) => r.status === "pending");
     seatRows.forEach((r) => uidMap.set(r.profiles?.user_no, r.user_id));
     me = seatRows.find((r) => r.user_id === S.me.id) ?? null;
-    const box = $("#pySeats"); if (!box) return;
-    box.innerHTML = Array.from({ length: room.seats }, (_, i) => {
-      const r = seatRows.find((x) => x.seat === i + 1);
-      return r ? `<div class="seat on" data-u="${r.user_id}" data-uno="${r.profiles?.user_no}">${avatar(r.profiles)}${r.muted ? `<em class="mut">🔇</em>` : ""}<small translate="no">${esc(r.profiles?.full_name || r.profiles?.username || "")}</small></div>`
-        : `<div class="seat" data-empty="${i + 1}"><i>🪑</i><small>${i + 1}</small></div>`;
-    }).join("");
+    paintSeats();
     const b = $("#lvRc"); if (b) { b.textContent = reqs.length; b.classList.toggle("hidden", !reqs.length); }
     await syncRole();
   }
@@ -2712,14 +2779,15 @@ R.party = async (rid) => {
     await client.join(tk.appId, `live_${id}`, tk.token, tk.uid);
   } catch (e) { toast(errMsg(e), true); }
   await loadSeats();
+  refreshAll();
 
   const showEnded = (why) => {
     if (ended) return; ended = true;
-    $("#pySeats").innerHTML = `<div class="lv-wait" style="position:static;background:none">${avatar(hp)}<b>পার্টি শেষ হয়েছে</b><div class="tiny">${esc(why || "")}</div><a class="btn small" href="#home/live" style="margin-top:12px">অন্য লাইভ দেখুন</a></div>`;
+    $("#pySeats").outerHTML = `<div class="lv-wait" style="position:static;background:none;margin-top:120px">${avatar(hp)}<b>পার্টি শেষ হয়েছে</b><div class="tiny">${esc(why || "")}</div><a class="btn small" href="#home/live" style="margin-top:12px">অন্য লাইভ দেখুন</a></div>`;
     try { mic?.close(); } catch { /* */ } mic = null; try { client?.leave(); } catch { /* */ }
   };
   const ch = sb.channel("party-" + id)
-    .on("postgres_changes", { event: "INSERT", schema: "public", table: "live_messages", filter: `room_id=eq.${id}` }, (p) => addMsg(p.new))
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "live_messages", filter: `room_id=eq.${id}` }, (p) => { addMsg(p.new); if (p.new.kind === "gift") refreshAll(); })
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "live_rooms", filter: `id=eq.${id}` }, (p) => {
       if (p.new.status === "ended") showEnded(p.new.ended_reason === "admin" ? "অ্যাডমিন পার্টি বন্ধ করেছেন" : "");
       if ($("#lvG")) $("#lvG").textContent = n(p.new.gift_coins);
@@ -2732,7 +2800,7 @@ R.party = async (rid) => {
     .subscribe();
   const hb = setInterval(() => rpc("live_heartbeat", { p_room: id }).then((h) => {
     if (h.status === "ended") return showEnded();
-    if ($("#lvV")) $("#lvV").textContent = n(h.viewers);
+    refreshAll();
   }).catch(() => {}), 20000);
 
   // সিটে চাপ
@@ -2744,7 +2812,7 @@ R.party = async (rid) => {
       try { await rpc("live_request_cohost", { p_room: id }); if (!free) toast("🙋 অনুরোধ পাঠানো হয়েছে — হোস্ট রাজি হলে আপনি সিটে বসবেন"); } catch (er) { toast(errMsg(er), true); }
       return;
     }
-    const s = e.target.closest(".seat.on, .pty-hostseat"); if (!s) return;
+    const s = e.target.closest(".tile.on"); if (!s) return;
     const uid = s.dataset.u, isHostSeat = uid === hp.id, row = seatRows.find((r) => r.user_id === uid), pr = isHostSeat ? hp : row?.profiles;
     const self = uid === S.me.id;
     const body = sheet(`<div style="text-align:center">${avatar(pr)}<h3 translate="no">${esc(pr?.full_name || pr?.username || "")}</h3>
@@ -2783,8 +2851,6 @@ R.party = async (rid) => {
   $("#pyGift")?.addEventListener("click", () => openGifts({ _v: { username: hp.username, id: 0 } }, false, id));
   let likeT = 0;
   $("#pyLike")?.addEventListener("click", () => { heart(); if (Date.now() - likeT > 1500) { likeT = Date.now(); rpc("live_send", { p_room: id, p_body: "❤️", p_kind: "like" }).catch(() => {}); } });
-  $("#lvF")?.addEventListener("click", async (e) => { try { const on = await rpc("toggle_follow", { p_target: hp.id }); e.target.textContent = on ? "✓ ফলোয়িং" : "＋ ফলো"; } catch (er) { toast(errMsg(er), true); } });
-  $("#lvF2").addEventListener("submit", async (e) => { e.preventDefault(); const t = $("#lvI").value.trim(); if (!t) return; $("#lvI").value = ""; try { await rpc("live_send", { p_room: id, p_body: t, p_kind: "chat" }); } catch (er) { toast(errMsg(er), true); } });
   const endParty = async () => { await rpc("live_end", { p_room: id }).catch(() => {}); showEnded(); };
   $("#pyEnd")?.addEventListener("click", async () => { if (confirm("পার্টি শেষ করবেন?")) { await endParty(); location.replace("#home/live"); } });
   $("#lvX").onclick = async () => { if (host && !ended) { if (!confirm("পার্টি শেষ করে বের হবেন?")) return; await endParty(); } history.back(); };
@@ -3310,6 +3376,7 @@ R.me = async () => {
     ${p.coin_seller ? `<a href="#seller" class="me-banner seller"><span>💰 কয়েন সেলার প্যানেল</span><b>বিক্রি করুন ›</b></a>` : ""}
     <a href="#invite" class="me-banner"><span>রেফার করে আয় করুন</span><b>${tk(refs?.earned_paisa ?? 0)} ›</b></a>
     <div class="me-menu">
+      <a href="#myprofile"><i class="mi c3"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 19.5c1.2-3.6 4-5.4 7.2-5.4s6 1.8 7.2 5.4"/></svg></i>আমার প্রোফাইল<em>›</em></a>
       <a href="#inbox"><i class="mi c1"><svg viewBox="0 0 24 24"><path d="M4 6.5h16a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5v-3.5H4A1.5 1.5 0 0 1 2.5 17V8A1.5 1.5 0 0 1 4 6.5z"/><path d="M7.5 12.5h.01M12 12.5h.01M16.5 12.5h.01" stroke-width="2.6"/></svg></i>মেসেজ<em>${S.msgUnread ? `${S.msgUnread} <b class="red"></b>` : ""}›</em></a>
       <a href="#creator"><i class="mi c4"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></i>ক্রিয়েটর ড্যাশবোর্ড<em>›</em></a>
       <a href="#level"><i class="mi c2"><svg viewBox="0 0 24 24"><path d="M3.5 8l4.2 3.6L12 5l4.3 6.6L20.5 8l-1.8 10.5H5.3z"/><path d="M6 21h12"/></svg></i>আমার লেভেল<em>Lv${levelOf(p.followers_count)} ›</em></a>
@@ -3551,6 +3618,7 @@ R.u = async (id) => {
       <div class="idtag" data-copy="${p.user_no}">ID: ${p.user_no} ⧉</div>
       <div class="counts"><div><b>${n(p.videos_count)}</b><span>ভিডিও</span></div><div><b id="fc">${n(p.followers_count)}</b><span>ফলোয়ার</span></div><div><b>${n(p.following_count)}</b><span>ফলোয়িং</span></div></div>
       ${p.bio ? `<p translate="no">${esc(p.bio)}</p>` : ""}
+      ${p.interests?.length ? `<div class="int-chips">${p.interests.map((t) => `<span>${esc(t)}</span>`).join("")}</div>` : ""}
       ${mine ? `<div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap"><a class="btn small" href="#edit">✏️ প্রোফাইল এডিট</a><button class="btn small" id="accT">⚙️ আমার অ্যাকাউন্ট</button></div>`
         : `<div class="row" style="justify-content:center;gap:8px"><button class="btn" id="fb" style="min-width:130px;${following ? "" : "background:var(--purple);color:#fff;border:0"}">${following ? "ফলোয়িং" : "ফলো করুন"}</button>
            <a class="btn" href="#chat/${p.id}" style="min-width:110px">💬 মেসেজ</a></div>`}
@@ -3606,6 +3674,67 @@ R.u = async (id) => {
     last = more[more.length - 1]?.id ?? last;
     if (more.length < 30) e.target.remove();
   });
+};
+
+// 👤 আমার প্রোফাইল (তালিকা আকারে, প্রতিটি সারিতে চাপলে বদলানো যায়)
+const INTERESTS = ["🎵 গান", "💃 নাচ", "🎮 গেম", "📚 পড়াশোনা", "✈️ ভ্রমণ", "🍳 রান্না", "⚽ খেলা", "🎬 সিনেমা", "😂 মজা", "💬 আড্ডা", "📸 ফটোগ্রাফি", "💪 ফিটনেস", "🕌 ধর্ম", "💼 ব্যবসা", "🐱 পোষা প্রাণী", "🌸 ফ্যাশন"];
+const ageOf = (d) => { if (!d) return null; const b = new Date(d), t = new Date(); let a = t.getFullYear() - b.getFullYear(); if (t < new Date(t.getFullYear(), b.getMonth(), b.getDate())) a--; return a; };
+R.myprofile = async () => {
+  screen.innerHTML = `<div class="page">${header("আমার প্রোফাইল")}<div class="spinner"></div></div>`;
+  const [{ data: p }, { data: pv }] = await Promise.all([
+    sb.from("profiles").select("*").eq("id", S.me.id).single(),
+    sb.from("user_private").select("phone,email,birth_date,country_code,city,country").eq("user_id", S.me.id).maybeSingle(),
+  ]);
+  S.me = { ...S.me, ...p };
+  const age = ageOf(pv?.birth_date);
+  const mask = (x) => (x ? String(x).replace(/^(\+?\d{3})\d+(\d{3})$/, "$1•••••$2") : "");
+  const row = (k, label, val, edit = true) => `<button class="pr-row" data-k="${k}" ${edit ? "" : "disabled"}><span>${label}</span><b translate="no">${val || `<i class="muted">যোগ করুন</i>`}</b>${edit ? "<em>›</em>" : ""}</button>`;
+  screen.innerHTML = `<div class="page">${header("আমার প্রোফাইল")}
+    <div class="pr-list">
+      <a class="pr-row" href="#edit"><span>আমার ছবি</span><b>${avatar(p)}</b><em>›</em></a>
+      <button class="pr-row" data-k="id"><span>ID</span><b>${p.user_no} <small class="copy">কপি</small></b></button>
+      ${row("name", "নাম", esc(p.full_name || p.username))}
+      ${row("gender", "লিঙ্গ", p.gender === "male" ? "👨 ছেলে" : p.gender === "female" ? "👩 মেয়ে" : "")}
+      ${row("age", "বয়স", age != null ? `${age} বছর` : "")}
+      ${row("region", "দেশ", pv?.country_code ? `${flagOf(pv.country_code)} ${esc(COUNTRY_NAMES[pv.country_code] ?? pv.country ?? pv.country_code)}` : "", false)}
+      ${row("loc", "লোকেশন", esc([pv?.city, pv?.country_code].filter(Boolean).join(" - ")), false)}
+      ${row("lang", "ভাষা", esc(langName(p.language)))}
+      ${row("lang2", "দ্বিতীয় ভাষা", p.language2 ? esc(langName(p.language2)) : "")}
+      ${row("tags", "আগ্রহ / ট্যাগ", (p.interests ?? []).map(esc).join(" "))}
+      ${row("bio", "নিজের পরিচয়", esc((p.bio ?? "").slice(0, 40)) + ((p.bio ?? "").length > 40 ? "…" : ""))}
+    </div>
+    <div class="pr-list">
+      ${row("phone", "ফোন", esc(mask(pv?.phone)), false)}
+      ${row("email", "ইমেইল", esc(pv?.email ?? ""), false)}
+      <a class="pr-row" href="#edit"><span>কভার ফটো ও ইউজারনেম</span><b></b><em>›</em></a>
+    </div>
+    <p class="tiny muted" style="text-align:center">দেশ ও লোকেশন ফোনের লোকেশন থেকে নিজে থেকেই আসে।</p></div>`;
+  const saveBasic = (fields) => rpc("update_profile", { p_full_name: fields.name ?? p.full_name, p_username: p.username, p_bio: fields.bio ?? p.bio ?? "", p_avatar_url: null });
+  screen.querySelector(".page").onclick = async (e) => {
+    const r = e.target.closest("button.pr-row"); if (!r) return;
+    const k = r.dataset.k;
+    if (k === "id") { try { await navigator.clipboard.writeText(String(p.user_no)); toast("ID কপি হয়েছে"); } catch { toast(String(p.user_no)); } return; }
+    let html = "", get = null;
+    if (k === "name") { html = `<h3>নাম</h3><input id="pe" maxlength="60" value="${esc(p.full_name ?? "")}">`; get = async () => saveBasic({ name: $("#pe").value }); }
+    else if (k === "bio") { html = `<h3>নিজের পরিচয়</h3><textarea id="pe" maxlength="300" placeholder="নিজের সম্পর্কে কিছু লিখুন…">${esc(p.bio ?? "")}</textarea>`; get = async () => saveBasic({ bio: $("#pe").value }); }
+    else if (k === "gender") { html = `<h3>লিঙ্গ</h3><select id="pe"><option value="">বলতে চাই না</option><option value="male" ${p.gender === "male" ? "selected" : ""}>👨 ছেলে</option><option value="female" ${p.gender === "female" ? "selected" : ""}>👩 মেয়ে</option></select>`; get = async () => rpc("set_gender", { p_gender: $("#pe").value || null }); }
+    else if (k === "age") { html = `<h3>জন্মতারিখ</h3><input id="pe" type="date" value="${esc(pv?.birth_date ?? "")}"><p class="tiny muted">বয়স জন্মতারিখ থেকে হিসাব হয়। অ্যাপ ব্যবহার করতে ১৮+ হতে হবে।</p>`; get = async () => { if (!$("#pe").value) throw new Error("তারিখ দিন"); if (ageOf($("#pe").value) < 18) throw new Error("অ্যাপ ব্যবহার করতে ১৮+ হতে হবে"); return rpc("set_birth_date", { p_date: $("#pe").value }); }; }
+    else if (k === "lang" || k === "lang2") {
+      const cur = k === "lang" ? p.language : p.language2;
+      html = `<h3>${k === "lang" ? "ভাষা" : "দ্বিতীয় ভাষা"}</h3><select id="pe">${k === "lang2" ? `<option value="">নেই</option>` : ""}${LANGS.filter(([x]) => x).map(([x, l]) => `<option value="${x}" ${x === cur ? "selected" : ""}>${l}</option>`).join("")}</select>`;
+      get = async () => k === "lang" ? rpc("set_language", { p_lang: $("#pe").value }) : rpc("set_profile_extra", { p_language2: $("#pe").value || null, p_interests: p.interests ?? [] });
+    } else if (k === "tags") {
+      const sel = new Set(p.interests ?? []);
+      html = `<h3>আগ্রহ / ট্যাগ <small class="muted">(সর্বোচ্চ ৮টি)</small></h3><div class="int-pick" id="pe">${INTERESTS.map((t) => `<button type="button" class="${sel.has(t) ? "on" : ""}">${t}</button>`).join("")}</div>`;
+      get = async () => rpc("set_profile_extra", { p_language2: p.language2, p_interests: [...$("#pe").querySelectorAll(".on")].map((b) => b.textContent) });
+    } else return;
+    const body = sheet(`${html}<button class="btn primary" id="peOk">সেভ করুন</button>`);
+    body.querySelector(".int-pick")?.addEventListener("click", (ev) => { const b = ev.target.closest("button"); if (!b) return; if (!b.classList.contains("on") && body.querySelectorAll(".int-pick .on").length >= 8) return toast("সর্বোচ্চ ৮টি বেছে নিন", true); b.classList.toggle("on"); });
+    body.querySelector("#peOk").onclick = async (ev) => {
+      ev.target.disabled = true;
+      try { await get(); closeSheet(); toast("সেভ হয়েছে"); R.myprofile(); } catch (er) { toast(errMsg(er), true); ev.target.disabled = false; }
+    };
+  };
 };
 
 R.edit = () => {

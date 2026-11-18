@@ -1,0 +1,3 @@
+-- 030 (applied as room_state_profile_extra): settings.live_rules_notice (shown pinned in live/party chat);
+-- room_state(room) → {viewers, top[3 gifters], recv{uid:coins}, cc{uid:country}}; live_audience(room) → viewers with coins sent;
+-- profiles.language2 + interests text[] via set_profile_extra(language2, interests) (max 8).
