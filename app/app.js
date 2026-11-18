@@ -31,6 +31,60 @@ const setting = (k, d = 0) => (S.settings[k] ?? d);
 const notifOn = () => { try { return localStorage.getItem("notif") !== "off"; } catch { return true; } };
 const METHOD = { bkash: "bKash", nagad: "Nagad", rocket: "Rocket" };
 const STATUS = { pending: "পেন্ডিং", approved: "অ্যাপ্রুভড", paid: "পেমেন্ট সম্পন্ন", rejected: "রিজেক্টেড" };
+// #হ্যাশট্যাগ ও @মেনশন লিংক (esc করার পরে)
+const TAG_RE = /(^|[^&\w\u0980-\u09FF])#([A-Za-z0-9_\u0980-\u09FF\u0900-\u097F\u0600-\u06FF]{1,60})/g;
+const AT_RE = /(^|[^A-Za-z0-9_.&])@([A-Za-z0-9_.]{1,29}[A-Za-z0-9_])/g;
+const rich = (t) => esc(t ?? "")
+  .replace(TAG_RE, (m, pre, tag) => `${pre}<a class="tag" href="#tag/${encodeURIComponent(tag.toLowerCase())}" onclick="event.stopPropagation()">#${tag}</a>`)
+  .replace(AT_RE, (m, pre, u) => `${pre}<a class="mention" href="#at/${u.toLowerCase()}" onclick="event.stopPropagation()">@${u}</a>`);
+const richPlain = (t) => esc(t ?? "").replace(TAG_RE, '$1<span class="tag">#$2</span>').replace(AT_RE, '$1<span class="mention">@$2</span>');
+
+// টাইপ করার সময় @ইউজার / #ট্যাগ সাজেশন
+function attachSuggest(el) {
+  if (!el || el._sugg) return;
+  el._sugg = true;
+  const form = el.closest("form.cmt-box");
+  const box = document.createElement("div");
+  box.className = "sugg hidden";
+  (form ?? el).insertAdjacentElement(form ? "beforebegin" : "afterend", box);
+  let tm, seq = 0;
+  const token = () => {
+    const pos = el.selectionStart ?? el.value.length, before = el.value.slice(0, pos);
+    const m = before.match(/(^|\s)([@#])([^\s@#]{0,30})$/);
+    return m ? { kind: m[2], q: m[3], start: pos - m[3].length - 1, end: pos } : null;
+  };
+  const close = () => { box.classList.add("hidden"); box.innerHTML = ""; };
+  el.addEventListener("input", () => {
+    clearTimeout(tm);
+    const tk0 = token(); if (!tk0) return close();
+    tm = setTimeout(async () => {
+      const my = ++seq, tkn = token(); if (!tkn) return close();
+      let items = [];
+      if (tkn.kind === "@") {
+        const q = tkn.q.toLowerCase().replace(/[^a-z0-9_.]/g, "");
+        const { data } = await sb.from("profiles").select("id,username,full_name,avatar_url").ilike("username", `${q}%`).eq("status", "active").neq("id", S.me.id).limit(6);
+        items = (data ?? []).map((u) => ({ ins: "@" + u.username, html: `${avatar(u)}<span><b translate="no">${esc(u.full_name || u.username)}</b><small>@${esc(u.username)}</small></span>` }));
+      } else {
+        if (!tkn.q) { const tr = await rpc("trending_tags", { p_days: 7, p_limit: 6 }).catch(() => []); items = tr.map((t) => ({ ins: "#" + t.tag, html: `<span class="hash">#</span><span><b translate="no">${esc(t.tag)}</b><small>🔥 ট্রেন্ডিং · ${n(t.posts)} পোস্ট</small></span>` })); }
+        else { const tr = await rpc("search_tags", { p_q: tkn.q, p_limit: 6 }).catch(() => []); items = tr.map((t) => ({ ins: "#" + t.tag, html: `<span class="hash">#</span><span><b translate="no">${esc(t.tag)}</b><small>${n(t.use_count)} বার ব্যবহার</small></span>` })); }
+      }
+      if (my !== seq) return;
+      if (!items.length) return close();
+      box.innerHTML = items.map((it, i) => `<button type="button" data-i="${i}">${it.html}</button>`).join("");
+      box.classList.remove("hidden");
+      box.querySelectorAll("button").forEach((b) => b.addEventListener("mousedown", (e) => e.preventDefault()));
+      box.querySelectorAll("button").forEach((b) => (b.onclick = () => {
+        const t = token(); if (!t) return close();
+        const ins = items[Number(b.dataset.i)].ins + " ";
+        el.value = el.value.slice(0, t.start) + ins + el.value.slice(t.end);
+        const c = t.start + ins.length; el.setSelectionRange(c, c); el.focus(); close();
+        el.dispatchEvent(new Event("input"));
+      }));
+    }, 220);
+  });
+  el.addEventListener("blur", () => setTimeout(close, 200));
+}
+
 const avatar = (p, cls = "av") => `<div class="${cls}">${p?.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="">` : esc((p?.full_name || p?.username || "?").trim().charAt(0).toUpperCase())}</div>`;
 
 const ERR = {
@@ -418,17 +472,17 @@ function route() {
   if (!S.me) return;
   if (cleanup) { try { cleanup(); } catch { /* */ } cleanup = null; }
   closeSheet();
-  let [name, a, b] = (location.hash.slice(1) || "home").split("/");
+  let [name, a, b, c] = (location.hash.slice(1) || "home").split("/");
   if (!R[name]) name = "home";
   if (S.me.jailed && !["jail", "cashin", "history"].includes(name)) name = "jail";
-  const TABS = { home: ["home", "post", "contest", "newphoto", "top"], feed: ["feed", "following", "watch", "play"],
+  const TABS = { home: ["home", "post", "contest", "newphoto", "top", "tag", "tags", "at"], feed: ["feed", "following", "watch", "play"],
     me: ["me", "seller", "creator", "support", "policy", "delacct", "invite", "rules", "settings", "vault", "edit", "level", "wallet", "history", "withdraw", "cashin", "inbox", "chat"] };
   document.querySelectorAll(".tabbar a").forEach((x) => x.classList.toggle("on", x.dataset.t === name || (TABS[x.dataset.t] ?? []).includes(name)));
   screen.classList.remove("full");
   $(".tabbar").classList.toggle("dark", TABS.feed.includes(name));
   try { Native?.setDarkBars?.(TABS.feed.includes(name)); } catch { /* old APK */ }
   screen.scrollTop = 0;
-  R[name](a, b);
+  R[name](a, b, c);
 }
 window.addEventListener("hashchange", route);
 const back = () => (history.length > 1 ? history.back() : (location.hash = "#home"));
@@ -439,6 +493,59 @@ const notice = () => (setting("app_notice", "") ? `<div class="notice" translate
 const CATS = [["", "সব"], ["premium", "👑 প্রিমিয়াম"], ["natok", "🎭 নাটক"], ["movie", "🎬 মুভি"], ["funny", "😂 ফানি"], ["vlog", "📹 ব্লগ"], ["music", "🎵 গান"], ["other", "📦 অন্যান্য"]];
 R.feed = (cat) => openFeed({ type: "foryou", category: cat || "" });
 R.following = () => openFeed({ type: "following" });
+// #ট্যাগ পেজ
+R.tag = async (raw = "", tab = "v", sort = "top") => {
+  const tag = decodeURIComponent(raw).replace(/^#/, "").toLowerCase();
+  if (!tag) return R.tags();
+  const enc = encodeURIComponent(tag);
+  screen.innerHTML = `<div class="page">${header("#" + tag)}<div class="spinner"></div></div>`;
+  const info = await rpc("tag_info", { p_tag: tag }).catch(() => null);
+  screen.innerHTML = `<div class="page tagpage">${header("")}
+    <div class="tag-hero"><div class="tag-ic">#</div><div><h2 translate="no">#${esc(tag)}</h2>
+      <div class="tiny">${info ? `${n(info.videos)} ভিডিও · ${n(info.posts)} ফটো/লেখা · 👁 ${n(info.views)} · ${n(info.users)} জন ব্যবহার করেছে` : "এখনো কেউ এই ট্যাগ ব্যবহার করেনি"}</div></div></div>
+    <a class="btn primary" href="#upload" style="margin:10px 0" onclick="S.tagDraft='#${esc(tag)} '">＋ এই ট্যাগে ভিডিও দিন</a>
+    <div class="seg"><button class="${tab === "v" ? "on" : ""}" data-t="v">🎬 ভিডিও</button><button class="${tab === "p" ? "on" : ""}" data-t="p">🖼️ ফটো ও লেখা</button></div>
+    ${tab === "v" ? `<div class="chipsel"><button class="${sort === "top" ? "on" : ""}" data-s="top">🔥 জনপ্রিয়</button><button class="${sort === "new" ? "on" : ""}" data-s="new">🆕 নতুন</button></div>` : ""}
+    <div id="tg"><div class="spinner"></div></div></div>`;
+  document.querySelectorAll(".tagpage [data-t]").forEach((b) => (b.onclick = () => location.replace(`#tag/${enc}/${b.dataset.t}/${sort}`)));
+  document.querySelectorAll(".tagpage [data-s]").forEach((b) => (b.onclick = () => location.replace(`#tag/${enc}/${tab}/${b.dataset.s}`)));
+  if (tab === "v") {
+    const rows = await rpc("tag_videos", { p_tag: tag, p_limit: 90, p_sort: sort }).catch(() => []);
+    $("#tg").innerHTML = rows.length ? `<div class="grid3">${rows.map((v) => `<a href="#v/${v.id}">${v.thumb_url ? `<img src="${esc(v.thumb_url)}" loading="lazy" alt="">` : ""}<span class="vc">▶ ${n(v.views_count)}</span>${v.is_premium ? '<span class="prem">👑</span>' : ""}</a>`).join("")}</div>`
+      : `<div class="empty">এই ট্যাগে এখনো কোনো ভিডিও নেই</div>`;
+  } else {
+    const rows = await rpc("tag_posts", { p_tag: tag, p_limit: 90 }).catch(() => []);
+    $("#tg").innerHTML = rows.length ? `<div class="grid3">${rows.map((v) => v.kind === "photo"
+      ? `<a href="#post/${v.id}"><img src="${esc(v.image_url)}" loading="lazy" alt=""><span class="vc">❤️ ${n(v.likes_count)}</span></a>`
+      : `<a href="#post/${v.id}" class="tmini3" style="background:${BGS[v.bg] ?? BGS.g1}" translate="no">${esc(v.body).slice(0, 80)}</a>`).join("")}</div>` : `<div class="empty">এই ট্যাগে এখনো কোনো ফটো বা লেখা নেই</div>`;
+  }
+};
+// ট্রেন্ডিং ট্যাগ তালিকা
+R.tags = async (days = "7") => {
+  days = ["1", "7", "30"].includes(days) ? days : "7";
+  screen.innerHTML = `<div class="page">${header("🔥 ট্রেন্ডিং #ট্যাগ")}
+    <div class="seg" style="margin-top:0">${[["1", "আজ"], ["7", "৭ দিন"], ["30", "৩০ দিন"]].map(([k, l]) => `<button class="${k === days ? "on" : ""}" onclick="location.replace('#tags/${k}')">${l}</button>`).join("")}</div>
+    <div class="search-tag"><input id="tq" placeholder="ট্যাগ খুঁজুন… (যেমন funny)"><div id="tqr"></div></div>
+    <div id="tl"><div class="spinner"></div></div></div>`;
+  const rows = await rpc("trending_tags", { p_days: Number(days), p_limit: 50 }).catch(() => []);
+  const max = Math.max(1, ...rows.map((r) => Number(r.score)));
+  $("#tl").innerHTML = rows.length ? `<div class="card list">${rows.map((r, i) => `<a class="li trow" href="#tag/${encodeURIComponent(r.tag)}">
+      <span class="trank ${i < 3 ? "top" : ""}">${i + 1}</span><span style="flex:1;min-width:0"><b translate="no">#${esc(r.tag)}</b>${i < 3 ? " 🔥" : ""}
+      <div class="tiny muted">${n(r.posts)} পোস্ট · ${n(r.users)} জন · 👁 ${n(r.views)} · ❤️ ${n(r.likes)}</div><div class="tbar"><i style="width:${Math.max(4, Math.round((r.score / max) * 100))}%"></i></div></span><em>›</em></a>`).join("")}</div>`
+    : `<div class="empty">এই সময়ে কোনো ট্যাগ ব্যবহার হয়নি।<br>ভিডিও বা ছবির ক্যাপশনে #ট্যাগ লিখুন, যেমন #funny</div>`;
+  let tm;
+  $("#tq").oninput = (e) => { clearTimeout(tm); tm = setTimeout(async () => {
+    const q = e.target.value.trim().replace(/^#/, ""); if (!q) { $("#tqr").innerHTML = ""; return; }
+    const r = await rpc("search_tags", { p_q: q, p_limit: 8 }).catch(() => []);
+    $("#tqr").innerHTML = r.length ? r.map((t) => `<a href="#tag/${encodeURIComponent(t.tag)}">#${esc(t.tag)} <small>${n(t.use_count)}</small></a>`).join("") : `<span class="tiny muted">কিছু পাওয়া যায়নি</span>`;
+  }, 250); };
+};
+// @username → প্রোফাইল
+R.at = async (u = "") => {
+  const { data } = await sb.from("profiles").select("id").eq("username", decodeURIComponent(u).toLowerCase()).maybeSingle();
+  if (data) location.replace(`#u/${data.id}`); else { toast("এই ইউজার পাওয়া যায়নি", true); history.back(); }
+};
+
 R.watch = (userId, videoId) => openFeed({ type: "user", user: userId, startId: Number(videoId) });
 R.play = (videoId) => openFeed({ type: "play", startId: Number(videoId) });
 R.v = async (videoId) => {
@@ -512,7 +619,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
       <div class="info">
         <div class="uname"><a href="#u/${v.user_id}">@${esc(v.username)}</a>${v.is_verified ? " ✔️" : ""}${v.is_premium ? `<span class="premtag">👑 ${n(v.premium_coins)}</span>` : ""}
           ${v.user_id !== S.me.id ? `<button class="follow-btn ${v.following ? "on" : ""}">${v.following ? "ফলোয়িং" : "ফলো"}</button>` : ""}</div>
-        <div class="cap" translate="no">${esc(v.caption ?? "").replace(/#([^\s#]+)/g, '<span class="tag">#$1</span>')}</div>
+        <div class="cap" translate="no">${rich(v.caption)}</div>
         <div class="tiny muted">👁 ${n(v.views_count)} · ${ago(v.created_at)}</div>
       </div>
       ${v.locked ? `<div class="lockov"><div><div class="crown">👑</div><h3 style="margin:6px 0">প্রিমিয়াম ভিডিও</h3>
@@ -658,11 +765,12 @@ async function openComments(el) {
   const load = async () => {
     const { data } = await sb.from("comments").select("id,body,created_at,user_id,profiles!comments_user_id_fkey(username,full_name,avatar_url)")
       .eq("video_id", v.id).eq("status", "visible").order("id", { ascending: false }).limit(100);
-    $("#cl", body).innerHTML = data?.length ? data.map((c) => `<div class="cmt">${avatar(c.profiles)}<div><div class="u">@${esc(c.profiles?.username)} · ${ago(c.created_at)}</div><span translate="no">${esc(c.body)}</span></div>
+    $("#cl", body).innerHTML = data?.length ? data.map((c) => `<div class="cmt">${avatar(c.profiles)}<div><div class="u">@${esc(c.profiles?.username)} · ${ago(c.created_at)}</div><span translate="no">${rich(c.body)}</span></div>
       ${c.user_id === S.me.id || v.user_id === S.me.id ? `<button class="del" data-id="${c.id}">মুছুন</button>` : ""}</div>`).join("")
       : `<div class="empty">প্রথম কমেন্ট আপনিই করুন</div>`;
   };
   load();
+  attachSuggest($("#ci", body));
   $("#cl", body).onclick = async (e) => {
     const d = e.target.closest(".del");
     if (!d || !confirm("কমেন্ট মুছবেন?")) return;
@@ -771,6 +879,8 @@ R.upload = () => {
     <p class="muted tiny" id="quota"></p>
     <p class="muted tiny">আপলোডের পর ভিডিও অল্প সময় পর্যালোচনায় থাকবে, তারপর সবাই দেখতে পাবে।</p>
     <p class="muted tiny">অশ্লীল, সহিংস বা অন্যের কপিরাইট করা ভিডিও আপলোড করলে অ্যাকাউন্ট ব্লক ও ইনকাম বাতিল হবে।</p></div>`;
+  attachSuggest($("#cap"));
+  if (S.tagDraft) { $("#cap").value = S.tagDraft; S.tagDraft = null; }
   const vf = $("#vf"), pv = $("#pv");
   let file = null, duration = 0, vFrame = "orig";
   $("#prem").onchange = (e) => $("#premBox").classList.toggle("hidden", !e.target.checked);
@@ -1208,7 +1318,7 @@ R.inbox = async (tab = "chat") => {
     return;
   }
   const { data } = await sb.from("notifications").select("*").eq("user_id", S.me.id).order("id", { ascending: false }).limit(60);
-  const icon = { like: "❤️", comment: "💬", gift: "🎁", follow: "👤", withdraw: "💸", cash_in: "🪙", system: "📢" };
+  const icon = { like: "❤️", comment: "💬", gift: "🎁", follow: "👤", withdraw: "💸", cash_in: "🪙", system: "📢", mention: "📣" };
   const href = (x) => x.data?.video_id ? `#v/${x.data.video_id}` : x.data?.post_id ? `#post/${x.data.post_id}` : x.data?.contest_id ? `#contest/${x.data.contest_id}`
     : x.data?.user_id ? `#u/${x.data.user_id}` : x.type === "withdraw" ? "#withdraw" : x.type === "cash_in" ? "#cashin" : "";
   $("#nl").innerHTML = data?.length ? data.map((x) => `<a class="li" ${href(x) ? `href="${href(x)}"` : ""}
@@ -1346,7 +1456,7 @@ const BGS = { g1: "linear-gradient(135deg,#8b5cf6,#ec4899)", g2: "linear-gradien
 const postCard = (v, i) => `<a class="dcard ${i % 4 === 1 || i % 4 === 2 ? "tall" : ""}" href="#post/${v.id}">
   <div class="ph"><img src="${esc(v.image_url)}" loading="lazy" alt="">
     <div class="tags">${v.country_code ? `<span>${flagOf(v.country_code)} ${esc(v.country_code)}</span>` : ""}<span>❤️ ${n(v.likes_count)}</span><span class="lv">✦Lv${v.level ?? 0}</span></div></div>
-  ${v.body ? `<div class="cap" translate="no">${esc(v.body)}</div>` : ""}
+  ${v.body ? `<div class="cap" translate="no">${v.kind === "photo" ? richPlain(v.body) : esc(v.body)}</div>` : ""}
   <div class="who">${avatar(v)}<span translate="no">${esc(v.full_name || v.username)}</span></div></a>`;
 
 function postActions(v, el) {
@@ -1386,10 +1496,11 @@ async function openPostComments(el) {
     <form class="cmt-box" id="cf"><input id="ci" placeholder="কমেন্ট লিখুন…" maxlength="500" autocomplete="off"><button class="btn small">পাঠান</button></form>`);
   const load = async () => {
     const data = await rpc("post_comments_list", { p_post: v.id }).catch(() => []);
-    $("#cl", body).innerHTML = data.length ? data.map((c) => `<div class="cmt">${avatar(c)}<div><div class="u">@${esc(c.username)} · ${ago(c.created_at)}</div><span translate="no">${esc(c.body)}</span></div>
+    $("#cl", body).innerHTML = data.length ? data.map((c) => `<div class="cmt">${avatar(c)}<div><div class="u">@${esc(c.username)} · ${ago(c.created_at)}</div><span translate="no">${rich(c.body)}</span></div>
       ${c.user_id === S.me.id || v.user_id === S.me.id ? `<button class="del" data-id="${c.id}">মুছুন</button>` : ""}</div>`).join("") : `<div class="empty">প্রথম কমেন্ট আপনিই করুন</div>`;
   };
   load();
+  attachSuggest($("#ci", body));
   const setC = () => { const x = el.querySelector(".cm span"); if (x) x.textContent = n(v.comments_count); };
   $("#cl", body).onclick = async (e) => {
     const d = e.target.closest(".del"); if (!d || !confirm("কমেন্ট মুছবেন?")) return;
@@ -1412,8 +1523,8 @@ R.post = async (id) => {
   screen.innerHTML = `<div class="page post-page ${v.kind === "text" ? "nocopy" : ""}">${header(v.kind === "text" ? "✍️ লেখা" : "🖼️ ছবি")}
     <div class="pcard" id="pc">
       <a class="pwho" href="#u/${v.user_id}">${avatar(v)}<span><b translate="no">${esc(v.full_name || v.username)}</b><div class="tiny muted">${flagOf(v.country_code)} Lv${v.level} · ${ago(v.created_at)}</div></span></a>
-      ${v.kind === "photo" ? `<img class="pimg" src="${esc(v.image_url)}" alt="">${v.body ? `<p translate="no">${esc(v.body)}</p>` : ""}`
-        : `<div class="tbody" style="background:${BGS[v.bg] ?? BGS.g1}" translate="no">${esc(v.body)}</div>`}
+      ${v.kind === "photo" ? `<img class="pimg" src="${esc(v.image_url)}" alt="">${v.body ? `<p translate="no">${rich(v.body)}</p>` : ""}`
+        : `<div class="tbody" style="background:${BGS[v.bg] ?? BGS.g1}" translate="no">${rich(v.body)}</div>`}
       ${postActions(v)}</div></div>`;
   bindPost($("#pc"), v);
   if (v.kind === "text") secureOn();
@@ -1471,6 +1582,7 @@ function composeText(cat) {
     <p class="notice tiny" translate="no">${esc(setting("text_notice", ""))}</p>
     <button class="btn primary" id="tsend">পোস্ট করুন</button>`);
   const ta = $("#tt", body);
+  attachSuggest(ta);
   const count = () => { const l = ta.value.split("\n").length; $("#lc", body).textContent = `${l}/${maxL} লাইন`; $("#lc", body).style.color = l > maxL ? "#e5484d" : ""; $("#cc", body).textContent = `${ta.value.length}/${maxC}`; };
   ta.oninput = count;
   $(".bgs", body).onclick = (e) => { const b = e.target.closest("[data-bg]"); if (!b) return; bg = b.dataset.bg; $("#tp", body).style.background = BGS[bg];
@@ -1554,6 +1666,7 @@ R.newphoto = (contestId) => {
     <button class="btn primary" id="pup" disabled>আপলোড করুন</button>
     <div class="progress hidden" id="pg"><div></div></div>
     <p class="muted tiny">লাইক, কমেন্ট, শেয়ার ও গিফট থেকে আয় হবে। অশ্লীল বা অন্যের ছবি দিলে পোস্ট মুছে যাবে এবং অ্যাকাউন্ট জেলে যেতে পারে।</p></div>`;
+  attachSuggest($("#pcap"));
   let render = null;
   $("#pf").onchange = async (e) => {
     const f = e.target.files[0]; if (!f) return;
@@ -1712,12 +1825,18 @@ R.home = (tab = "video") => {
       </div>
     </div>
     ${notice() ? `<div style="padding:0 10px">${notice()}</div>` : ""}
+    ${tab === "video" || tab === "photo" ? `<div class="trend-row hidden" id="trend"></div>` : ""}
     <div class="disc-grid"><div class="disc-col" id="c0"></div><div class="disc-col" id="c1"></div></div>
     <div id="dmore" style="padding:10px"></div>
     ${tab === "photo" ? `<a class="fab" href="#newphoto">📷 ফটো দিন</a>` : ""}</div>`;
   const save = () => { try { localStorage.setItem("disc", JSON.stringify(S.disc)); } catch { /* */ } };
   $("#fLang").onchange = (e) => { S.disc.lang = e.target.value; save(); R.home(tab); };
   $("#fCountry").onchange = (e) => { S.disc.country = e.target.value; save(); R.home(tab); };
+  if ($("#trend")) rpc("trending_tags", { p_days: 7, p_limit: 12 }).then((tr) => {
+    if (!tr?.length || !$("#trend")) return;
+    $("#trend").innerHTML = `<a class="tr-all" href="#tags">🔥 ট্রেন্ডিং</a>${tr.map((t) => `<a href="#tag/${encodeURIComponent(t.tag)}" translate="no">#${esc(t.tag)}</a>`).join("")}`;
+    $("#trend").classList.remove("hidden");
+  }).catch(() => {});
   const st = { before: null, loading: false, done: false, count: 0 };
   const card = (v, i) => {
     const cc = v.country_code;
@@ -1725,7 +1844,7 @@ R.home = (tab = "video") => {
       <div class="ph ${v.locked ? "lock" : ""}">${v.thumb_url ? `<img src="${esc(v.thumb_url)}" loading="lazy" alt="">` : `<div class="noimg">▶</div>`}
         ${v.is_premium ? `<span class="prem">👑 ${n(v.premium_coins)}</span>` : ""}
         <div class="tags">${cc ? `<span>${flagOf(cc)} ${esc(cc)}</span>` : ""}<span>${esc(langName(v.language))}</span><span class="lv">✦Lv${v.level ?? 0}</span></div></div>
-      ${v.caption ? `<div class="cap" translate="no">${esc(v.caption)}</div>` : ""}
+      ${v.caption ? `<div class="cap" translate="no">${richPlain(v.caption)}</div>` : ""}
       <div class="who">${avatar(v)}<span translate="no">${esc(v.full_name || v.username)}</span></div></a>`;
   };
   async function contests() {

@@ -109,6 +109,10 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
   Buy coins page lists sellers.
 - Withdraw numbers: `payout_accounts` (max 5) via `add_payout_account/delete_payout_account`; withdraw page picks a saved number.
   Me page has quick buttons (উইথড্র / কয়েন কিনুন / লেনদেন).
+- Hashtags & mentions: triggers keep `video_hashtags`/`post_hashtags` and `mentions` in sync (notification type `mention`).
+  App: `rich()` turns #tag → `#tag/<tag>` and @user → `#at/<username>`; `attachSuggest(el)` shows @user/#tag suggestions while
+  typing (captions, text posts, comments); Home shows a trending chips row; `#tags/<1|7|30>` trending list; `#tag/<tag>/<v|p>/<top|new>`.
+  Admin `#hashtags/<days>` (trending + who used a tag), lookup page shows the user's tags.
 - TODO (owner postponed): move video storage to Cloudflare R2 (account opened; needs bucket + API keys) and allow 1 s – 59 min videos.
 - Adult/18+ content: owner asked for a paid 18+ folder; declined (illegal in BD/KSA, breaks AdMob policy, CSAM risk). Don't build it.
 - Live streaming: not built yet (owner postponed; needs ZEGOCLOUD/Agora + FLAG_SECURE in the APK for no screenshots).

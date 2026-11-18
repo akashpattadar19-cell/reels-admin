@@ -1,0 +1,12 @@
+-- 024: #hashtags for videos AND posts via triggers, @mentions with notifications, trending/tag pages.
+-- Applied as migration "hashtags_mentions" (+ _extract_mentions fix: no trailing dot). Summary:
+--   hashtags.last_used_at; post_hashtags(post_id, hashtag_id); indexes on hashtag_id.
+--   _extract_tags(text): '#([A-Za-z0-9_ঀ-৿ऀ-ॿ؀-ۿ]{1,60})' lower-cased, distinct.
+--   _extract_mentions(text): '(?:^|[^A-Za-z0-9_.])@([A-Za-z0-9_.]{1,29}[A-Za-z0-9_])'.
+--   triggers video_tags (videos caption), post_tags (posts body) rebuild links and recount use_count (_refresh_tag_counts).
+--   create_video's old inline tag loop removed (trigger handles it).
+--   mentions(source_type video|post|comment|post_comment, source_id, from_user, to_user) unique per source+to_user;
+--   triggers on videos/posts/comments/post_comments → _do_mentions → _notify(type 'mention', data video_id|post_id), max 10 per text.
+--   RPCs: tag_info(tag), tag_videos(tag, limit, sort top|new), tag_posts(tag, limit), trending_tags(days, limit)
+--         (score = posts*10 + users*20 + views/50 + likes/5 over the period), search_tags(q, limit),
+--         admin_tag_users(tag), admin_user_tags(user_no).

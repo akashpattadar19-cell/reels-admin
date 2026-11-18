@@ -594,6 +594,7 @@ routes.lookup = async (no) => {
       <a class="btn" href="#vault/${p.user_no}">🔒 লক ফোল্ডার</a>
       <a class="btn" href="#devices/${p.user_no}">📱 ডিভাইস</a>
     </div>
+    <h2>#️⃣ এই ইউজারের ট্যাগ</h2><div id="utags" class="muted small">লোড হচ্ছে…</div>
     <h2>পোস্ট (${num(d.videos.length)})</h2>
     <div class="videos">${d.videos.length ? d.videos.map((v) => `<div class="vcard">
       <video src="${esc(v.video_url)}" ${v.thumb_url ? `poster="${esc(v.thumb_url)}"` : ""} preload="none" controls playsinline></video>
@@ -604,6 +605,7 @@ routes.lookup = async (no) => {
     const all = (data ?? []).reduce((a, x) => a + x.seconds, 0), today = (data ?? []).find((x) => x.day === new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Dhaka" }))?.seconds ?? 0;
     if ($("#usage")) $("#usage").textContent = `আজ ${hms(today)} · ৩০ দিনে ${hms(all)}`;
   });
+  rpc("admin_user_tags", { p_user_no: p.user_no }).then((t) => { if ($("#utags")) $("#utags").innerHTML = t.length ? t.map((x) => `<span class="pill" translate="no">#${esc(x.tag)} ×${x.uses}</span>`).join(" ") : "কোনো ট্যাগ ব্যবহার করেনি"; }).catch(() => {});
   sb.from("settings").select("value").eq("key", "jail_release_coins").maybeSingle().then(({ data }) => { if ($("#jf") && data) $("#jf").value = data.value; });
   $("#ctl").onclick = async (e) => {
     const b = e.target.closest("[data-c]"); if (!b) return;
@@ -1113,6 +1115,32 @@ routes.hostRules = async () => {
     const value = kind === "bool" ? raw === "true" : kind === "taka" ? Math.round(Number(raw) * 100) : Math.round(Number(raw));
     if (kind !== "bool" && (isNaN(value) || value < 0 || (kind === "pct" && value > 100))) return toast("সঠিক সংখ্যা দিন", true);
     await act(() => rpc("admin_set_setting", { p_key: it.dataset.key, p_value: value }), "সেভ হয়েছে");
+  };
+};
+
+// ---------- #হ্যাশট্যাগ ----------
+routes.hashtags = async (days = "7") => {
+  days = ["1", "7", "30", "365"].includes(days) ? days : "7";
+  view.innerHTML = `<h1>#️⃣ হ্যাশট্যাগ</h1>
+    <p class="muted small">কোন #ট্যাগ ভাইরাল, কতজন ব্যবহার করছে। ট্যাগে চাপলে নিচে দেখাবে কে কে সেই ট্যাগ ব্যবহার করেছে। স্কোর = পোস্ট, ব্যবহারকারী, ভিউ ও লাইক মিলিয়ে।</p>
+    <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:10px">${[["1", "আজ"], ["7", "৭ দিন"], ["30", "৩০ দিন"], ["365", "১ বছর"]].map(([k, l]) => `<a class="btn sm ${k === days ? "primary" : ""}" href="#hashtags/${k}">${l}</a>`).join("")}</div>
+    <div id="ht" class="table-wrap"><div class="empty">লোড হচ্ছে…</div></div>
+    <h2 id="tuh" class="hidden"></h2><div id="tu" class="table-wrap"></div>`;
+  const rows = await rpc("trending_tags", { p_days: Number(days), p_limit: 100 }).catch(() => []);
+  $("#ht").innerHTML = rows.length ? `<table><tr><th>#</th><th>ট্যাগ</th><th class="num">পোস্ট</th><th class="num">ব্যবহারকারী</th><th class="num">ভিউ</th><th class="num">লাইক</th><th class="num">স্কোর</th></tr>
+    ${rows.map((r, i) => `<tr data-tag="${esc(r.tag)}" style="cursor:pointer"><td>${i + 1}${i < 3 ? " 🔥" : ""}</td><td><b translate="no">#${esc(r.tag)}</b></td><td class="num">${num(r.posts)}</td><td class="num">${num(r.users)}</td>
+      <td class="num">${num(r.views)}</td><td class="num">${num(r.likes)}</td><td class="num">${num(r.score)}</td></tr>`).join("")}</table>`
+    : `<div class="empty">এই সময়ে কোনো ট্যাগ ব্যবহার হয়নি</div>`;
+  $("#ht").onclick = async (e) => {
+    const tr = e.target.closest("tr[data-tag]"); if (!tr) return;
+    const tag = tr.dataset.tag;
+    $("#tuh").classList.remove("hidden"); $("#tuh").innerHTML = `👥 <span translate="no">#${esc(tag)}</span> কে কে ব্যবহার করেছে`;
+    $("#tu").innerHTML = `<div class="empty">লোড হচ্ছে…</div>`;
+    const us = await rpc("admin_tag_users", { p_tag: tag }).catch(() => []);
+    $("#tu").innerHTML = us.length ? `<table><tr><th>ID</th><th>ইউজার</th><th class="num">কতবার</th><th class="num">ভিউ</th><th>শেষ</th></tr>
+      ${us.map((u) => `<tr><td><a href="#lookup/${u.user_no}">${u.user_no}</a></td><td>@${esc(u.username)}${u.account_type === "host" ? ' <span class="pill host">🎤</span>' : ""}</td><td class="num">${num(u.uses)}</td><td class="num">${num(u.views)}</td><td>${dt(u.last)}</td></tr>`).join("")}</table>`
+      : `<div class="empty">কেউ নেই</div>`;
+    $("#tuh").scrollIntoView({ behavior: "smooth" });
   };
 };
 

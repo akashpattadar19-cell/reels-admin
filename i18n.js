@@ -935,7 +935,6 @@
 "আগে হোস্ট বানান": "make them a host first",
 "খালি রাখলে সবার জন্য নির্ধারিত সীমা": "leave empty to use the default",
 "⚙️ ম্যানেজ": "⚙️ Manage",
-"আজ": "Today",
 "· ৩০ দিনে": "· in 30 days",
 "-কে জেলে দেবেন? মুক্তির ফি": " — put in jail? Release fee",
 "ইউজার আপলোড/লাইক/কমেন্ট/গিফট/আয় করতে পারবে না; কয়েন দিয়ে মুক্ত হতে পারবে": "user can't upload/like/comment/gift/earn; can pay coins to get released",
@@ -1371,7 +1370,29 @@
 "হোস্টের ID নম্বর": "Host ID",
 "সেলার বানান": "Make seller",
 "সেলার বানানো হয়েছে": "Seller added",
-"এখনো কোনো সেলার নেই": "No sellers yet"
+"এখনো কোনো সেলার নেই": "No sellers yet",
+"🔥 ট্রেন্ডিং": "🔥 Trending",
+"🔥 ট্রেন্ডিং #ট্যাগ": "🔥 Trending #tags",
+"৭ দিন": "7 days",
+"৩০ দিন": "30 days",
+"১ বছর": "1 year",
+"ট্যাগ খুঁজুন… (যেমন funny)": "Search tags… (e.g. funny)",
+"কিছু পাওয়া যায়নি": "Nothing found",
+"＋ এই ট্যাগে ভিডিও দিন": "＋ Post a video with this tag",
+"🔥 জনপ্রিয়": "🔥 Popular",
+"🆕 নতুন": "🆕 New",
+"এই ট্যাগে এখনো কোনো ভিডিও নেই": "No videos with this tag yet",
+"এই ট্যাগে এখনো কোনো ফটো বা লেখা নেই": "No photos or texts with this tag yet",
+"এখনো কেউ এই ট্যাগ ব্যবহার করেনি": "No one has used this tag yet",
+"এই ইউজার পাওয়া যায়নি": "User not found",
+"এই সময়ে কোনো ট্যাগ ব্যবহার হয়নি।": "No tags used in this period.",
+"ভিডিও বা ছবির ক্যাপশনে #ট্যাগ লিখুন, যেমন #funny": "Write #tags in video or photo captions, e.g. #funny",
+"#️⃣ হ্যাশট্যাগ": "#️⃣ Hashtags",
+"ব্যবহারকারী": "Users",
+"স্কোর": "Score",
+"কতবার": "Times",
+"#️⃣ এই ইউজারের ট্যাগ": "#️⃣ This user's tags",
+"কোনো ট্যাগ ব্যবহার করেনি": "Has not used any tags"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });
