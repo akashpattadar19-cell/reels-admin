@@ -52,6 +52,16 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
 - Jail: `admin_jail_user(user, true, reason, fee_coins)`; `_active_user()` raises JAILED so jailed users can't act; app shows `#jail`
   and user pays `pay_jail_release()` (fee default `jail_release_coins`).
 - Level: `_level(followers)` thresholds 10/50/200/1000/5000/20000.
+- Home tabs: ভিডিও (video grid) · ফটো (photo posts) · কম্পিটিশন (photo contests). Bottom tab 4 = ✍️ Text Earning (`#texts`,
+  copy blocked + `ReelsAndroid.setSecure(true)` → FLAG_SECURE). Messages/notifications moved to Me → মেসেজ (`#inbox`, `#chat/<uid>`).
+- `posts` (kind photo|text, `photos` bucket) with `post_likes/comments/shares`; owner earns via `_post_earn` (post_*_rate_paisa,
+  daily cap). Gifts on posts: `send_post_gift`. Contests: `contests`, admin creates/announces winner (prize → winner balance).
+- DMs: `messages`, `send_message`, `my_chats`, `chat_messages` (setting `dm_enabled`). Cover photo: `profiles.cover_url` via `set_cover`.
+- Premium: only hosts upload (`premium_upload_hosts_only`); hosts watch free only if admin sets `profiles.premium_access`.
+  Notice text in `settings.premium_notice` (requires own/licensed content, no obscene).
+- Analytics: app sends `track_time` every minute → `app_usage`; admin "অ্যানালিটিক্স" (`admin_analytics`): time, categories, posts, countries.
+- APK ≥ v1.0.4: asks camera, photos/videos, notifications; camera capture for photos; `notify(title, body)` local notifications
+  while the app is in background (no Firebase push yet).
 - TODO (owner postponed): move video storage to Cloudflare R2 (account opened; needs bucket + API keys) and allow 1 s – 59 min videos.
 - Adult/18+ content: owner asked for a paid 18+ folder; declined (illegal in BD/KSA, breaks AdMob policy, CSAM risk). Don't build it.
 - Live streaming: not built yet (owner postponed; needs ZEGOCLOUD/Agora + FLAG_SECURE in the APK for no screenshots).

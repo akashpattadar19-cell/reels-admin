@@ -67,6 +67,13 @@ const ERR = {
   ACCOUNT_BANNED: "আপনার অ্যাকাউন্ট ব্লক করা হয়েছে",
   JAILED: "আপনার অ্যাকাউন্ট জেলে আছে",
   UPLOAD_LIMIT: "আজকের আপলোড সীমা শেষ — কাল আবার দিন",
+  TOO_MANY_LINES: "লাইন বেশি হয়ে গেছে",
+  TEXT_TOO_LONG: "লেখা অনেক লম্বা",
+  EMPTY_TEXT: "কিছু লিখুন",
+  CONTEST_CLOSED: "কম্পিটিশন বন্ধ হয়ে গেছে",
+  ALREADY_JOINED: "আপনি আগেই এই কম্পিটিশনে অংশ নিয়েছেন",
+  HOST_ONLY: "প্রিমিয়াম ভিডিও শুধু হোস্টরা দিতে পারবে",
+  DM_OFF: "মেসেজ এখন বন্ধ আছে",
   VAULT_FULL: "লক ফোল্ডারে জায়গা নেই",
   "Failed to fetch": "ইন্টারনেট সংযোগ নেই",
   NETWORK: "ইন্টারনেট সংযোগ নেই",
@@ -255,8 +262,15 @@ function realtime() {
   if (S.rtChannel) sb.removeChannel(S.rtChannel);
   S.rtChannel = sb.channel("me-" + S.me.id)
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${S.me.id}` }, (p) => {
-      S.unread++; $("#unread").textContent = S.unread > 99 ? "99+" : S.unread;
+      S.unread++; paintUnread();
       if (["gift", "withdraw", "cash_in"].includes(p.new.type)) toast(p.new.title);
+      if (document.hidden) { try { Native?.notify?.(p.new.title, p.new.body || ""); } catch { /* */ } }
+    })
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `receiver_id=eq.${S.me.id}` }, (p) => {
+      if (S.chatWith === p.new.sender_id) { document.dispatchEvent(new CustomEvent("chatmsg", { detail: p.new })); return; }
+      S.msgUnread = (S.msgUnread || 0) + 1; paintUnread();
+      if (document.hidden) { try { Native?.notify?.("💬 নতুন মেসেজ", p.new.body); } catch { /* */ } }
+      else toast("💬 নতুন মেসেজ");
     })
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "wallets", filter: `user_id=eq.${S.me.id}` }, (p) => {
       document.dispatchEvent(new CustomEvent("wallet", { detail: p.new }));
@@ -264,10 +278,19 @@ function realtime() {
     .subscribe();
 }
 async function refreshUnread() {
-  const { count } = await sb.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", S.me.id).eq("is_read", false);
-  S.unread = count ?? 0;
-  $("#unread").textContent = S.unread ? (S.unread > 99 ? "99+" : S.unread) : "";
+  const [{ count }, m] = await Promise.all([
+    sb.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", S.me.id).eq("is_read", false),
+    rpc("msg_unread").catch(() => 0),
+  ]);
+  S.unread = count ?? 0; S.msgUnread = Number(m) || 0;
+  paintUnread();
 }
+function paintUnread() {
+  const t = (S.unread || 0) + (S.msgUnread || 0);
+  $("#unread").textContent = t ? (t > 99 ? "99+" : t) : "";
+}
+// অ্যাপে কত সময় কাটছে (অ্যাডমিন অ্যানালিটিক্সের জন্য)
+setInterval(() => { if (S.me && !document.hidden) rpc("track_time", { p_sec: 60 }).catch(() => {}); }, 60000);
 
 // ---------------- router ----------------
 const R = {};
@@ -279,7 +302,8 @@ function route() {
   let [name, a, b] = (location.hash.slice(1) || "home").split("/");
   if (!R[name]) name = "home";
   if (S.me.jailed && !["jail", "cashin", "history"].includes(name)) name = "jail";
-  const TABS = { feed: ["feed", "following", "watch", "play"], me: ["me", "invite", "rules", "settings", "vault", "edit", "level", "wallet", "history", "withdraw", "cashin"] };
+  const TABS = { home: ["home", "post", "contest", "newphoto", "top"], feed: ["feed", "following", "watch", "play"],
+    me: ["me", "invite", "rules", "settings", "vault", "edit", "level", "wallet", "history", "withdraw", "cashin", "inbox", "chat"] };
   document.querySelectorAll(".tabbar a").forEach((x) => x.classList.toggle("on", x.dataset.t === name || (TABS[x.dataset.t] ?? []).includes(name)));
   screen.classList.remove("full");
   $(".tabbar").classList.toggle("dark", TABS.feed.includes(name));
@@ -371,7 +395,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
         <div class="tiny muted">👁 ${n(v.views_count)} · ${ago(v.created_at)}</div>
       </div>
       ${v.locked ? `<div class="lockov"><div><div class="crown">👑</div><h3 style="margin:6px 0">প্রিমিয়াম ভিডিও</h3>
-        <div class="muted">🪙 ${n(v.premium_coins)} কয়েন · হোস্টদের জন্য ফ্রি</div>
+        <div class="muted">🪙 ${n(v.premium_coins)} কয়েন দিয়ে দেখুন</div>
         <button class="btn unl">🪙 ${n(v.premium_coins)} কয়েনে দেখুন</button></div></div>` : ""}`;
     el.querySelector(".unl")?.addEventListener("click", async (e) => {
       if (!confirm(`${v.premium_coins} কয়েন দিয়ে ভিডিওটি দেখবেন?`)) return;
@@ -530,7 +554,7 @@ async function openComments(el) {
   });
 }
 
-async function openGifts(el) {
+async function openGifts(el, isPost = false) {
   const v = el._v;
   if (!S.gifts) {
     const { data } = await sb.from("gifts").select("*").eq("is_active", true).order("sort_order");
@@ -560,7 +584,8 @@ async function openGifts(el) {
     if (total() > coins) { toast(ERR.INSUFFICIENT_COINS, true); return; }
     e.currentTarget.disabled = true;
     try {
-      const r = await rpc("send_gift", { p_video_id: v.id, p_gift_id: sel.id, p_qty: qty, p_idem: uuid() });
+      const r = isPost ? await rpc("send_post_gift", { p_post: v.id, p_gift_id: sel.id, p_qty: qty, p_idem: uuid() })
+        : await rpc("send_gift", { p_video_id: v.id, p_gift_id: sel.id, p_qty: qty, p_idem: uuid() });
       closeSheet();
       const f = document.createElement("div"); f.className = "gift-fly"; f.textContent = sel.icon; document.body.appendChild(f); setTimeout(() => f.remove(), 1700);
       toast(`${sel.icon} x${qty} পাঠানো হয়েছে! বাকি কয়েন ${n(r.coin_balance)}`);
@@ -594,15 +619,19 @@ function doReport(v) {
 // ---------------- UPLOAD ----------------
 R.upload = () => {
   const maxSec = Number(setting("max_video_sec", 90));
-  screen.innerHTML = `<div class="page">${header("ভিডিও আপলোড", false)}
+  screen.innerHTML = `<div class="page">${header("আপলোড", false)}
+    <div class="seg" style="margin-top:0"><button class="on">🎬 ভিডিও</button><button onclick="location.hash='#newphoto'">📷 ফটো</button><button onclick="location.hash='#texts';setTimeout(()=>document.getElementById('newT')?.click(),300)">✍️ লেখা</button></div>
     <label class="pick" id="pickL"><input type="file" id="vf" accept="video/*" class="hidden"><div class="ic">🎬</div>
       <b>ভিডিও বেছে নিন</b><div class="muted tiny">সর্বোচ্চ ${maxSec} সেকেন্ড · খাড়া (9:16) ভিডিও সবচেয়ে ভালো দেখায়</div></label>
     <video id="pv" class="preview hidden" controls playsinline></video>
     <label class="lbl">ক্যাটাগরি</label>
     <select id="cat">${CATS.filter(([k]) => k).map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select>
+    ${S.me.account_type !== "host" && S.me.role !== "admin" && String(setting("premium_upload_hosts_only", true)) === "true"
+      ? `<p class="tiny muted" style="margin-top:12px">👑 প্রিমিয়াম ভিডিও শুধু হোস্টরা দিতে পারবে — সেটিংস থেকে হোস্ট হতে আবেদন করুন।</p><input type="checkbox" id="prem" class="hidden"><div id="premBox" class="hidden"><input id="premC"></div>` : `
     <div class="card" style="margin-top:12px">
-      <label class="toggle"><span><b>👑 প্রিমিয়াম ভিডিও</b><div class="tiny muted">দর্শক কয়েন দিয়ে দেখবে, আপনি পাবেন ${n(setting("premium_creator_pct", 60))}%। হোস্টরা ফ্রি দেখবে। অ্যাডমিন দেখে অনুমোদন দেবেন।</div></span><input type="checkbox" id="prem"></label>
-      <div id="premBox" class="hidden"><span class="lbl">কত কয়েন লাগবে</span><input id="premC" type="number" min="1" max="100000" value="${n(setting("premium_default_coins", 10))}"></div></div>
+      <label class="toggle"><span><b>👑 প্রিমিয়াম ভিডিও</b><div class="tiny muted">দর্শক কয়েন দিয়ে দেখবে, আপনি পাবেন ${n(setting("premium_creator_pct", 60))}%। অনুমোদিত হোস্টরা ফ্রি দেখবে। অ্যাডমিন দেখে অনুমোদন দেবেন।</div></span><input type="checkbox" id="prem"></label>
+      <div id="premBox" class="hidden"><span class="lbl">কত কয়েন লাগবে</span><input id="premC" type="number" min="1" max="100000" value="${Number(setting("premium_default_coins", 10))}">
+        <p class="notice tiny" translate="no">⚠️ ${esc(setting("premium_notice", ""))}</p></div></div>`}
     <label class="lbl">ক্যাপশন (#হ্যাশট্যাগ দিন)</label>
     <textarea id="cap" maxlength="2200" placeholder="ভিডিও সম্পর্কে লিখুন… #funny #bangla"></textarea>
     <button class="btn primary" id="up" disabled>আপলোড করুন</button>
@@ -851,15 +880,267 @@ R.withdraw = async () => {
 };
 
 // ---------------- INBOX ----------------
-R.inbox = async () => {
-  screen.innerHTML = `<div class="page">${header("নোটিফিকেশন", false)}<div class="card list" id="nl"><div class="spinner"></div></div></div>`;
+R.inbox = async (tab = "chat") => {
+  screen.innerHTML = `<div class="page">${header("মেসেজ")}
+    <div class="seg" style="margin-top:0"><button data-t="chat" class="${tab === "chat" ? "on" : ""}">💬 চ্যাট${S.msgUnread ? ` (${S.msgUnread})` : ""}</button><button data-t="notif" class="${tab === "notif" ? "on" : ""}">🔔 নোটিফিকেশন${S.unread ? ` (${S.unread})` : ""}</button></div>
+    <div class="card list" id="nl"><div class="spinner"></div></div></div>`;
+  document.querySelectorAll(".seg button").forEach((b) => (b.onclick = () => location.replace("#inbox/" + b.dataset.t)));
+  if (tab === "chat") {
+    const rows = await rpc("my_chats").catch(() => []);
+    $("#nl").innerHTML = rows.length ? rows.map((c) => `<a class="li chat-li" href="#chat/${c.other_id}">${avatar(c)}
+        <span style="flex:1;min-width:0"><b translate="no">${esc(c.full_name || c.username)}</b><div class="tiny muted ell" translate="no">${c.last_from_me ? "আপনি: " : ""}${esc(c.last_body)}</div></span>
+        <span class="tiny muted" style="text-align:right">${ago(c.last_at)}${c.unread ? `<div><b class="ubadge">${c.unread}</b></div>` : ""}</span></a>`).join("")
+      : `<div class="empty">এখনো কোনো চ্যাট নেই।<br>কারো প্রোফাইলে গিয়ে "💬 মেসেজ" চাপুন।</div>`;
+    return;
+  }
   const { data } = await sb.from("notifications").select("*").eq("user_id", S.me.id).order("id", { ascending: false }).limit(60);
   const icon = { like: "❤️", comment: "💬", gift: "🎁", follow: "👤", withdraw: "💸", cash_in: "🪙", system: "📢" };
-  $("#nl").innerHTML = data?.length ? data.map((x) => `<a class="li" ${x.data?.video_id ? `href="#v/${x.data.video_id}"` : x.data?.user_id ? `href="#u/${x.data.user_id}"` : x.type === "withdraw" ? 'href="#withdraw"' : x.type === "cash_in" ? 'href="#cashin"' : ""}
-      style="${x.is_read ? "" : "background:rgba(124,77,255,.08);margin:0 -14px;padding:12px 14px"}">
+  const href = (x) => x.data?.video_id ? `#v/${x.data.video_id}` : x.data?.post_id ? `#post/${x.data.post_id}` : x.data?.contest_id ? `#contest/${x.data.contest_id}`
+    : x.data?.user_id ? `#u/${x.data.user_id}` : x.type === "withdraw" ? "#withdraw" : x.type === "cash_in" ? "#cashin" : "";
+  $("#nl").innerHTML = data?.length ? data.map((x) => `<a class="li" ${href(x) ? `href="${href(x)}"` : ""}
+      style="${x.is_read ? "" : "background:rgba(155,92,255,.08);margin:0 -14px;padding:12px 14px"}">
       <div style="display:flex;gap:10px"><span style="font-size:22px">${icon[x.type] ?? "🔔"}</span><div><b>${esc(x.title)}</b>${x.body ? `<div class="tiny muted">${esc(x.body)}</div>` : ""}<div class="tiny muted">${ago(x.created_at)}</div></div></div></a>`).join("")
     : `<div class="empty">কোনো নোটিফিকেশন নেই</div>`;
-  if (S.unread) { await rpc("mark_notifications_read").catch(() => {}); S.unread = 0; $("#unread").textContent = ""; }
+  if (S.unread) { await rpc("mark_notifications_read").catch(() => {}); S.unread = 0; paintUnread(); }
+};
+
+R.chat = async (uid) => {
+  const { data: o } = await sb.from("profiles").select("id,username,full_name,avatar_url").eq("id", uid).maybeSingle();
+  if (!o) { screen.innerHTML = `<div class="page"><div class="empty">ইউজার পাওয়া যায়নি</div></div>`; return; }
+  screen.classList.add("chatmode");
+  screen.innerHTML = `<div class="chat">
+    <div class="chat-top"><button class="back" onclick="history.back()">←</button><a href="#u/${o.id}" style="display:flex;align-items:center;gap:10px">${avatar(o)}<b translate="no">${esc(o.full_name || o.username)}</b></a></div>
+    <div class="chat-list" id="cl"><div class="spinner"></div></div>
+    <form class="chat-box" id="cf"><input id="ci" placeholder="মেসেজ লিখুন…" maxlength="1000" autocomplete="off"><button class="btn small primary" style="width:auto;margin:0">পাঠান</button></form></div>`;
+  S.chatWith = uid;
+  const list = $("#cl");
+  const bubble = (m) => `<div class="bub ${m.sender_id === S.me.id ? "mine" : ""}"><span translate="no">${esc(m.body)}</span><i>${new Date(m.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</i></div>`;
+  const rows = await rpc("chat_messages", { p_with: uid, p_before: null }).catch((e) => { toast(errMsg(e), true); return []; });
+  list.innerHTML = rows.length ? rows.map(bubble).join("") : `<div class="empty">👋 প্রথম মেসেজ পাঠান</div>`;
+  list.scrollTop = list.scrollHeight;
+  refreshUnread();
+  const onMsg = (e) => { list.querySelector(".empty")?.remove(); list.insertAdjacentHTML("beforeend", bubble(e.detail)); list.scrollTop = list.scrollHeight; rpc("chat_messages", { p_with: uid, p_before: null }).catch(() => {}); };
+  document.addEventListener("chatmsg", onMsg);
+  cleanup = () => { document.removeEventListener("chatmsg", onMsg); S.chatWith = null; screen.classList.remove("chatmode"); };
+  $("#cf").onsubmit = async (e) => {
+    e.preventDefault();
+    const t = $("#ci").value.trim(); if (!t) return;
+    $("#ci").value = "";
+    try {
+      await rpc("send_message", { p_to: uid, p_body: t });
+      list.querySelector(".empty")?.remove();
+      list.insertAdjacentHTML("beforeend", bubble({ sender_id: S.me.id, body: t, created_at: new Date().toISOString() }));
+      list.scrollTop = list.scrollHeight;
+    } catch (er) { toast(errMsg(er), true); $("#ci").value = t; }
+  };
+};
+
+// ---------------- ছবি সংকোচন ----------------
+async function compressImage(file, max = 1280, q = 0.85) {
+  const img = new Image();
+  img.src = URL.createObjectURL(file);
+  await img.decode();
+  const s = Math.min(1, max / Math.max(img.width, img.height));
+  const c = document.createElement("canvas"); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return await new Promise((r) => c.toBlob(r, "image/jpeg", q));
+}
+
+// ---------------- POSTS (ফটো / টেক্সট) ----------------
+const TEXT_CATS = [["", "সব"], ["shayari", "💌 শায়েরি"], ["golpo", "📖 গল্প"], ["joke", "😂 মজার কথা"], ["kobita", "🖋️ কবিতা"], ["romantic", "❤️ রোমান্টিক"]];
+const BGS = { g1: "linear-gradient(135deg,#8b5cf6,#ec4899)", g2: "linear-gradient(135deg,#0ea5e9,#6366f1)", g3: "linear-gradient(135deg,#f59e0b,#ef4444)",
+  g4: "linear-gradient(135deg,#10b981,#0e7490)", g5: "linear-gradient(135deg,#1f2937,#4b5563)", g6: "linear-gradient(135deg,#f472b6,#fb7185)" };
+const postCard = (v, i) => `<a class="dcard ${i % 4 === 1 || i % 4 === 2 ? "tall" : ""}" href="#post/${v.id}">
+  <div class="ph"><img src="${esc(v.image_url)}" loading="lazy" alt="">
+    <div class="tags">${v.country_code ? `<span>${flagOf(v.country_code)} ${esc(v.country_code)}</span>` : ""}<span>❤️ ${n(v.likes_count)}</span><span class="lv">✦Lv${v.level ?? 0}</span></div></div>
+  ${v.body ? `<div class="cap" translate="no">${esc(v.body)}</div>` : ""}
+  <div class="who">${avatar(v)}<span translate="no">${esc(v.full_name || v.username)}</span></div></a>`;
+
+function postActions(v, el) {
+  return `<div class="pacts">
+    <button class="pa like ${v.liked_by_me ? "on" : ""}">${v.liked_by_me ? "❤️" : "🤍"} <span>${n(v.likes_count)}</span></button>
+    <button class="pa cm">💬 <span>${n(v.comments_count)}</span></button>
+    <button class="pa sh">↗️ <span>${n(v.shares_count)}</span></button>
+    ${v.user_id !== S.me.id ? `<button class="pa gf">🎁 গিফট</button>` : `<button class="pa del">🗑️</button>`}</div>`;
+}
+function bindPost(el, v) {
+  el._v = v;
+  el.querySelector(".like").onclick = async (e) => {
+    const b = e.currentTarget;
+    try { const r = await rpc("toggle_post_like", { p_post: v.id }); v.liked_by_me = r.liked; v.likes_count = r.likes_count;
+      b.classList.toggle("on", r.liked); b.innerHTML = `${r.liked ? "❤️" : "🤍"} <span>${n(r.likes_count)}</span>`; }
+    catch (er) { toast(errMsg(er), true); }
+  };
+  el.querySelector(".cm").onclick = () => openPostComments(el);
+  el.querySelector(".sh").onclick = async () => {
+    const first = (v.body || "").split("\n")[0].slice(0, 60);
+    const text = `${first ? first + "…\n\n" : ""}✨ @${v.username}-এর ${v.kind === "text" ? "লেখা" : "ছবি"} দেখুন Reels Enjoy অ্যাপে!`;
+    try {
+      if (Native?.share) Native.share(text); else if (navigator.share) await navigator.share({ text }); else { await navigator.clipboard.writeText(text); toast("কপি হয়েছে"); }
+      await rpc("record_post_share", { p_post: v.id }); v.shares_count++; el.querySelector(".sh span").textContent = n(v.shares_count);
+    } catch { /* */ }
+  };
+  el.querySelector(".gf")?.addEventListener("click", () => openGifts(el, true));
+  el.querySelector(".del")?.addEventListener("click", async () => {
+    if (!confirm("পোস্টটি মুছবেন?")) return;
+    try { await rpc("delete_post", { p_post: v.id }); el.remove(); toast("মুছে ফেলা হয়েছে"); if (location.hash.startsWith("#post/")) history.back(); }
+    catch (er) { toast(errMsg(er), true); }
+  });
+}
+async function openPostComments(el) {
+  const v = el._v;
+  const body = sheet(`<h3>কমেন্ট</h3><div class="comments" id="cl"><div class="spinner"></div></div>
+    <form class="cmt-box" id="cf"><input id="ci" placeholder="কমেন্ট লিখুন…" maxlength="500" autocomplete="off"><button class="btn small">পাঠান</button></form>`);
+  const load = async () => {
+    const data = await rpc("post_comments_list", { p_post: v.id }).catch(() => []);
+    $("#cl", body).innerHTML = data.length ? data.map((c) => `<div class="cmt">${avatar(c)}<div><div class="u">@${esc(c.username)} · ${ago(c.created_at)}</div><span translate="no">${esc(c.body)}</span></div>
+      ${c.user_id === S.me.id || v.user_id === S.me.id ? `<button class="del" data-id="${c.id}">মুছুন</button>` : ""}</div>`).join("") : `<div class="empty">প্রথম কমেন্ট আপনিই করুন</div>`;
+  };
+  load();
+  const setC = () => { const x = el.querySelector(".cm span"); if (x) x.textContent = n(v.comments_count); };
+  $("#cl", body).onclick = async (e) => {
+    const d = e.target.closest(".del"); if (!d || !confirm("কমেন্ট মুছবেন?")) return;
+    try { await rpc("delete_post_comment", { p_id: Number(d.dataset.id) }); v.comments_count--; setC(); load(); } catch (er) { toast(errMsg(er), true); }
+  };
+  $("#cf", body).onsubmit = async (e) => {
+    e.preventDefault();
+    const t = $("#ci", body).value.trim(); if (!t) return;
+    $("#ci", body).value = "";
+    try { await rpc("add_post_comment", { p_post: v.id, p_body: t }); v.comments_count++; setC(); load(); } catch (er) { toast(errMsg(er), true); }
+  };
+}
+
+R.post = async (id) => {
+  screen.innerHTML = `<div class="page"><div class="spinner"></div></div>`;
+  const { data: p } = await sb.from("posts").select("user_id,kind").eq("id", id).maybeSingle();
+  const rows = p ? await rpc("feed_posts", { p_kind: p.kind, p_before: Number(id) + 1, p_limit: 1, p_category: null, p_contest: null, p_user: p.user_id, p_sort: "new" }).catch(() => []) : [];
+  const v = rows.find((x) => x.id === Number(id));
+  if (!v) { screen.innerHTML = `<div class="page">${header("পোস্ট")}<div class="empty">পোস্টটি আর নেই</div></div>`; return; }
+  screen.innerHTML = `<div class="page post-page ${v.kind === "text" ? "nocopy" : ""}">${header(v.kind === "text" ? "✍️ লেখা" : "🖼️ ছবি")}
+    <div class="pcard" id="pc">
+      <a class="pwho" href="#u/${v.user_id}">${avatar(v)}<span><b translate="no">${esc(v.full_name || v.username)}</b><div class="tiny muted">${flagOf(v.country_code)} Lv${v.level} · ${ago(v.created_at)}</div></span></a>
+      ${v.kind === "photo" ? `<img class="pimg" src="${esc(v.image_url)}" alt="">${v.body ? `<p translate="no">${esc(v.body)}</p>` : ""}`
+        : `<div class="tbody" style="background:${BGS[v.bg] ?? BGS.g1}" translate="no">${esc(v.body)}</div>`}
+      ${postActions(v)}</div></div>`;
+  bindPost($("#pc"), v);
+  if (v.kind === "text") secureOn();
+};
+
+// কপি/স্ক্রিনশট বন্ধ (টেক্সট আর্নিং)
+function secureOn() {
+  try { Native?.setSecure?.(true); } catch { /* */ }
+  const block = (e) => { if (e.target.closest?.(".nocopy")) e.preventDefault(); };
+  document.addEventListener("copy", block); document.addEventListener("contextmenu", block);
+  const prev = cleanup;
+  cleanup = () => { try { Native?.setSecure?.(false); } catch { /* */ } document.removeEventListener("copy", block); document.removeEventListener("contextmenu", block); prev?.(); };
+}
+
+R.texts = (cat = "") => {
+  screen.innerHTML = `<div class="page texts nocopy">
+    <h1>✍️ টেক্সট আর্নিং</h1>
+    <div class="chiprow">${TEXT_CATS.map(([k, l]) => `<a href="#texts${k ? "/" + k : ""}" class="${k === cat ? "on" : ""}">${l}</a>`).join("")}</div>
+    <div id="tl"></div><div id="tm"></div>
+    <button class="fab" id="newT">✍️ লিখুন</button></div>`;
+  secureOn();
+  const st = { before: null, loading: false, done: false };
+  async function more() {
+    if (st.loading || st.done) return;
+    st.loading = true; $("#tm").innerHTML = `<div class="spinner"></div>`;
+    try {
+      const rows = await rpc("feed_posts", { p_kind: "text", p_before: st.before, p_limit: 15, p_category: cat || null, p_contest: null, p_user: null, p_sort: "new" });
+      for (const v of rows) {
+        const d = document.createElement("div"); d.className = "pcard";
+        d.innerHTML = `<a class="pwho" href="#u/${v.user_id}">${avatar(v)}<span><b translate="no">${esc(v.full_name || v.username)}</b><div class="tiny muted">${esc((TEXT_CATS.find(([k]) => k === v.category) ?? ["", ""])[1])} · ${ago(v.created_at)}</div></span></a>
+          <div class="tbody" style="background:${BGS[v.bg] ?? BGS.g1}" translate="no">${esc(v.body)}</div>${postActions(v)}`;
+        $("#tl").appendChild(d); bindPost(d, v);
+      }
+      if (rows.length) st.before = rows[rows.length - 1].id;
+      if (rows.length < 15) st.done = true;
+      $("#tm").innerHTML = st.done && !$("#tl").children.length ? `<div class="empty">এখনো কোনো লেখা নেই — প্রথম লেখাটি আপনিই দিন ✍️</div>` : "";
+    } catch (e) { $("#tm").innerHTML = `<div class="empty">${esc(errMsg(e))}</div>`; }
+    st.loading = false;
+  }
+  const onScroll = () => { if (screen.scrollTop + screen.clientHeight > screen.scrollHeight - 500) more(); };
+  screen.addEventListener("scroll", onScroll);
+  const prev = cleanup; cleanup = () => { screen.removeEventListener("scroll", onScroll); prev?.(); };
+  more();
+  $("#newT").onclick = () => composeText(cat);
+};
+
+function composeText(cat) {
+  const maxL = Number(setting("text_max_lines", 6)), maxC = Number(setting("text_max_chars", 600));
+  let bg = "g1";
+  const body = sheet(`<h3>✍️ নতুন লেখা</h3>
+    <select id="tc">${TEXT_CATS.filter(([k]) => k).map(([k, l]) => `<option value="${k}" ${k === cat ? "selected" : ""}>${l}</option>`).join("")}</select>
+    <div class="tprev" id="tp" style="background:${BGS.g1}"><textarea id="tt" maxlength="${maxC}" placeholder="এখানে লিখুন… (সর্বোচ্চ ${maxL} লাইন)"></textarea></div>
+    <div class="bgs">${Object.entries(BGS).map(([k, v]) => `<button data-bg="${k}" style="background:${v}" class="${k === "g1" ? "on" : ""}"></button>`).join("")}</div>
+    <div class="row tiny muted"><span id="lc">0/${maxL} লাইন</span><span id="cc">0/${maxC}</span></div>
+    <p class="notice tiny" translate="no">${esc(setting("text_notice", ""))}</p>
+    <button class="btn primary" id="tsend">পোস্ট করুন</button>`);
+  const ta = $("#tt", body);
+  const count = () => { const l = ta.value.split("\n").length; $("#lc", body).textContent = `${l}/${maxL} লাইন`; $("#lc", body).style.color = l > maxL ? "#e5484d" : ""; $("#cc", body).textContent = `${ta.value.length}/${maxC}`; };
+  ta.oninput = count;
+  $(".bgs", body).onclick = (e) => { const b = e.target.closest("[data-bg]"); if (!b) return; bg = b.dataset.bg; $("#tp", body).style.background = BGS[bg];
+    body.querySelectorAll(".bgs button").forEach((x) => x.classList.toggle("on", x === b)); };
+  $("#tsend", body).onclick = async (e) => {
+    const t = ta.value.trim();
+    if (!t) return toast(ERR.EMPTY_TEXT, true);
+    if (t.split("\n").length > maxL) return toast(`সর্বোচ্চ ${maxL} লাইন লেখা যাবে`, true);
+    e.target.disabled = true;
+    try { await rpc("create_post", { p_kind: "text", p_body: t, p_image_path: null, p_image_url: null, p_category: $("#tc", body).value, p_bg: bg, p_contest: null });
+      closeSheet(); toast("✅ পোস্ট হয়েছে"); R.texts(cat); }
+    catch (er) { toast(errMsg(er), true); e.target.disabled = false; }
+  };
+}
+
+R.newphoto = (contestId) => {
+  screen.innerHTML = `<div class="page">${header(contestId ? "🏆 কম্পিটিশনে ছবি দিন" : "🖼️ ফটো আপলোড")}
+    <label class="pick"><input type="file" id="pf" accept="image/*" class="hidden"><div class="ic">📷</div><b>ক্যামেরা বা গ্যালারি থেকে ছবি বেছে নিন</b></label>
+    <img id="pi" class="preview hidden" alt="">
+    <label class="lbl">ক্যাপশন</label><textarea id="pcap" maxlength="500" placeholder="ছবি সম্পর্কে লিখুন…"></textarea>
+    <button class="btn primary" id="pup" disabled>আপলোড করুন</button>
+    <div class="progress hidden" id="pg"><div></div></div>
+    <p class="muted tiny">লাইক, কমেন্ট, শেয়ার ও গিফট থেকে আয় হবে। অশ্লীল বা অন্যের ছবি দিলে পোস্ট মুছে যাবে এবং অ্যাকাউন্ট জেলে যেতে পারে।</p></div>`;
+  let blob = null;
+  $("#pf").onchange = async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    try { blob = await compressImage(f, 1440, 0.85); } catch { return toast("ছবিটি খোলা যায়নি", true); }
+    $("#pi").src = URL.createObjectURL(blob); $("#pi").classList.remove("hidden"); $("#pup").disabled = false;
+  };
+  $("#pup").onclick = async (e) => {
+    if (!blob) return;
+    e.target.disabled = true; $("#pg").classList.remove("hidden");
+    try {
+      const path = `${S.me.id}/${Date.now()}.jpg`;
+      await xhrUpload("photos", path, blob, "image/jpeg", (x) => ($("#pg").firstElementChild.style.width = Math.round(x * 100) + "%"));
+      const url = sb.storage.from("photos").getPublicUrl(path).data.publicUrl;
+      const id = await rpc("create_post", { p_kind: "photo", p_body: $("#pcap").value, p_image_path: path, p_image_url: url, p_category: null, p_bg: null, p_contest: contestId ? Number(contestId) : null });
+      toast("✅ ছবি পোস্ট হয়েছে");
+      location.replace(contestId ? "#contest/" + contestId : "#post/" + id);
+    } catch (er) { toast(errMsg(er), true); e.target.disabled = false; }
+  };
+};
+
+R.contest = async (id) => {
+  screen.innerHTML = `<div class="page"><div class="spinner"></div></div>`;
+  const list = await rpc("contests_list").catch(() => []);
+  const c = list.find((x) => x.id === Number(id));
+  if (!c) { screen.innerHTML = `<div class="page">${header("কম্পিটিশন")}<div class="empty">কম্পিটিশন পাওয়া যায়নি</div></div>`; return; }
+  const rows = await rpc("feed_posts", { p_kind: "photo", p_before: null, p_limit: 50, p_category: null, p_contest: c.id, p_user: null, p_sort: "top" }).catch(() => []);
+  screen.innerHTML = `<div class="page">${header("🏆 কম্পিটিশন")}
+    <div class="contest-hero">${c.cover_url ? `<img src="${esc(c.cover_url)}" alt="">` : ""}<div>
+      <h2 translate="no">${esc(c.title)}</h2>
+      ${c.prize_paisa > 0 ? `<div class="prize">🎁 পুরস্কার ${tk(c.prize_paisa)}</div>` : ""}
+      <div class="tiny">${c.is_open ? `⏳ শেষ হবে ${dt(c.ends_at)}` : "✅ শেষ হয়েছে"} · ${n(c.entries)} জন অংশ নিয়েছে</div>
+      ${c.description ? `<p class="tiny" translate="no">${esc(c.description)}</p>` : ""}
+      ${c.is_open && !c.joined ? `<a class="btn" href="#newphoto/${c.id}" style="background:#fff;color:#5b2bd0;border:0;margin-top:6px">📷 অংশ নিন</a>` : c.joined ? `<div class="tiny">✅ আপনি অংশ নিয়েছেন — বেশি লাইক পেলে জিতবেন</div>` : ""}</div></div>
+    <p class="tiny muted">সবচেয়ে বেশি লাইক পাওয়া ছবি উপরে দেখাচ্ছে। লাইক, কমেন্ট, শেয়ার ও গিফটেও আয় হবে।</p>
+    <div class="disc-grid" style="padding:0"><div class="disc-col" id="c0"></div><div class="disc-col" id="c1"></div></div>
+    ${rows.length ? "" : `<div class="empty">এখনো কেউ অংশ নেয়নি</div>`}</div>`;
+  rows.forEach((v, i) => {
+    const col = $("#c0").offsetHeight <= $("#c1").offsetHeight ? $("#c0") : $("#c1");
+    col.insertAdjacentHTML("beforeend", postCard(v, i).replace('<div class="ph">', `<div class="ph"><span class="rankb">${c.winner_post_id === v.id ? "👑 বিজয়ী" : "#" + (i + 1)}</span>`));
+  });
 };
 
 // ---------------- PROFILE ----------------
@@ -878,26 +1159,27 @@ const fmtDur = (sec) => { sec = Number(sec || 0); return sec ? `${Math.floor(sec
 S.disc = { lang: "", country: "" };
 try { Object.assign(S.disc, JSON.parse(localStorage.getItem("disc") || "{}")); } catch { /* */ }
 
-R.home = (tab = "discover") => {
-  if (!["nearby", "discover", "friends"].includes(tab)) tab = "discover";
+R.home = (tab = "video") => {
+  if (!["video", "photo", "contest"].includes(tab)) tab = "video";
   const f = S.disc;
   const countries = Object.keys(COUNTRY_NAMES);
   screen.innerHTML = `<div class="disc">
     <div class="disc-top">
       <div class="disc-tabs">
-        <a href="#home/nearby" class="${tab === "nearby" ? "on" : ""}">কাছাকাছি</a>
-        <a href="#home" class="${tab === "discover" ? "on" : ""}">ডিসকভার</a>
-        <a href="#home/friends" class="${tab === "friends" ? "on" : ""}">ফ্রেন্ডস</a>
+        <a href="#home" class="${tab === "video" ? "on" : ""}">ভিডিও</a>
+        <a href="#home/photo" class="${tab === "photo" ? "on" : ""}">ফটো</a>
+        <a href="#home/contest" class="${tab === "contest" ? "on" : ""}">কম্পিটিশন</a>
         <a href="#top" class="rank" aria-label="র‍্যাংকিং"><svg viewBox="0 0 32 32"><path d="M4 27h24M7 27V17h5v10M13.5 27V7h5v20M20 27V12h5v15" /></svg></a>
       </div>
-      <div class="disc-filters">
+      <div class="disc-filters ${tab === "video" ? "" : "hidden"}">
         <label>🅰️ <span id="flL">${f.lang ? langName(f.lang) : "সব"}</span><select id="fLang"><option value="">সব ভাষা</option>${LANGS.map(([k, l]) => `<option value="${k}" ${k === f.lang ? "selected" : ""}>${l}</option>`).join("")}</select></label>
-        <label>📍 <span id="flC">${f.country ? flagOf(f.country) + " " + (COUNTRY_NAMES[f.country] ?? f.country) : "সব"}</span><select id="fCountry" ${tab === "nearby" ? "disabled" : ""}><option value="">সব দেশ</option>${countries.map((c) => `<option value="${c}" ${c === f.country ? "selected" : ""}>${flagOf(c)} ${COUNTRY_NAMES[c]}</option>`).join("")}</select></label>
+        <label>📍 <span id="flC">${f.country ? flagOf(f.country) + " " + (COUNTRY_NAMES[f.country] ?? f.country) : "সব"}</span><select id="fCountry"><option value="">সব দেশ</option>${countries.map((c) => `<option value="${c}" ${c === f.country ? "selected" : ""}>${flagOf(c)} ${COUNTRY_NAMES[c]}</option>`).join("")}</select></label>
       </div>
     </div>
     ${notice() ? `<div style="padding:0 10px">${notice()}</div>` : ""}
     <div class="disc-grid"><div class="disc-col" id="c0"></div><div class="disc-col" id="c1"></div></div>
-    <div id="dmore" style="padding:10px"></div></div>`;
+    <div id="dmore" style="padding:10px"></div>
+    ${tab === "photo" ? `<a class="fab" href="#newphoto">📷 ফটো দিন</a>` : ""}</div>`;
   const save = () => { try { localStorage.setItem("disc", JSON.stringify(S.disc)); } catch { /* */ } };
   $("#fLang").onchange = (e) => { S.disc.lang = e.target.value; save(); R.home(tab); };
   $("#fCountry").onchange = (e) => { S.disc.country = e.target.value; save(); R.home(tab); };
@@ -911,26 +1193,34 @@ R.home = (tab = "discover") => {
       ${v.caption ? `<div class="cap" translate="no">${esc(v.caption)}</div>` : ""}
       <div class="who">${avatar(v)}<span translate="no">${esc(v.full_name || v.username)}</span></div></a>`;
   };
+  async function contests() {
+    const list = await rpc("contests_list").catch(() => []);
+    $(".disc-grid").outerHTML = `<div style="padding:0 12px">${list.length ? list.map((c) => `<a class="ccard" href="#contest/${c.id}">
+      <div class="cimg">${c.cover_url ? `<img src="${esc(c.cover_url)}" alt="">` : "🏆"}</div>
+      <div style="flex:1;min-width:0"><b translate="no">${esc(c.title)}</b>
+        ${c.prize_paisa > 0 ? `<div class="prize-s">🎁 পুরস্কার ${tk(c.prize_paisa)}</div>` : ""}
+        <div class="tiny muted">${c.is_open ? `⏳ শেষ ${dt(c.ends_at)}` : "✅ শেষ হয়েছে"} · ${n(c.entries)} জন</div></div>
+      <span class="pill ${c.is_open ? "paid" : ""}">${c.is_open ? (c.joined ? "অংশ নিয়েছেন" : "অংশ নিন") : "ফলাফল"}</span></a>`).join("")
+      : `<div class="empty">🏆 এখন কোনো কম্পিটিশন চলছে না।<br>নতুন কম্পিটিশন এলে এখানে দেখা যাবে।</div>`}</div>`;
+    $("#dmore").innerHTML = "";
+  }
   async function more() {
     if (st.loading || st.done) return;
     st.loading = true;
     $("#dmore").innerHTML = `<div class="spinner"></div>`;
     try {
-      if (tab === "nearby" && !S.me.country_code) {
-        st.done = true;
-        $("#dmore").innerHTML = `<div class="empty">📍 লোকেশন চালু হলে আপনার দেশের ভিডিও এখানে দেখা যাবে</div>`;
-        return;
-      }
-      const rows = await rpc("feed", { p_type: tab === "nearby" ? "nearby" : tab === "friends" ? "following" : "foryou", p_before: st.before, p_limit: 20,
-        p_user: null, p_category: null, p_lang: S.disc.lang || null, p_country: tab === "nearby" ? null : S.disc.country || null });
+      if (tab === "contest") { st.done = true; await contests(); return; }
+      const rows = tab === "photo"
+        ? await rpc("feed_posts", { p_kind: "photo", p_before: st.before, p_limit: 20, p_category: null, p_contest: null, p_user: null, p_sort: "new" })
+        : await rpc("feed", { p_type: "foryou", p_before: st.before, p_limit: 20, p_user: null, p_category: null, p_lang: S.disc.lang || null, p_country: S.disc.country || null });
       for (const v of rows) {
         const c0 = $("#c0"), c1 = $("#c1");
         if (!c0) return;
-        (c0.offsetHeight <= c1.offsetHeight ? c0 : c1).insertAdjacentHTML("beforeend", card(v, st.count++));
+        (c0.offsetHeight <= c1.offsetHeight ? c0 : c1).insertAdjacentHTML("beforeend", tab === "photo" ? postCard(v, st.count++) : card(v, st.count++));
       }
       if (rows.length) st.before = rows[rows.length - 1].id;
       if (rows.length < 20) st.done = true;
-      $("#dmore").innerHTML = st.done && !st.count ? `<div class="empty">${tab === "friends" ? "আপনি যাদের ফলো করেন তাদের ভিডিও এখানে দেখা যাবে" : "এখনো কোনো ভিডিও নেই"}</div>` : "";
+      $("#dmore").innerHTML = st.done && !st.count ? `<div class="empty">${tab === "photo" ? "এখনো কোনো ছবি নেই — 📷 চেপে প্রথম ছবি দিন" : "এখনো কোনো ভিডিও নেই"}</div>` : "";
     } catch (e) { $("#dmore").innerHTML = `<div class="empty">${esc(errMsg(e))}</div>`; }
     finally { st.loading = false; }
   }
@@ -995,7 +1285,7 @@ R.me = async () => {
   const cc = p.country_code;
   const host = p.account_type === "host";
   screen.innerHTML = `<div class="me">
-    <div class="me-head">
+    <div class="me-head" ${p.cover_url ? `style="background:linear-gradient(180deg,rgba(184,178,255,.25),#f7f6fb 96%),url('${esc(p.cover_url)}') center/cover"` : ""}>
       <div class="me-av">${avatar(p)}</div>
       <h2 translate="no">${esc(p.full_name || p.username)} ${p.is_verified ? "✔️" : ""}</h2>
       <div class="me-sub">@${esc(p.username)} · <span data-copy="${p.user_no}">ID ${p.user_no} ⧉</span>${host ? ` · 🎤 হোস্ট` : ""}</div>
@@ -1008,7 +1298,7 @@ R.me = async () => {
     </div>
     <a href="#invite" class="me-banner"><span>রেফার করে আয় করুন</span><b>${tk(refs?.earned_paisa ?? 0)} ›</b></a>
     <div class="me-menu">
-      <a href="#inbox"><i class="mi" style="background:#ffe1e4">💬</i>মেসেজ<em>${S.unread ? `<b class="red"></b>` : ""}›</em></a>
+      <a href="#inbox"><i class="mi" style="background:#ffe1e4">💬</i>মেসেজ<em>${(S.unread || 0) + (S.msgUnread || 0) ? `${(S.unread || 0) + (S.msgUnread || 0)} <b class="red"></b>` : ""}›</em></a>
       <a href="#level"><i class="mi" style="background:#fff3d6">👑</i>আমার লেভেল<em>Lv${levelOf(p.followers_count)} ›</em></a>
       <a href="#invite"><i class="mi" style="background:#ece6ff">🎁</i>আমার রেফার<em>পুরস্কার নিন <b class="red"></b> ›</em></a>
       <a href="#rules"><i class="mi" style="background:#e4ecff">📋</i>আমার টাস্ক<em>›</em></a>
@@ -1026,9 +1316,10 @@ R.settings = async () => {
     <div class="card"><b>অ্যাকাউন্টের ধরন</b>
       <div class="acct">
         <button data-t="user" class="${host ? "" : "on"}"><b>👤 ইউজার</b><small>প্রিমিয়াম ভিডিও কয়েন দিয়ে দেখবেন</small></button>
-        <button data-t="host" class="${host ? "on" : ""}"><b>🎤 হোস্ট</b><small>${pending ? "⏳ আবেদন অপেক্ষায়" : "সব প্রিমিয়াম ফ্রি"}</small></button>
+        <button data-t="host" class="${host ? "on" : ""}"><b>🎤 হোস্ট</b><small>${pending ? "⏳ আবেদন অপেক্ষায়" : "প্রিমিয়াম ভিডিও দিতে পারবেন"}</small></button>
       </div>
-      <p class="tiny muted" style="margin:8px 0 0">হোস্ট হতে আবেদন করলে অ্যাডমিন যাচাই করে অনুমোদন দেবেন। হোস্টরা সব প্রিমিয়াম ভিডিও ফ্রিতে দেখতে পারেন।</p></div>
+      <p class="tiny muted" style="margin:8px 0 0">হোস্ট হতে আবেদন করলে অ্যাডমিন যাচাই করে অনুমোদন দেবেন। হোস্টরা প্রিমিয়ামে ভিডিও দিতে পারেন; প্রিমিয়াম ফ্রি দেখার অনুমতি অ্যাডমিন আলাদা করে দেন।</p>
+      ${host ? `<p class="tiny" style="margin:6px 0 0">👑 প্রিমিয়াম ফ্রি দেখা: <b>${me.premium_access ? "✅ চালু" : "❌ বন্ধ (অ্যাডমিনের অনুমতি লাগবে)"}</b></p>` : ""}</div>
     <div class="card list">
       <a class="li" href="#wallet"><span>💰 ওয়ালেট ও উইথড্র</span><span>›</span></a>
       <a class="li" href="#vault"><span>🔒 লক ফোল্ডার</span><span>›</span></a>
@@ -1121,15 +1412,18 @@ R.u = async (id) => {
   if (mine) S.me = p;
   let following = !!fl.data;
   const grid = (list) => list.map((v) => `<a href="#watch/${id}/${v.id}">${v.thumb_url ? `<img src="${esc(v.thumb_url)}" loading="lazy" alt="">` : ""}<span class="vc">▶ ${n(v.views_count)}</span></a>`).join("");
-  screen.innerHTML = `<div class="page">
-    <button class="back" onclick="history.back()">←</button>
+  screen.innerHTML = `<div class="cover" ${p.cover_url ? `style="background-image:url('${esc(p.cover_url)}')"` : ""}><button class="back" onclick="history.back()">←</button></div>
+    <div class="page" style="padding-top:0">
     <div class="prof">${avatar(p)}<h2 translate="no">${esc(p.full_name ?? "")} ${p.is_verified ? "✔️" : ""}</h2><div class="muted">@${esc(p.username)}</div>
       <div class="idtag" data-copy="${p.user_no}">ID: ${p.user_no} ⧉</div>
       <div class="counts"><div><b>${n(p.videos_count)}</b><span>ভিডিও</span></div><div><b id="fc">${n(p.followers_count)}</b><span>ফলোয়ার</span></div><div><b>${n(p.following_count)}</b><span>ফলোয়িং</span></div></div>
       ${p.bio ? `<p translate="no">${esc(p.bio)}</p>` : ""}
       ${mine ? `<div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap"><a class="btn small" href="#edit">✏️ প্রোফাইল এডিট</a><a class="btn small" href="#me">⬅ আমার পেজ</a></div>`
-        : `<button class="btn" id="fb" style="min-width:140px;${following ? "" : "background:var(--accent);border:0"}">${following ? "ফলোয়িং" : "ফলো করুন"}</button>`}
+        : `<div class="row" style="justify-content:center;gap:8px"><button class="btn" id="fb" style="min-width:130px;${following ? "" : "background:var(--purple);color:#fff;border:0"}">${following ? "ফলোয়িং" : "ফলো করুন"}</button>
+           <a class="btn" href="#chat/${p.id}" style="min-width:110px">💬 মেসেজ</a></div>`}
     </div>
+    <div class="seg"><button class="on" data-pt="v">🎬 ভিডিও</button><button data-pt="photo">🖼️ ফটো</button><button data-pt="text">✍️ লেখা</button></div>
+    <div id="ptab"></div>
     <div id="pend"></div>
     <div class="grid3" id="g">${vids.length ? grid(vids) : ""}</div>
     ${vids.length ? "" : `<div class="empty">${mine ? "এখনো কোনো ভিডিও নেই — ＋ চেপে প্রথম ভিডিও দিন" : "কোনো ভিডিও নেই"}</div>`}
@@ -1145,10 +1439,22 @@ R.u = async (id) => {
     try {
       following = await rpc("toggle_follow", { p_target: id });
       e.target.textContent = following ? "ফলোয়িং" : "ফলো করুন";
-      e.target.style.background = following ? "" : "var(--accent)"; e.target.style.border = following ? "" : "0";
+      e.target.style.background = following ? "" : "var(--purple)"; e.target.style.color = following ? "" : "#fff"; e.target.style.border = following ? "" : "0";
       p.followers_count += following ? 1 : -1; $("#fc").textContent = n(p.followers_count);
     } catch (er) { toast(errMsg(er), true); }
   });
+  document.querySelectorAll(".seg [data-pt]").forEach((b) => (b.onclick = async () => {
+    document.querySelectorAll(".seg [data-pt]").forEach((x) => x.classList.toggle("on", x === b));
+    const k = b.dataset.pt, show = k === "v";
+    ["#g", "#mr"].forEach((q) => $(q)?.classList.toggle("hidden", !show));
+    screen.querySelector(".page > .empty")?.classList.toggle("hidden", !show);
+    if (show) { $("#ptab").innerHTML = ""; return; }
+    $("#ptab").innerHTML = `<div class="spinner" style="margin-top:14px"></div>`;
+    const rows = await rpc("feed_posts", { p_kind: k, p_before: null, p_limit: 50, p_category: null, p_contest: null, p_user: id, p_sort: "new" }).catch(() => []);
+    $("#ptab").innerHTML = !rows.length ? `<div class="empty">কিছু নেই</div>` : k === "photo"
+      ? `<div class="grid3">${rows.map((v) => `<a href="#post/${v.id}"><img src="${esc(v.image_url)}" loading="lazy" alt=""><span class="vc">❤️ ${n(v.likes_count)}</span></a>`).join("")}</div>`
+      : `<div class="nocopy" style="margin-top:12px">${rows.map((v) => `<a class="tmini" href="#post/${v.id}" style="background:${BGS[v.bg] ?? BGS.g1}" translate="no">${esc(v.body)}</a>`).join("")}</div>`;
+  }));
   let last = vids[vids.length - 1]?.id;
   $("#mr")?.addEventListener("click", async (e) => {
     const more = await rpc("feed", { p_type: "foryou", p_before: last, p_limit: 30, p_user: id });
@@ -1162,6 +1468,8 @@ R.edit = () => {
   const p = S.me;
   screen.innerHTML = `<div class="page">${header("প্রোফাইল এডিট")}
     <div class="prof"><label style="cursor:pointer">${avatar(p)}<input type="file" id="af" accept="image/*" class="hidden"><div class="tiny muted">ছবি বদলাতে চাপুন</div></label></div>
+    <span class="lbl">কভার ফটো</span>
+    <label class="coverpick" id="cvL" style="${p.cover_url ? `background-image:url('${esc(p.cover_url)}')` : ""}"><input type="file" id="cvf" accept="image/*" class="hidden"><span>🖼️ কভার ফটো বদলান</span></label>
     <span class="lbl">নাম</span><input id="fn" value="${esc(p.full_name ?? "")}" maxlength="60">
     <span class="lbl">ইউজারনেম</span><input id="un" value="${esc(p.username)}" autocapitalize="off" maxlength="30">
     <span class="lbl">বায়ো</span><textarea id="bio" maxlength="300">${esc(p.bio ?? "")}</textarea>
@@ -1169,7 +1477,11 @@ R.edit = () => {
     <span class="lbl">আপনার ভাষা</span><select id="lg">${LANGS.map(([k, l]) => `<option value="${k}" ${k === p.language ? "selected" : ""}>${l}</option>`).join("")}</select>
     <button class="btn primary" id="sv">সেভ করুন</button></div>`;
   sb.from("user_private").select("birth_date").eq("user_id", S.me.id).maybeSingle().then(({ data }) => { if (data?.birth_date) $("#bd").value = data.birth_date; });
-  let avatarBlob = null;
+  let avatarBlob = null, coverBlob = null;
+  $("#cvf").onchange = async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    try { coverBlob = await compressImage(f, 1200, 0.82); $("#cvL").style.backgroundImage = `url('${URL.createObjectURL(coverBlob)}')`; } catch { toast("ছবিটি খোলা যায়নি", true); }
+  };
   $("#af").onchange = async (e) => {
     const f = e.target.files[0]; if (!f) return;
     const img = new Image();
@@ -1191,6 +1503,11 @@ R.edit = () => {
         url = sb.storage.from("avatars").getPublicUrl(path).data.publicUrl;
       }
       await rpc("update_profile", { p_full_name: $("#fn").value, p_username: $("#un").value.trim().toLowerCase(), p_bio: $("#bio").value, p_avatar_url: url });
+      if (coverBlob) {
+        const cp = `${S.me.id}/cover-${Date.now()}.jpg`;
+        await xhrUpload("avatars", cp, coverBlob, "image/jpeg", () => {});
+        await rpc("set_cover", { p_url: sb.storage.from("avatars").getPublicUrl(cp).data.publicUrl });
+      }
       if ($("#bd").value) await rpc("set_birth_date", { p_date: $("#bd").value });
       if ($("#lg").value !== p.language) await rpc("set_language", { p_lang: $("#lg").value });
       toast("সেভ হয়েছে");

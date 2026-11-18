@@ -529,12 +529,17 @@ routes.lookup = async (no) => {
       <div>লক ফোল্ডার</div><div>${num(d.vault_files)} ফাইল · ${(Number(d.vault_bytes) / 1048576).toFixed(1)} MB</div>
       <div>অ্যাকাউন্টের ধরন</div><div>${p.account_type === "host" ? "🎤 হোস্ট" : "👤 ইউজার"}${p.host_requested_at && p.account_type !== "host" ? ' <span class="pill pending">হোস্ট আবেদন</span>' : ""}</div>
       <div>ভাষা</div><div>${esc(p.language ?? "-")}</div>
+      <div>অ্যাপে সময়</div><div id="usage">…</div>
     </div></div>
     <div class="card" id="ctl">
       <h3 style="margin:0 0 10px">⚙️ নিয়ন্ত্রণ</h3>
       <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:12px">
         <span>অ্যাকাউন্ট: <b>${p.account_type === "host" ? "🎤 হোস্ট" : "👤 ইউজার"}</b></span>
         ${p.account_type === "host" ? `<button class="btn sm warn" data-c="unhost">ইউজার বানান</button>` : `<button class="btn sm good" data-c="host">হোস্ট বানান</button>`}
+      </div>
+      <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <span>👑 প্রিমিয়াম ফ্রি দেখা: <b>${p.premium_access ? "✅ চালু" : "❌ বন্ধ"}</b></span>
+        ${p.premium_access ? `<button class="btn sm warn" data-c="pa_off">বন্ধ করুন</button>` : `<button class="btn sm good" data-c="pa_on" ${p.account_type === "host" ? "" : "disabled title='আগে হোস্ট বানান'"}>অনুমতি দিন</button>`}
       </div>
       <div style="margin-bottom:12px"><b>দিনে আপলোড সীমা</b> <span class="muted small">(খালি রাখলে সবার জন্য নির্ধারিত সীমা)</span>
         <div class="row" style="flex-wrap:nowrap;gap:8px"><input id="ul" type="number" min="0" value="${p.daily_upload_limit ?? ""}" placeholder="ডিফল্ট"><button class="btn sm good" data-c="limit">সেভ</button></div></div>
@@ -564,11 +569,16 @@ routes.lookup = async (no) => {
       <div class="body"><div>${pill(v.status)} <span class="pill">${CAT_NAME[v.category] ?? ""}</span></div>
         <div class="cap" translate="no">${esc(v.caption ?? "")}</div>
         <div class="muted small">👁 ${num(v.views)} ❤️ ${num(v.likes)} · ${dt(v.created_at)}</div></div></div>`).join("") : `<div class="empty">কোনো পোস্ট নেই</div>`}</div>`;
+  sb.from("app_usage").select("day,seconds").eq("user_id", p.id).order("day", { ascending: false }).limit(30).then(({ data }) => {
+    const all = (data ?? []).reduce((a, x) => a + x.seconds, 0), today = (data ?? []).find((x) => x.day === new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Dhaka" }))?.seconds ?? 0;
+    if ($("#usage")) $("#usage").textContent = `আজ ${hms(today)} · ৩০ দিনে ${hms(all)}`;
+  });
   sb.from("settings").select("value").eq("key", "jail_release_coins").maybeSingle().then(({ data }) => { if ($("#jf") && data) $("#jf").value = data.value; });
   $("#ctl").onclick = async (e) => {
     const b = e.target.closest("[data-c]"); if (!b) return;
     const c = b.dataset.c;
     if (c === "host" || c === "unhost") await act(() => rpc("admin_set_host", { p_user: p.id, p_host: c === "host" }), "হয়েছে");
+    else if (c === "pa_on" || c === "pa_off") await act(() => rpc("admin_set_premium_access", { p_user: p.id, p_on: c === "pa_on" }), "হয়েছে");
     else if (c === "limit") { const v = $("#ul").value.trim(); await act(() => rpc("admin_set_upload_limit", { p_user: p.id, p_limit: v === "" ? null : Number(v) }), "সেভ হয়েছে"); }
     else if (c === "unjail") { if (!confirm("জেল থেকে মুক্ত করবেন?")) return; await act(() => rpc("admin_jail_user", { p_user: p.id, p_jail: false, p_reason: null, p_fee: null }), "মুক্ত করা হয়েছে"); }
     else if (c === "jail") {
@@ -581,6 +591,146 @@ routes.lookup = async (no) => {
   };
 };
 
+
+// ---------- অ্যানালিটিক্স ----------
+const TXT_CAT = { shayari: "💌 শায়েরি", golpo: "📖 গল্প", joke: "😂 মজার কথা", kobita: "🖋️ কবিতা", romantic: "❤️ রোমান্টিক", "-": "-" };
+const hms = (sec) => { sec = Number(sec || 0); const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60); return h ? `${h} ঘণ্টা ${m} মিনিট` : `${m} মিনিট`; };
+const bar = (v, max, color = "#9b5cff") => `<div style="background:var(--panel2);border-radius:6px;height:8px;overflow:hidden;min-width:60px"><div style="height:100%;width:${max ? Math.round((v / max) * 100) : 0}%;background:${color}"></div></div>`;
+routes.analytics = async (days = "7") => {
+  loading();
+  let d;
+  try { d = await rpc("admin_analytics", { p_days: Number(days) }); } catch (e) { view.innerHTML = `<div class="empty err">${esc(errMsg(e))}</div>`; return; }
+  const u = d.usage, maxDay = Math.max(1, ...d.daily.map((x) => x.seconds));
+  const maxCat = Math.max(1, ...d.categories.map((x) => x.views_period)), maxC = Math.max(1, ...d.countries.map((x) => x.users));
+  const totUsers = d.countries.reduce((a, x) => a + x.users, 0);
+  view.innerHTML = `<h1>📉 অ্যানালিটিক্স</h1>
+    <div class="tabs">${[["1", "আজ"], ["7", "৭ দিন"], ["30", "৩০ দিন"], ["90", "৯০ দিন"]].map(([k, l]) => `<a class="btn sm ${k === String(days) ? "on" : ""}" href="#analytics/${k}">${l}</a>`).join("")}</div>
+    <h2>⏱️ অ্যাপে কত সময় কাটাচ্ছে</h2>
+    <div class="grid">
+      <div class="card stat"><div class="k">আজ মোট সময়</div><div class="v">${hms(u.today_seconds)}</div></div>
+      <div class="card stat"><div class="k">আজ সক্রিয় ইউজার</div><div class="v">${num(u.today_users)}</div></div>
+      <div class="card stat"><div class="k">এই সময়ে মোট</div><div class="v">${hms(u.seconds)}</div></div>
+      <div class="card stat"><div class="k">প্রতি ইউজার গড় (প্রতিদিন)</div><div class="v">${hms(u.users ? u.seconds / u.users / d.days : 0)}</div></div>
+    </div>
+    <div class="table-wrap" style="margin-top:10px"><table><tr><th>দিন</th><th class="num">সময়</th><th class="num">ইউজার</th><th></th></tr>
+      ${d.daily.map((x) => `<tr><td>${esc(x.day)}</td><td class="num">${hms(x.seconds)}</td><td class="num">${num(x.users)}</td><td>${bar(x.seconds, maxDay)}</td></tr>`).join("")}</table></div>
+    <h2>👑 সবচেয়ে বেশি সময় দেওয়া ইউজার</h2>
+    <div class="table-wrap"><table><tr><th>ID</th><th>ইউজার</th><th class="num">সময়</th></tr>
+      ${d.top_users.map((x) => `<tr><td><a href="#lookup/${x.user_no}">${x.user_no}</a></td><td>${flag(x.country_code)} @${esc(x.username)}</td><td class="num">${hms(x.seconds)}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">এখনো ডেটা নেই — নতুন অ্যাপ ব্যবহার শুরু হলে দেখা যাবে</td></tr>`}</table></div>
+    <h2>🎬 কোন ধরনের ভিডিও বেশি দেখছে</h2>
+    <div class="table-wrap"><table><tr><th>ক্যাটাগরি</th><th class="num">এই সময়ে ভিউ</th><th></th><th class="num">মোট ভিউ</th><th class="num">ভিডিও</th><th class="num">গড় ভিউ</th><th class="num">লাইক</th><th class="num">কমেন্ট</th><th class="num">গিফট 🪙</th><th class="num">প্রিমিয়াম</th></tr>
+      ${d.categories.map((x) => `<tr><td>${CAT_NAME[x.category] ?? esc(x.category)}</td><td class="num"><b>${num(x.views_period)}</b></td><td>${bar(x.views_period, maxCat, "#e34cf0")}</td><td class="num">${num(x.views)}</td><td class="num">${num(x.videos)}</td>
+        <td class="num">${num(Math.round(x.views / Math.max(1, x.videos)))}</td><td class="num">${num(x.likes)}</td><td class="num">${num(x.comments)}</td><td class="num">${num(x.gift_coins)}</td><td class="num">${num(x.premium)}</td></tr>`).join("") || `<tr><td colspan="10" class="muted">ডেটা নেই</td></tr>`}</table></div>
+    <h2>🖼️ ফটো ও লেখা</h2>
+    <div class="table-wrap"><table><tr><th>ধরন</th><th class="num">পোস্ট</th><th class="num">লাইক</th><th class="num">কমেন্ট</th><th class="num">শেয়ার</th></tr>
+      ${d.posts.map((x) => `<tr><td>${x.kind === "photo" ? "🖼️ ফটো" : "✍️ " + (TXT_CAT[x.category] ?? esc(x.category))}</td><td class="num">${num(x.posts)}</td><td class="num">${num(x.likes)}</td><td class="num">${num(x.comments)}</td><td class="num">${num(x.shares)}</td></tr>`).join("") || `<tr><td colspan="5" class="muted">ডেটা নেই</td></tr>`}</table></div>
+    <h2>🌍 কোন দেশে কত ইউজার</h2>
+    <div class="table-wrap"><table><tr><th>দেশ</th><th class="num">ইউজার</th><th></th><th class="num">%</th><th class="num">এই সময়ে সক্রিয়</th><th class="num">হোস্ট</th></tr>
+      ${d.countries.map((x) => `<tr><td>${x.country_code === "??" ? "❓ জানা নেই" : `${flag(x.country_code)} ${esc(COUNTRY_EN[x.country_code] ?? x.country_code)}`}</td><td class="num"><b>${num(x.users)}</b></td><td>${bar(x.users, maxC, "#22c55e")}</td>
+        <td class="num">${totUsers ? Math.round((x.users / totUsers) * 100) : 0}%</td><td class="num">${num(x.active)}</td><td class="num">${num(x.hosts)}</td></tr>`).join("")}</table></div>
+    <p class="muted small">"জানা নেই" = যারা এখনো নতুন APK দিয়ে লোকেশন দেয়নি। সময়ের হিসাব আজ থেকে শুরু হয়েছে।</p>`;
+};
+const COUNTRY_EN = { BD: "বাংলাদেশ", SA: "সৌদি আরব", AE: "আমিরাত", QA: "কাতার", KW: "কুয়েত", OM: "ওমান", BH: "বাহরাইন", MY: "মালয়েশিয়া", SG: "সিঙ্গাপুর", MV: "মালদ্বীপ",
+  IN: "ভারত", IT: "ইতালি", GB: "যুক্তরাজ্য", US: "যুক্তরাষ্ট্র", JO: "জর্ডান", LB: "লেবানন", IQ: "ইরাক", LY: "লিবিয়া", FR: "ফ্রান্স", ES: "স্পেন", PT: "পর্তুগাল",
+  GR: "গ্রিস", DE: "জার্মানি", RO: "রোমানিয়া", CA: "কানাডা", AU: "অস্ট্রেলিয়া", JP: "জাপান", KR: "দক্ষিণ কোরিয়া", PK: "পাকিস্তান", NP: "নেপাল" };
+
+// ---------- ফটো ও লেখা (মডারেশন) ----------
+routes.posts = async (arg = "photo:published") => {
+  const [kind, status] = arg.split(":");
+  const kinds = [["photo", "🖼️ ফটো"], ["text", "✍️ লেখা"]], sts = [["pending", "পেন্ডিং"], ["published", "প্রকাশিত"], ["rejected", "রিজেক্টেড"], ["deleted", "ডিলিট"]];
+  view.innerHTML = `<h1>🖼️ ফটো ও লেখা</h1>
+    <div class="tabs">${kinds.map(([k, l]) => `<a class="btn sm ${k === kind ? "on" : ""}" href="#posts/${k}:${status}">${l}</a>`).join("")}</div>
+    <div class="tabs">${sts.map(([k, l]) => `<a class="btn sm ${k === status ? "on" : ""}" href="#posts/${kind}:${k}">${l}</a>`).join("")}</div>
+    <div id="list" class="videos"></div><div style="margin-top:12px"><button class="btn sm" id="more">আরও</button></div>`;
+  let before = null;
+  const load = async () => {
+    let q = sb.from("posts").select("*, profiles!posts_user_id_fkey(username,user_no)").eq("kind", kind).eq("status", status).order("id", { ascending: false }).limit(24);
+    if (before) q = q.lt("id", before);
+    const { data, error } = await q;
+    if (error) return toast(errMsg(error), true);
+    if (data.length) before = data[data.length - 1].id;
+    $("#more").classList.toggle("hidden", data.length < 24);
+    $("#list").insertAdjacentHTML("beforeend", data.map((p) => `<div class="vcard" data-id="${p.id}">
+      ${p.kind === "photo" ? `<img src="${esc(p.image_url)}" loading="lazy" style="aspect-ratio:3/4" alt="">` : `<div style="padding:16px;min-height:120px;white-space:pre-line;font-weight:600;background:linear-gradient(135deg,#5b2bd0,#c04cfd);color:#fff" translate="no">${esc(p.body)}</div>`}
+      <div class="body"><div><a href="#lookup/${p.profiles?.user_no}">@${esc(p.profiles?.username)}</a> ${p.kind === "text" ? `<span class="pill">${TXT_CAT[p.category] ?? ""}</span>` : ""} ${p.contest_id ? `<span class="pill approved">🏆 #${p.contest_id}</span>` : ""}</div>
+        ${p.kind === "photo" && p.body ? `<div class="cap" translate="no">${esc(p.body)}</div>` : ""}
+        <div class="muted small">❤️ ${num(p.likes_count)} 💬 ${num(p.comments_count)} ↗️ ${num(p.shares_count)} 🎁 ${num(p.gifts_coins_total)} · ${dt(p.created_at)}</div>
+        ${p.reject_reason ? `<div class="small err">${esc(p.reject_reason)}</div>` : ""}
+        <div class="actions">${p.status === "pending" ? `<button class="btn sm good" data-a="approve">অ্যাপ্রুভ ✅</button><button class="btn sm warn" data-a="reject">রিজেক্ট</button>`
+          : p.status === "published" ? `<button class="btn sm warn" data-a="reject">রিজেক্ট</button><button class="btn sm bad" data-a="delete">ডিলিট</button>`
+          : `<button class="btn sm good" data-a="restore">ফেরত আনুন</button>`}</div></div></div>`).join("") || (before ? "" : `<div class="empty">কিছু নেই</div>`));
+  };
+  $("#list").onclick = async (e) => {
+    const b = e.target.closest("button[data-a]"); if (!b) return;
+    const id = Number(b.closest(".vcard").dataset.id), a = b.dataset.a;
+    let reason = null;
+    if (a === "reject" || a === "delete") { reason = prompt("কারণ (ইউজার দেখবে):"); if (!reason) return; }
+    await act(() => rpc("admin_post_action", { p_id: id, p_action: a, p_reason: reason }), "হয়েছে");
+    b.closest(".vcard").remove();
+  };
+  $("#more").onclick = load;
+  load();
+};
+
+// ---------- কম্পিটিশন ----------
+const toLocalInput = (d) => { const x = new Date(d); x.setMinutes(x.getMinutes() - x.getTimezoneOffset()); return x.toISOString().slice(0, 16); };
+routes.contests = async (id) => {
+  loading();
+  const { data: list } = await sb.from("contests").select("*").order("id", { ascending: false }).limit(50);
+  if (id) {
+    const c = id === "new" ? null : list.find((x) => x.id === Number(id));
+    const { data: entries } = c ? await sb.from("posts").select("id,image_url,likes_count,comments_count,user_id,profiles!posts_user_id_fkey(username,user_no)").eq("contest_id", c.id).eq("status", "published").order("likes_count", { ascending: false }).limit(60) : { data: [] };
+    view.innerHTML = `<h1><a href="#contests">←</a> ${c ? "কম্পিটিশন এডিট" : "নতুন কম্পিটিশন"}</h1>
+      <div class="card" style="max-width:560px">
+        <label class="small muted">নাম</label><input id="ct" value="${esc(c?.title ?? "")}" placeholder="যেমন: সেরা বিকেলের ছবি">
+        <label class="small muted">বিবরণ / নিয়ম</label><textarea id="cd" rows="3">${esc(c?.description ?? "")}</textarea>
+        <label class="small muted">পুরস্কার (৳) — বিজয়ী ঘোষণা করলে তার ব্যালেন্সে যোগ হবে</label><input id="cp" type="number" min="0" step="1" value="${c ? c.prize_paisa / 100 : 0}">
+        <label class="small muted">শুরু</label><input id="cs" type="datetime-local" value="${toLocalInput(c?.starts_at ?? new Date())}">
+        <label class="small muted">শেষ</label><input id="ce" type="datetime-local" value="${toLocalInput(c?.ends_at ?? Date.now() + 7 * 864e5)}">
+        <label class="small muted">কভার ছবি</label><input id="cf" type="file" accept="image/*">${c?.cover_url ? `<img src="${esc(c.cover_url)}" style="width:100%;max-height:160px;object-fit:cover;border-radius:10px;margin-top:6px">` : ""}
+        <label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input id="ca" type="checkbox" style="width:auto" ${c?.is_active ?? true ? "checked" : ""}> চালু</label>
+        <button class="btn good" id="csave" style="margin-top:10px">সেভ করুন</button></div>
+      ${c ? `<h2>অংশগ্রহণকারী (${num(entries.length)}) — বেশি লাইক উপরে</h2>
+        ${c.finished_at ? `<p class="muted">✅ শেষ হয়েছে ${dt(c.finished_at)}${c.winner_post_id ? " · বিজয়ী পোস্ট #" + c.winner_post_id : ""}</p>` : `<p class="muted small">বিজয়ী বেছে "বিজয়ী ঘোষণা" চাপুন — পুরস্কার সাথে সাথে তার ব্যালেন্সে যাবে এবং কম্পিটিশন বন্ধ হবে।</p>
+          <button class="btn sm warn" data-win="">বিজয়ী ছাড়া শেষ করুন</button>`}
+        <div class="videos" style="margin-top:10px">${entries.map((p, i) => `<div class="vcard"><img src="${esc(p.image_url)}" style="aspect-ratio:3/4" alt="">
+          <div class="body"><b>#${i + 1}</b> <a href="#lookup/${p.profiles?.user_no}">@${esc(p.profiles?.username)}</a> ${c.winner_post_id === p.id ? "👑" : ""}
+            <div class="muted small">❤️ ${num(p.likes_count)} 💬 ${num(p.comments_count)}</div>
+            ${c.finished_at ? "" : `<div class="actions"><button class="btn sm good" data-win="${p.id}">👑 বিজয়ী ঘোষণা</button></div>`}</div></div>`).join("") || `<div class="empty">এখনো কেউ নেই</div>`}</div>` : ""}`;
+    $("#csave").onclick = async () => {
+      const title = $("#ct").value.trim(); if (title.length < 2) return toast("নাম লিখুন", true);
+      let cover = c?.cover_url ?? null;
+      const f = $("#cf").files[0];
+      if (f) {
+        const path = `${S.me.id}/contest-${Date.now()}.${(f.name.split(".").pop() || "jpg").toLowerCase()}`;
+        const { error } = await sb.storage.from("photos").upload(path, f, { contentType: f.type || "image/jpeg" });
+        if (error) return toast(errMsg(error), true);
+        cover = sb.storage.from("photos").getPublicUrl(path).data.publicUrl;
+      }
+      try {
+        const nid = await rpc("admin_save_contest", { p_id: c?.id ?? null, p_title: title, p_description: $("#cd").value, p_prize_paisa: Math.round(Number($("#cp").value || 0) * 100),
+          p_starts: new Date($("#cs").value).toISOString(), p_ends: new Date($("#ce").value).toISOString(), p_active: $("#ca").checked, p_cover_url: cover });
+        toast("সেভ হয়েছে"); location.hash = "#contests/" + nid;
+      } catch (e) { toast(String(e.message).includes("BAD_DATES") ? "শেষের সময় শুরুর পরে হতে হবে" : errMsg(e), true); }
+    };
+    view.onclick = async (e) => {
+      const b = e.target.closest("[data-win]"); if (!b) return;
+      const pid = b.dataset.win ? Number(b.dataset.win) : null;
+      if (!confirm(pid ? `পোস্ট #${pid}-কে বিজয়ী ঘোষণা করবেন? পুরস্কার ${tk(c.prize_paisa)} তার ব্যালেন্সে যাবে।` : "বিজয়ী ছাড়া কম্পিটিশন শেষ করবেন?")) return;
+      await act(() => rpc("admin_finish_contest", { p_contest: c.id, p_post: pid }), "সম্পন্ন");
+      routes.contests(String(c.id));
+    };
+    return;
+  }
+  view.innerHTML = `<h1>🏆 কম্পিটিশন</h1><div class="tabs"><a class="btn good" href="#contests/new">+ নতুন কম্পিটিশন</a></div>
+    <div class="list">${(list ?? []).map((c) => {
+      const open = c.is_active && !c.finished_at && new Date(c.starts_at) <= new Date() && new Date(c.ends_at) > new Date();
+      return `<a class="item" href="#contests/${c.id}" style="display:block;text-decoration:none"><div class="top"><b>${esc(c.title)}</b>
+        <span class="pill ${open ? "paid" : c.finished_at ? "" : "pending"}">${open ? "চলছে" : c.finished_at ? "শেষ" : c.is_active ? "শুরু হয়নি/সময় শেষ" : "বন্ধ"}</span></div>
+        <div class="muted small">পুরস্কার ${tk(c.prize_paisa)} · ${dt(c.starts_at)} → ${dt(c.ends_at)}</div></a>`;
+    }).join("") || `<div class="empty">কোনো কম্পিটিশন নেই — "+ নতুন কম্পিটিশন" চাপুন</div>`}</div>`;
+};
+
 // ---------- ইনকাম রুলস ----------
 routes.rules = async () => {
   loading();
@@ -591,6 +741,8 @@ routes.rules = async () => {
   const row = (key, label, kind) => {
     const v = S[key];
     const shown = kind === "taka" ? Number(v) / 100 : v;
+    if (kind === "text") return `<div class="item" data-key="${key}" data-kind="text"><div class="top"><b>${label}</b></div>
+      <textarea name="v" rows="4" translate="no">${esc(v ?? "")}</textarea><button class="btn sm good" data-save>সেভ</button></div>`;
     return `<div class="item" data-key="${key}" data-kind="${kind}"><div class="top"><b>${label}</b></div>
       <div class="row" style="flex-wrap:nowrap">${kind === "bool"
         ? `<select name="v"><option value="true" ${v === true ? "selected" : ""}>চালু</option><option value="false" ${v === false ? "selected" : ""}>বন্ধ</option></select>`
@@ -632,6 +784,22 @@ routes.rules = async () => {
       ${row("host_auto_approve", "হোস্ট আবেদন অটো অনুমোদন", "bool")}
       ${row("premium_default_coins", "প্রিমিয়াম ভিডিও দেখার ডিফল্ট কয়েন", "num")}
       ${row("premium_creator_pct", "প্রিমিয়াম আনলকের কত % ক্রিয়েটর পাবে", "num")}
+      ${row("premium_upload_hosts_only", "শুধু হোস্টরা প্রিমিয়াম ভিডিও দিতে পারবে", "bool")}
+      ${row("premium_notice", "প্রিমিয়াম আপলোডের নোটিশ (হোস্টরা আপলোডের সময় দেখবে)", "text")}
+    </div>
+    <h2>🖼️ ফটো, ✍️ টেক্সট আর্নিং ও কম্পিটিশন</h2><div class="list">
+      ${row("post_like_rate_paisa", "প্রতি লাইকে পোস্টের মালিক পাবে", "taka")}
+      ${row("post_comment_rate_paisa", "প্রতি কমেন্টকারীতে পাবে", "taka")}
+      ${row("post_share_rate_paisa", "প্রতি শেয়ারে পাবে", "taka")}
+      ${row("post_daily_cap_paisa", "ফটো/লেখা থেকে দিনে সর্বোচ্চ আয়", "taka")}
+      ${row("post_daily_limit", "দিনে কয়টি ফটো/লেখা পোস্ট করা যাবে", "num")}
+      ${row("post_auto_approve", "ফটো/লেখা সাথে সাথে প্রকাশ (বন্ধ করলে আপনি অ্যাপ্রুভ করবেন)", "bool")}
+      ${row("text_max_lines", "লেখায় সর্বোচ্চ লাইন", "num")}
+      ${row("text_max_chars", "লেখায় সর্বোচ্চ অক্ষর", "num")}
+      ${row("text_notice", "টেক্সট আর্নিং নোটিশ", "text")}
+    </div>
+    <h2>💬 মেসেজ</h2><div class="list">
+      ${row("dm_enabled", "ইউজাররা একে অপরকে মেসেজ দিতে পারবে", "bool")}
     </div>
     <h2>💸 উইথড্র</h2><div class="list">
       ${row("withdraw_min_paisa", "সর্বনিম্ন উইথড্র", "taka")}
@@ -642,8 +810,8 @@ routes.rules = async () => {
     const b = e.target.closest("[data-save]");
     if (b) {
       const it = b.closest(".item"), raw = it.querySelector("[name=v]").value, kind = it.dataset.kind;
-      const value = kind === "bool" ? raw === "true" : kind === "taka" ? Math.round(Number(raw) * 100) : Math.round(Number(raw));
-      if (kind !== "bool" && (isNaN(value) || value < 0)) return toast("সঠিক সংখ্যা দিন", true);
+      const value = kind === "text" ? raw : kind === "bool" ? raw === "true" : kind === "taka" ? Math.round(Number(raw) * 100) : Math.round(Number(raw));
+      if (kind !== "bool" && kind !== "text" && (isNaN(value) || value < 0)) return toast("সঠিক সংখ্যা দিন", true);
       await act(() => rpc("admin_set_setting", { p_key: it.dataset.key, p_value: value }), "সেভ হয়েছে");
       return;
     }
