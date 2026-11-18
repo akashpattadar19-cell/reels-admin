@@ -86,6 +86,13 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
   `get/og.png`, shows the referral code, auto-starts the APK download from `download/Reels-Enjoy.apk`).
 - Welcome bonus: `register_device` → `_grant_welcome` pays `welcome_bonus_paisa` (৳20) to `earning` once, only for accounts
   created after `welcome_bonus_since` and only if no other account used that phone; app shows a 🎁 popup.
+- Chat: `messages.delivered_at/read_at/edited_at/reply_to`; ✓ sent, ✓✓ delivered (`mark_delivered` on app start/new msg),
+  blue ✓✓ seen (`chat_messages`/`mark_read`). Swipe right = reply, long-press = reply/copy/edit (24 h)/delete
+  (`edit_message`, `delete_message`); realtime UPDATE events repaint ticks.
+- Profile edit: avatar (1:1) and cover (3:1) crop with drag (`photoFramer(box, img, fixedRatio)`), remove via `remove_photo`,
+  gender (`set_gender`, used for viewer stats).
+- Creator dashboard `#creator/<7|30|90>` (`creator_stats`): income by source, KPIs, daily views, viewer gender/countries,
+  per-video views/likes/comments/shares/downloads/income (view income estimated from valid views × rate).
 - TODO (owner postponed): move video storage to Cloudflare R2 (account opened; needs bucket + API keys) and allow 1 s – 59 min videos.
 - Adult/18+ content: owner asked for a paid 18+ folder; declined (illegal in BD/KSA, breaks AdMob policy, CSAM risk). Don't build it.
 - Live streaming: not built yet (owner postponed; needs ZEGOCLOUD/Agora + FLAG_SECURE in the APK for no screenshots).

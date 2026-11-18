@@ -225,6 +225,7 @@ async function start() {
   refreshUnread();
   route();
   rpc("touch_last_seen").catch(() => {});
+  rpc("mark_delivered").catch(() => {});
   try {
     const di = JSON.parse(Native?.deviceInfo?.() || "{}");
     if (di.id) rpc("register_device", { p_device_id: di.id, p_brand: di.brand, p_model: di.model, p_os: di.os, p_app: di.app })
@@ -341,9 +342,16 @@ function realtime() {
     })
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `receiver_id=eq.${S.me.id}` }, (p) => {
       if (S.chatWith === p.new.sender_id) { document.dispatchEvent(new CustomEvent("chatmsg", { detail: p.new })); return; }
+      rpc("mark_delivered").catch(() => {});
       S.msgUnread = (S.msgUnread || 0) + 1; paintUnread();
       if (document.hidden && notifOn()) { try { Native?.notify?.("💬 নতুন মেসেজ", p.new.body); } catch { /* */ } }
       else toast("💬 নতুন মেসেজ");
+    })
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: `sender_id=eq.${S.me.id}` }, (p) => {
+      document.dispatchEvent(new CustomEvent("msgupd", { detail: p.new }));
+    })
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: `receiver_id=eq.${S.me.id}` }, (p) => {
+      document.dispatchEvent(new CustomEvent("msgupd", { detail: p.new }));
     })
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "wallets", filter: `user_id=eq.${S.me.id}` }, (p) => {
       document.dispatchEvent(new CustomEvent("wallet", { detail: p.new }));
@@ -376,7 +384,7 @@ function route() {
   if (!R[name]) name = "home";
   if (S.me.jailed && !["jail", "cashin", "history"].includes(name)) name = "jail";
   const TABS = { home: ["home", "post", "contest", "newphoto", "top"], feed: ["feed", "following", "watch", "play"],
-    me: ["me", "support", "policy", "delacct", "invite", "rules", "settings", "vault", "edit", "level", "wallet", "history", "withdraw", "cashin", "inbox", "chat"] };
+    me: ["me", "creator", "support", "policy", "delacct", "invite", "rules", "settings", "vault", "edit", "level", "wallet", "history", "withdraw", "cashin", "inbox", "chat"] };
   document.querySelectorAll(".tabbar a").forEach((x) => x.classList.toggle("on", x.dataset.t === name || (TABS[x.dataset.t] ?? []).includes(name)));
   screen.classList.remove("full");
   $(".tabbar").classList.toggle("dark", TABS.feed.includes(name));
@@ -1015,7 +1023,7 @@ R.inbox = async (tab = "chat") => {
   if (tab === "chat") {
     const rows = await rpc("my_chats").catch(() => []);
     $("#nl").innerHTML = rows.length ? rows.map((c) => `<a class="li chat-li" href="#chat/${c.other_id}">${avatar(c)}
-        <span style="flex:1;min-width:0"><b translate="no">${esc(c.full_name || c.username)}</b><div class="tiny muted ell" translate="no">${c.last_from_me ? "আপনি: " : ""}${esc(c.last_body)}</div></span>
+        <span style="flex:1;min-width:0"><b translate="no">${esc(c.full_name || c.username)}</b><div class="tiny muted ell" translate="no">${c.last_from_me ? (c.last_status === "seen" ? '<b class="tk seen">✓✓</b> ' : c.last_status === "delivered" ? '<b class="tk">✓✓</b> ' : '<b class="tk">✓</b> ') + "আপনি: " : ""}${esc(c.last_body)}</div></span>
         <span class="tiny muted" style="text-align:right">${ago(c.last_at)}${c.unread ? `<div><b class="ubadge">${c.unread}</b></div>` : ""}</span></a>`).join("")
       : `<div class="empty">এখনো কোনো চ্যাট নেই।<br>কারো প্রোফাইলে গিয়ে "💬 মেসেজ" চাপুন।</div>`;
     return;
@@ -1031,6 +1039,7 @@ R.inbox = async (tab = "chat") => {
   if (S.unread) { await rpc("mark_notifications_read").catch(() => {}); S.unread = 0; paintUnread(); }
 };
 
+const TICK = (m) => m.read_at ? `<b class="tk seen">✓✓</b>` : m.delivered_at ? `<b class="tk">✓✓</b>` : `<b class="tk">✓</b>`;
 R.chat = async (uid) => {
   const { data: o } = await sb.from("profiles").select("id,username,full_name,avatar_url").eq("id", uid).maybeSingle();
   if (!o) { screen.innerHTML = `<div class="page"><div class="empty">ইউজার পাওয়া যায়নি</div></div>`; return; }
@@ -1038,26 +1047,104 @@ R.chat = async (uid) => {
   screen.innerHTML = `<div class="chat">
     <div class="chat-top"><button class="back" onclick="history.back()">←</button><a href="#u/${o.id}" style="display:flex;align-items:center;gap:10px">${avatar(o)}<b translate="no">${esc(o.full_name || o.username)}</b></a></div>
     <div class="chat-list" id="cl"><div class="spinner"></div></div>
+    <div class="reply-bar hidden" id="rbar"><div><b id="rbT"></b><div class="tiny ell" id="rbB" translate="no"></div></div><button type="button" id="rbX">✕</button></div>
     <form class="chat-box" id="cf"><input id="ci" placeholder="মেসেজ লিখুন…" maxlength="1000" autocomplete="off"><button class="btn small primary" style="width:auto;margin:0">পাঠান</button></form></div>`;
   S.chatWith = uid;
-  const list = $("#cl");
-  const bubble = (m) => `<div class="bub ${m.sender_id === S.me.id ? "mine" : ""}"><span translate="no">${esc(m.body)}</span><i>${new Date(m.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</i></div>`;
+  const list = $("#cl"), msgs = new Map();
+  let replyTo = null, editing = null;
+  const hm = (d) => new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const quote = (m) => {
+    if (!m.reply_to) return "";
+    const q = msgs.get(m.reply_to);
+    return `<div class="bq" data-goto="${m.reply_to}"><b>${q ? (q.sender_id === S.me.id ? "আপনি" : esc(o.full_name || o.username)) : "↩️"}</b><span translate="no">${q ? esc(q.body.slice(0, 80)) : "পুরনো মেসেজ"}</span></div>`;
+  };
+  const bubble = (m) => `<div class="bub ${m.sender_id === S.me.id ? "mine" : ""}" data-id="${m.id}">${quote(m)}<span class="bt" translate="no">${esc(m.body)}</span>
+    <i>${m.edited_at ? "এডিট করা · " : ""}${hm(m.created_at)} ${m.sender_id === S.me.id ? TICK(m) : ""}</i></div>`;
+  const put = (m) => { msgs.set(m.id, m); list.querySelector(".empty")?.remove(); list.insertAdjacentHTML("beforeend", bubble(m)); list.scrollTop = list.scrollHeight; };
+  const repaint = (m) => { msgs.set(m.id, { ...msgs.get(m.id), ...m }); const el = list.querySelector(`.bub[data-id="${m.id}"]`); if (el) el.outerHTML = bubble(msgs.get(m.id)); };
   const rows = await rpc("chat_messages", { p_with: uid, p_before: null }).catch((e) => { toast(errMsg(e), true); return []; });
+  rows.forEach((m) => msgs.set(m.id, m));
   list.innerHTML = rows.length ? rows.map(bubble).join("") : `<div class="empty">👋 প্রথম মেসেজ পাঠান</div>`;
   list.scrollTop = list.scrollHeight;
   refreshUnread();
-  const onMsg = (e) => { list.querySelector(".empty")?.remove(); list.insertAdjacentHTML("beforeend", bubble(e.detail)); list.scrollTop = list.scrollHeight; rpc("chat_messages", { p_with: uid, p_before: null }).catch(() => {}); };
+
+  const setBar = (mode, m) => {
+    replyTo = mode === "reply" ? m.id : null; editing = mode === "edit" ? m.id : null;
+    if (!mode) { $("#rbar").classList.add("hidden"); return; }
+    $("#rbar").classList.remove("hidden");
+    $("#rbT").textContent = mode === "edit" ? "✏️ মেসেজ এডিট করছেন" : `↩️ ${m.sender_id === S.me.id ? "আপনাকে" : (o.full_name || o.username)} উত্তর দিচ্ছেন`;
+    $("#rbB").textContent = m.body.slice(0, 90);
+    if (mode === "edit") $("#ci").value = m.body;
+    $("#ci").focus();
+  };
+  $("#rbX").onclick = () => { if (editing) $("#ci").value = ""; setBar(null); };
+
+  // সোয়াইপ করে রিপ্লাই, লং-প্রেস করে মেনু
+  let sw = null, lp = null;
+  list.addEventListener("touchstart", (e) => {
+    const b = e.target.closest(".bub"); if (!b) return;
+    sw = { b, x: e.touches[0].clientX, y: e.touches[0].clientY, dx: 0 };
+    lp = setTimeout(() => { sw = null; msgMenu(msgs.get(Number(b.dataset.id))); }, 520);
+  }, { passive: true });
+  list.addEventListener("touchmove", (e) => {
+    if (!sw) return;
+    const dx = e.touches[0].clientX - sw.x, dy = e.touches[0].clientY - sw.y;
+    if (Math.abs(dx) > 8 || Math.abs(dy) > 8) clearTimeout(lp);
+    if (Math.abs(dy) > Math.abs(dx)) return;
+    sw.dx = Math.max(0, Math.min(80, dx));
+    sw.b.style.transform = `translateX(${sw.dx}px)`; sw.b.classList.toggle("swipe-ok", sw.dx > 55);
+  }, { passive: true });
+  list.addEventListener("touchend", () => {
+    clearTimeout(lp);
+    if (!sw) return;
+    const { b, dx } = sw; sw = null;
+    b.style.transform = ""; b.classList.remove("swipe-ok");
+    if (dx > 55) setBar("reply", msgs.get(Number(b.dataset.id)));
+  });
+  list.addEventListener("contextmenu", (e) => { const b = e.target.closest(".bub"); if (!b) return; e.preventDefault(); msgMenu(msgs.get(Number(b.dataset.id))); });
+  list.addEventListener("click", (e) => {
+    const q = e.target.closest("[data-goto]"); if (!q) return;
+    const t = list.querySelector(`.bub[data-id="${q.dataset.goto}"]`);
+    if (t) { t.scrollIntoView({ block: "center", behavior: "smooth" }); t.classList.add("flash"); setTimeout(() => t.classList.remove("flash"), 1200); }
+  });
+  function msgMenu(m) {
+    if (!m || !m.id) return;
+    const mine = m.sender_id === S.me.id, canEdit = mine && Date.now() - new Date(m.created_at).getTime() < 864e5;
+    const body = sheet(`<div class="msgmenu"><div class="tiny muted ell" translate="no" style="margin-bottom:8px">${esc(m.body.slice(0, 100))}</div>
+      <button class="btn" data-a="reply">↩️ উত্তর দিন</button><button class="btn" data-a="copy">📋 কপি</button>
+      ${canEdit ? `<button class="btn" data-a="edit">✏️ এডিট</button>` : ""}${mine ? `<button class="btn" data-a="del" style="color:#e5484d">🗑️ মুছে ফেলুন</button>` : ""}
+      ${mine ? `<div class="tiny muted" style="margin-top:6px">${m.read_at ? `✓✓ দেখেছে ${dt(m.read_at)}` : m.delivered_at ? `✓✓ পৌঁছেছে ${dt(m.delivered_at)} · এখনো দেখেনি` : "✓ পাঠানো হয়েছে · এখনো পৌঁছায়নি"}</div>` : ""}</div>`);
+    body.onclick = async (e) => {
+      const a = e.target.closest("[data-a]")?.dataset.a; if (!a) return;
+      closeSheet();
+      if (a === "reply") setBar("reply", m);
+      else if (a === "edit") setBar("edit", m);
+      else if (a === "copy") { try { await navigator.clipboard.writeText(m.body); toast("কপি হয়েছে"); } catch { /* */ } }
+      else if (a === "del" && confirm("মেসেজটি মুছবেন?")) {
+        try { await rpc("delete_message", { p_id: m.id }); msgs.delete(m.id); list.querySelector(`.bub[data-id="${m.id}"]`)?.remove(); } catch (er) { toast(errMsg(er), true); }
+      }
+    };
+  }
+
+  const onMsg = (e) => { put(e.detail); rpc("mark_read", { p_with: uid }).catch(() => {}); };
+  const onUpd = (e) => { const m = e.detail; if (msgs.has(m.id)) repaint(m); };
   document.addEventListener("chatmsg", onMsg);
-  cleanup = () => { document.removeEventListener("chatmsg", onMsg); S.chatWith = null; screen.classList.remove("chatmode"); };
+  document.addEventListener("msgupd", onUpd);
+  cleanup = () => { document.removeEventListener("chatmsg", onMsg); document.removeEventListener("msgupd", onUpd); S.chatWith = null; screen.classList.remove("chatmode"); };
   $("#cf").onsubmit = async (e) => {
     e.preventDefault();
     const t = $("#ci").value.trim(); if (!t) return;
     $("#ci").value = "";
     try {
-      await rpc("send_message", { p_to: uid, p_body: t });
-      list.querySelector(".empty")?.remove();
-      list.insertAdjacentHTML("beforeend", bubble({ sender_id: S.me.id, body: t, created_at: new Date().toISOString() }));
-      list.scrollTop = list.scrollHeight;
+      if (editing) {
+        const id = editing; setBar(null);
+        await rpc("edit_message", { p_id: id, p_body: t });
+        repaint({ id, body: t, edited_at: new Date().toISOString() });
+      } else {
+        const rt = replyTo; setBar(null);
+        const id = await rpc("send_message", { p_to: uid, p_body: t, p_reply_to: rt });
+        put({ id, sender_id: S.me.id, body: t, reply_to: rt, created_at: new Date().toISOString() });
+      }
     } catch (er) { toast(errMsg(er), true); $("#ci").value = t; }
   };
 };
@@ -1234,8 +1321,8 @@ function frameChips(id, sel) {
   return `<div class="frames" id="${id}">${FRAMES.map(([k, l, r]) => `<button type="button" data-f="${k}" class="${k === sel ? "on" : ""}">${FRAME_ICON(r)}${l}</button>`).join("")}</div>`;
 }
 // ছবি ক্রপ: ফ্রেম বেছে নিন, ছবি টেনে সরান; আউটপুট JPEG blob
-function photoFramer(box, img) {
-  const st = { ratio: 0, x: 0.5, y: 0.5 };
+function photoFramer(box, img, fixedRatio = 0) {
+  const st = { ratio: fixedRatio, x: 0.5, y: 0.5 };
   const nat = img.naturalWidth / img.naturalHeight;
   const view = box.querySelector(".crop-view"), pic = view.querySelector("img");
   const layout = () => {
@@ -1246,10 +1333,12 @@ function photoFramer(box, img) {
     const dw = img.naturalWidth * s, dh = img.naturalHeight * s;
     pic.style.width = dw + "px"; pic.style.height = dh + "px";
     pic.style.left = -(dw - W) * st.x + "px"; pic.style.top = -(dh - H) * st.y + "px";
-    box.querySelector(".crop-info").textContent = `📐 ${st.ratio ? FRAMES.find((f) => f[2] === st.ratio)[1] : "মূল সাইজ " + nearestFrame(img.naturalWidth, img.naturalHeight)} · ${img.naturalWidth}×${img.naturalHeight}${st.ratio ? " · টেনে জায়গা ঠিক করুন" : ""}`;
+    const info = box.querySelector(".crop-info"), fr = FRAMES.find((f) => f[2] === st.ratio);
+    if (info) info.textContent = `📐 ${st.ratio ? (fr ? fr[1] : "") : "মূল সাইজ " + nearestFrame(img.naturalWidth, img.naturalHeight)} · ${img.naturalWidth}×${img.naturalHeight}${st.ratio ? " · টেনে জায়গা ঠিক করুন" : ""}`;
     view.classList.toggle("movable", !!st.ratio);
   };
-  box.querySelector(".frames").onclick = (e) => {
+  const frEl = box.querySelector(".frames");
+  if (frEl) frEl.onclick = (e) => {
     const b = e.target.closest("button[data-f]"); if (!b) return;
     box.querySelectorAll(".frames button").forEach((x) => x.classList.toggle("on", x === b));
     st.ratio = FRAMES.find((f) => f[0] === b.dataset.f)[2]; st.x = st.y = 0.5; layout();
@@ -1340,6 +1429,56 @@ const COUNTRY_NAMES = { BD: "বাংলাদেশ", SA: "সৌদি আর
   FR: "ফ্রান্স", ES: "স্পেন", PT: "পর্তুগাল", GR: "গ্রিস", DE: "জার্মানি", RO: "রোমানিয়া", CA: "কানাডা", AU: "অস্ট্রেলিয়া", JP: "জাপান", KR: "দক্ষিণ কোরিয়া" };
 const flagOf = (cc) => (cc && cc.length === 2 ? String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 127397 + c.charCodeAt(0))) : "🌐");
 
+
+// ---------------- ক্রিয়েটর ড্যাশবোর্ড ----------------
+R.creator = async (days = "30") => {
+  days = ["7", "30", "90"].includes(days) ? days : "30";
+  screen.innerHTML = `<div class="page">${header("📊 ক্রিয়েটর ড্যাশবোর্ড")}<div class="spinner"></div></div>`;
+  let d;
+  try { d = await rpc("creator_stats", { p_days: Number(days) }); }
+  catch (e) { screen.innerHTML = `<div class="page">${header("📊 ক্রিয়েটর ড্যাশবোর্ড")}<div class="empty">${esc(errMsg(e))}</div></div>`; return; }
+  const t = d.totals, e = d.earned;
+  const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
+  const gTot = d.gender.reduce((a, g) => a + Number(g.views), 0);
+  const G = { male: ["👨 ছেলে", "#60a5fa"], female: ["👩 মেয়ে", "#f472b6"], other: ["অন্যান্য", "#a78bfa"], unknown: ["জানা নেই", "#cbd5e1"] };
+  const maxDay = Math.max(1, ...d.daily.map((x) => Number(x.views)));
+  const eRows = [["🎬 ভিউ", e.views], ["❤️ লাইক", e.likes], ["💬 কমেন্ট", e.comments], ["🎁 গিফট ও প্রিমিয়াম", e.gifts], ["🖼️ ফটো/লেখা", e.posts], ["👥 রেফার", e.referral]];
+  const eMax = Math.max(1, ...eRows.map((r) => Number(r[1])));
+  const tile = (ic, label, val) => `<div class="kp"><span>${ic}</span><b>${val}</b><small>${label}</small></div>`;
+  screen.innerHTML = `<div class="page cdash">${header("📊 ক্রিয়েটর ড্যাশবোর্ড")}
+    <div class="seg" style="margin-top:0">${["7", "30", "90"].map((x) => `<button class="${x === days ? "on" : ""}" onclick="location.hash='#creator/${x}'">${x} দিন</button>`).join("")}</div>
+    <div class="card earn-card"><div class="tiny">এই ${days} দিনে আপনার আয়</div><b>${tk(e.total)}</b>
+      ${eRows.filter((r) => Number(r[1]) > 0).map(([l, v]) => `<div class="ebar"><span>${l}</span><div><i style="width:${pct(v, eMax)}%"></i></div><em>${tk(v)}</em></div>`).join("") || `<div class="tiny" style="opacity:.85">এখনো আয় নেই — ভিডিও দিন, ভিউ বাড়লে আয় শুরু হবে</div>`}</div>
+    <div class="kpis">
+      ${tile("👁", "মোট ভিউ", n(t.views))}${tile("📈", `${days} দিনে ভিউ`, n(d.period_views))}${tile("❤️", "লাইক", n(t.likes))}${tile("💬", "কমেন্ট", n(t.comments))}
+      ${tile("↗️", "শেয়ার", n(t.shares))}${tile("⬇️", "ডাউনলোড", n(t.downloads))}${tile("👥", "ফলোয়ার", n(d.followers))}${tile("🎁", "গিফট কয়েন", n(t.gift_coins))}
+    </div>
+    <div class="card"><b>📅 প্রতিদিনের ভিউ</b>
+      <div class="dbars">${d.daily.map((x) => `<div title="${x.views}"><i style="height:${Math.max(3, pct(x.views, maxDay))}%"></i><span>${new Date(x.day).getDate()}</span></div>`).join("")}</div></div>
+    <div class="card"><b>🧑‍🤝‍🧑 কারা বেশি দেখছে</b>
+      ${gTot ? `<div class="gbar">${d.gender.map((g) => `<i style="width:${pct(g.views, gTot)}%;background:${(G[g.gender] ?? G.unknown)[1]}"></i>`).join("")}</div>
+        <div class="glegend">${d.gender.map((g) => `<span><i style="background:${(G[g.gender] ?? G.unknown)[1]}"></i>${(G[g.gender] ?? G.unknown)[0]} ${pct(g.views, gTot)}%</span>`).join("")}</div>
+        <p class="tiny muted" style="margin:6px 0 0">ইউজাররা প্রোফাইলে লিঙ্গ দিলে এই হিসাব আরও সঠিক হবে।</p>` : `<div class="tiny muted">এখনো ডেটা নেই</div>`}
+      ${d.countries.length ? `<div class="list tiny" style="margin-top:8px">${d.countries.map((c) => `<div class="li"><span>${flagOf(c.country_code)} ${COUNTRY_NAMES[c.country_code] ?? (c.country_code === "??" ? "জানা নেই" : c.country_code)}</span><b>${n(c.views)} ভিউ</b></div>`).join("")}</div>` : ""}</div>
+    <div class="row" style="margin:14px 2px 6px"><b>🎬 প্রতিটি ভিডিওর হিসাব</b>
+      <select id="vsort" style="width:auto;padding:5px 8px;font-size:12.5px"><option value="earn_paisa">আয় বেশি</option><option value="views">ভিউ বেশি</option><option value="likes">লাইক বেশি</option><option value="comments">কমেন্ট বেশি</option><option value="downloads">ডাউনলোড বেশি</option></select></div>
+    <div id="vlist"></div>
+    <p class="tiny muted">ভিডিওর আয় = ভিউয়ের আনুমানিক আয় (দৈনিক সীমার আগে) + লাইক, কমেন্ট, গিফট ও প্রিমিয়াম আনলকের আসল আয়।</p></div>`;
+  const draw = (key) => {
+    const vs = [...d.videos].sort((a, b) => Number(b[key]) - Number(a[key]));
+    $("#vlist").innerHTML = vs.length ? vs.map((v, i) => {
+      const gs = Number(v.male) + Number(v.female);
+      return `<a class="vrow card" href="#watch/${S.me.id}/${v.id}">
+        <div class="vth">${v.thumb_url ? `<img src="${esc(v.thumb_url)}" loading="lazy" alt="">` : "▶"}${i < 3 && Number(v[key]) > 0 ? `<em>#${i + 1}</em>` : ""}</div>
+        <div class="vinfo"><div class="ell" translate="no">${esc(v.caption || "ক্যাপশন নেই")}${v.is_premium ? " 👑" : ""}</div>
+          <div class="vstats"><span>👁 ${n(v.views)}</span><span>❤️ ${n(v.likes)}</span><span>💬 ${n(v.comments)}</span><span>↗️ ${n(v.shares)}</span><span>⬇️ ${n(v.downloads)}</span></div>
+          <div class="tiny muted">${days} দিনে ${n(v.period_views)} ভিউ${gs ? ` · 👨 ${pct(v.male, gs)}% · 👩 ${pct(v.female, gs)}%` : ""}</div></div>
+        <div class="vearn"><b>${tk(v.earn_paisa)}</b><small>আয়</small></div></a>`;
+    }).join("") : `<div class="empty">এখনো কোনো প্রকাশিত ভিডিও নেই — ＋ চেপে প্রথম ভিডিও দিন</div>`;
+  };
+  $("#vsort").onchange = (ev) => draw(ev.target.value);
+  draw("earn_paisa");
+};
 
 // ---------------- ভিডিও ডাউনলোড (ওয়াটারমার্কসহ, APK ≥ 1.0.8) ----------------
 function downloadVideo(v) {
@@ -1516,6 +1655,7 @@ R.me = async () => {
     <a href="#invite" class="me-banner"><span>রেফার করে আয় করুন</span><b>${tk(refs?.earned_paisa ?? 0)} ›</b></a>
     <div class="me-menu">
       <a href="#inbox"><i class="mi c1"><svg viewBox="0 0 24 24"><path d="M4 6.5h16a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5v-3.5H4A1.5 1.5 0 0 1 2.5 17V8A1.5 1.5 0 0 1 4 6.5z"/><path d="M7.5 12.5h.01M12 12.5h.01M16.5 12.5h.01" stroke-width="2.6"/></svg></i>মেসেজ<em>${(S.unread || 0) + (S.msgUnread || 0) ? `${(S.unread || 0) + (S.msgUnread || 0)} <b class="red"></b>` : ""}›</em></a>
+      <a href="#creator"><i class="mi c4"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></i>ক্রিয়েটর ড্যাশবোর্ড<em>›</em></a>
       <a href="#level"><i class="mi c2"><svg viewBox="0 0 24 24"><path d="M3.5 8l4.2 3.6L12 5l4.3 6.6L20.5 8l-1.8 10.5H5.3z"/><path d="M6 21h12"/></svg></i>আমার লেভেল<em>Lv${levelOf(p.followers_count)} ›</em></a>
       <a href="#invite"><i class="mi c3"><svg viewBox="0 0 24 24"><rect x="3.5" y="8.5" width="17" height="4" rx="1"/><path d="M5 12.5v8h14v-8M12 8.5v12M12 8.5S10.5 4 8 4.6C6 5.1 7 8.5 12 8.5zM12 8.5s1.5-4.5 4-3.9c2 .5 1 3.9-4 3.9z"/></svg></i>আমার রেফার<em>পুরস্কার নিন <b class="red"></b> ›</em></a>
       <a href="#rules"><i class="mi c4"><svg viewBox="0 0 24 24"><rect x="5" y="4.5" width="14" height="16.5" rx="2"/><path d="M9 3.5h6v3H9zM8.5 11.5l2 2 4-4M8.5 17h7"/></svg></i>আমার টাস্ক<em>›</em></a>
@@ -1792,32 +1932,45 @@ R.u = async (id) => {
 R.edit = () => {
   const p = S.me;
   screen.innerHTML = `<div class="page">${header("প্রোফাইল এডিট")}
-    <div class="prof"><label style="cursor:pointer">${avatar(p)}<input type="file" id="af" accept="image/*" class="hidden"><div class="tiny muted">ছবি বদলাতে চাপুন</div></label></div>
     <span class="lbl">কভার ফটো</span>
-    <label class="coverpick" id="cvL" style="${p.cover_url ? `background-image:url('${esc(p.cover_url)}')` : ""}"><input type="file" id="cvf" accept="image/*" class="hidden"><span>🖼️ কভার ফটো বদলান</span></label>
+    <div class="cover-edit" id="cvPrev" style="${p.cover_url ? `background-image:url('${esc(p.cover_url)}')` : ""}">${p.cover_url ? "" : "<span>কোনো কভার ফটো নেই</span>"}</div>
+    <div class="row-btns"><label class="btn small"><input type="file" id="cvf" accept="image/*" class="hidden">🖼️ কভার বদলান</label>
+      <button class="btn small del" id="cvDel" ${p.cover_url ? "" : "hidden"}>🗑️ কভার মুছুন</button></div>
+    <div id="cvCrop" class="crop hidden"><div class="crop-view"><img alt=""></div><div class="crop-info tiny muted"></div>
+      <div class="row-btns"><button class="btn small primary" id="cvOk" style="width:auto;margin:0">✅ ঠিক আছে</button><button class="btn small" id="cvNo">বাতিল</button></div></div>
+
+    <span class="lbl">প্রোফাইল ছবি</span>
+    <div class="av-edit"><div id="avPrev">${avatar(p)}</div>
+      <div class="row-btns"><label class="btn small"><input type="file" id="af" accept="image/*" class="hidden">📷 ছবি বদলান</label>
+        <button class="btn small del" id="avDel" ${p.avatar_url ? "" : "hidden"}>🗑️ ছবি মুছুন</button></div></div>
+    <div id="avCrop" class="crop round hidden"><div class="crop-view"><img alt=""></div><div class="crop-info tiny muted"></div>
+      <div class="row-btns"><button class="btn small primary" id="avOk" style="width:auto;margin:0">✅ ঠিক আছে</button><button class="btn small" id="avNo">বাতিল</button></div></div>
+
     <span class="lbl">নাম</span><input id="fn" value="${esc(p.full_name ?? "")}" maxlength="60">
     <span class="lbl">ইউজারনেম</span><input id="un" value="${esc(p.username)}" autocapitalize="off" maxlength="30">
     <span class="lbl">বায়ো</span><textarea id="bio" maxlength="300">${esc(p.bio ?? "")}</textarea>
+    <span class="lbl">লিঙ্গ</span><select id="gd"><option value="">বলতে চাই না</option><option value="male" ${p.gender === "male" ? "selected" : ""}>👨 পুরুষ</option><option value="female" ${p.gender === "female" ? "selected" : ""}>👩 নারী</option><option value="other" ${p.gender === "other" ? "selected" : ""}>অন্যান্য</option></select>
     <span class="lbl">জন্মতারিখ</span><input id="bd" type="date">
     <span class="lbl">আপনার ভাষা</span><select id="lg">${LANGS.map(([k, l]) => `<option value="${k}" ${k === p.language ? "selected" : ""}>${l}</option>`).join("")}</select>
     <button class="btn primary" id="sv">সেভ করুন</button></div>`;
   sb.from("user_private").select("birth_date").eq("user_id", S.me.id).maybeSingle().then(({ data }) => { if (data?.birth_date) $("#bd").value = data.birth_date; });
-  let avatarBlob = null, coverBlob = null;
-  $("#cvf").onchange = async (e) => {
-    const f = e.target.files[0]; if (!f) return;
-    try { coverBlob = await compressImage(f, 1200, 0.82); $("#cvL").style.backgroundImage = `url('${URL.createObjectURL(coverBlob)}')`; } catch { toast("ছবিটি খোলা যায়নি", true); }
+  let avatarBlob = null, coverBlob = null, avatarDel = false, coverDel = false;
+  const openCrop = async (file, boxId, ratio, onOk) => {
+    const img = new Image(); img.src = URL.createObjectURL(file);
+    try { await img.decode(); } catch { return toast("ছবিটি খোলা যায়নি", true); }
+    const box = $(boxId); box.classList.remove("hidden");
+    box.querySelector(".crop-view img").src = img.src;
+    const render = photoFramer(box, img, ratio);
+    box.scrollIntoView({ block: "center", behavior: "smooth" });
+    box.querySelector("[id$=Ok]").onclick = async () => { onOk(await render(ratio === 1 ? 480 : 1500)); box.classList.add("hidden"); };
+    box.querySelector("[id$=No]").onclick = () => box.classList.add("hidden");
   };
-  $("#af").onchange = async (e) => {
-    const f = e.target.files[0]; if (!f) return;
-    const img = new Image();
-    img.src = URL.createObjectURL(f);
-    await img.decode().catch(() => {});
-    const s = Math.min(1, 400 / Math.max(img.width, img.height));
-    const c = document.createElement("canvas"); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
-    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-    avatarBlob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.85));
-    document.querySelector(".prof .av").innerHTML = `<img src="${URL.createObjectURL(avatarBlob)}">`;
-  };
+  $("#cvf").onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) openCrop(f, "#cvCrop", 3, (bl) => {
+    coverBlob = bl; coverDel = false; $("#cvPrev").style.backgroundImage = `url('${URL.createObjectURL(bl)}')`; $("#cvPrev").innerHTML = ""; $("#cvDel").hidden = false; }); };
+  $("#af").onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) openCrop(f, "#avCrop", 1, (bl) => {
+    avatarBlob = bl; avatarDel = false; $("#avPrev .av").innerHTML = `<img src="${URL.createObjectURL(bl)}">`; $("#avDel").hidden = false; }); };
+  $("#avDel").onclick = () => { if (!confirm("প্রোফাইল ছবি মুছবেন?")) return; avatarDel = true; avatarBlob = null; $("#avPrev").innerHTML = avatar({ ...p, avatar_url: null }); $("#avDel").hidden = true; };
+  $("#cvDel").onclick = () => { if (!confirm("কভার ফটো মুছবেন?")) return; coverDel = true; coverBlob = null; $("#cvPrev").style.backgroundImage = ""; $("#cvPrev").innerHTML = "<span>কোনো কভার ফটো নেই</span>"; $("#cvDel").hidden = true; };
   $("#sv").onclick = async (e) => {
     e.target.disabled = true;
     try {
@@ -1828,15 +1981,17 @@ R.edit = () => {
         url = sb.storage.from("avatars").getPublicUrl(path).data.publicUrl;
       }
       await rpc("update_profile", { p_full_name: $("#fn").value, p_username: $("#un").value.trim().toLowerCase(), p_bio: $("#bio").value, p_avatar_url: url });
+      if (avatarDel) await rpc("remove_photo", { p_which: "avatar" });
       if (coverBlob) {
         const cp = `${S.me.id}/cover-${Date.now()}.jpg`;
         await xhrUpload("avatars", cp, coverBlob, "image/jpeg", () => {});
         await rpc("set_cover", { p_url: sb.storage.from("avatars").getPublicUrl(cp).data.publicUrl });
-      }
+      } else if (coverDel) await rpc("remove_photo", { p_which: "cover" });
+      if (($("#gd").value || null) !== (p.gender || null)) await rpc("set_gender", { p_gender: $("#gd").value || null });
       if ($("#bd").value) await rpc("set_birth_date", { p_date: $("#bd").value });
       if ($("#lg").value !== p.language) await rpc("set_language", { p_lang: $("#lg").value });
       toast("সেভ হয়েছে");
-      location.hash = "#me";
+      location.hash = "#u/" + S.me.id;
     } catch (er) { toast(errMsg(er), true); e.target.disabled = false; }
   };
 };
