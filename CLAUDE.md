@@ -93,6 +93,13 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
   gender (`set_gender`, used for viewer stats).
 - Creator dashboard `#creator/<7|30|90>` (`creator_stats`): income by source, KPIs, daily views, viewer gender/countries,
   per-video views/likes/comments/shares/downloads/income (view income estimated from valid views × rate).
+- Coin price & offers (admin "Coin Sent" page): `coin_price_paisa` + `min_cash_in_taka` editable there; `coin_offers`
+  (title, price_taka, coins, badge, active, ends_at, sort) via `admin_coin_offers/admin_save_coin_offer/admin_delete_coin_offer`
+  (delete only disables once used). App shows offers on Buy coins + a once-a-day popup; `request_cash_in(..., p_offer_id)`
+  requires the exact offer price and grants the offer's coins (`cash_in_requests.offer_id`).
+- Profiles: hosts get a gold profile (crown ring, 👑 HOST badge, host strip, Premium tab); users get 👤 ইউজার + level badge.
+- Signup asks gender (ছেলে/মেয়ে) and language (বাংলা/English; switches UI immediately, form kept via sessionStorage `regDraft`);
+  after signup the app calls `set_gender` and `set_language`.
 - TODO (owner postponed): move video storage to Cloudflare R2 (account opened; needs bucket + API keys) and allow 1 s – 59 min videos.
 - Adult/18+ content: owner asked for a paid 18+ folder; declined (illegal in BD/KSA, breaks AdMob policy, CSAM risk). Don't build it.
 - Live streaming: not built yet (owner postponed; needs ZEGOCLOUD/Agora + FLAG_SECURE in the APK for no screenshots).

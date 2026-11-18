@@ -51,6 +51,8 @@ const ERR = {
   BAD_REF: "এই রেফার কোডে কোনো ইউজার নেই",
   BAD_DATE: "সঠিক জন্মতারিখ দিন",
   TRX_USED: "এই TrxID আগেই ব্যবহার হয়েছে",
+  OFFER_ENDED: "এই অফার শেষ হয়ে গেছে",
+  OFFER_PRICE_MISMATCH: "অফারের দাম যতো, ঠিক ততো টাকাই পাঠাতে হবে",
   BAD_TRX: "সঠিক TrxID দিন",
   TOO_MANY_PENDING: "আগের রিকোয়েস্টগুলো যাচাই হওয়া পর্যন্ত অপেক্ষা করুন",
   RATE_LIMIT: "খুব দ্রুত করছেন — একটু পরে চেষ্টা করুন",
@@ -170,10 +172,33 @@ async function loginWith(identifier, password) {
 function showAuth(msg = "") {
   $("#main").classList.add("hidden");
   $("#auth").classList.remove("hidden");
+  restoreRegDraft();
   $("#authErr").textContent = msg;
 }
 $("#authLang").onclick = (e) => { e.preventDefault(); window.setLang?.(window.getLang?.() === "en" ? "bn" : "en"); };
 $("#toReg").onclick = (e) => { e.preventDefault(); $("#loginForm").classList.add("hidden"); $("#regForm").classList.remove("hidden"); $("#authErr").textContent = ""; };
+// সাইন-আপ: ভাষা বাছাই করলে সাথে সাথে পুরো স্ক্রিন সেই ভাষায় (ফর্মের লেখা থেকে যায়)
+const REG_FIELDS = ["rgName", "rgUser", "rgPhone", "rgEmail", "rgRef"];
+document.querySelectorAll("input[name=rgL]").forEach((r) => {
+  r.checked = r.value === (window.getLang?.() === "en" ? "en" : "bn");
+  r.onchange = () => {
+    if (r.value === (window.getLang?.() === "en" ? "en" : "bn")) return;
+    try {
+      const d = Object.fromEntries(REG_FIELDS.map((k) => [k, $("#" + k).value]));
+      d.rgCC = $("#rgCC").value; d.g = $("input[name=rgG]:checked")?.value ?? "";
+      sessionStorage.setItem("regDraft", JSON.stringify(d));
+    } catch { /* */ }
+    window.setLang?.(r.value);
+  };
+});
+function restoreRegDraft() {
+  let d; try { d = JSON.parse(sessionStorage.getItem("regDraft") || "null"); sessionStorage.removeItem("regDraft"); } catch { d = null; }
+  if (!d) return;
+  $("#loginForm").classList.add("hidden"); $("#regForm").classList.remove("hidden");
+  REG_FIELDS.forEach((k) => { if (d[k]) $("#" + k).value = d[k]; });
+  if (d.rgCC) setTimeout(() => ($("#rgCC").value = d.rgCC), 0);
+  if (d.g) { const g = document.querySelector(`input[name=rgG][value=${d.g}]`); if (g) g.checked = true; }
+}
 $("#toLogin").onclick = (e) => { e.preventDefault(); $("#regForm").classList.add("hidden"); $("#loginForm").classList.remove("hidden"); $("#authErr").textContent = ""; };
 
 $("#loginForm").addEventListener("submit", async (e) => {
@@ -199,6 +224,10 @@ $("#regForm").addEventListener("submit", async (e) => {
     try { localStorage.setItem("cc", $("#rgCC").value); } catch { /* */ }
     const { error } = await sb.auth.signInWithPassword({ email: r.login, password: body.password });
     if (error) throw error;
+    const g = $("input[name=rgG]:checked")?.value, lg = $("input[name=rgL]:checked")?.value ?? "bn";
+    await Promise.all([g && rpc("set_gender", { p_gender: g }).catch(() => {}),
+      rpc("set_language", { p_lang: lg === "en" ? "English" : "Bengali" }).catch(() => {})]);
+    try { localStorage.setItem("lang", lg); } catch { /* */ }
     toast("স্বাগতম! 🎉");
     start();
   } catch (er) { $("#authErr").textContent = errMsg(er); }
@@ -231,7 +260,7 @@ async function start() {
     if (di.id) rpc("register_device", { p_device_id: di.id, p_brand: di.brand, p_model: di.model, p_os: di.os, p_app: di.app })
       .then((r) => { if (r?.welcome_paisa > 0) showWelcome(r.welcome_paisa); }).catch(() => {});
   } catch { /* old APK */ }
-  if (!checkUpdate()) requireLocation();
+  if (!checkUpdate()) { requireLocation(); setTimeout(offerPopup, 2500); }
 }
 
 function showWelcome(paisa) {
@@ -905,13 +934,55 @@ R.history = async () => {
     <span class="${t.amount >= 0 ? "plus-amt" : "minus-amt"}">${t.amount >= 0 ? "+" : "−"}${unit(t)}</span></div>`).join("") : `<div class="empty">এখনো কোনো লেনদেন নেই</div>`;
 };
 
+async function loadOffers() {
+  const { data } = await sb.from("coin_offers").select("*").order("sort").order("price_taka");
+  return data ?? [];
+}
+function offerLeft(o) {
+  if (!o.ends_at) return "";
+  const ms = new Date(o.ends_at) - Date.now(); if (ms <= 0) return "শেষ";
+  const h = Math.floor(ms / 3600e3), d = Math.floor(h / 24);
+  return d >= 1 ? `${d} দিন বাকি` : h >= 1 ? `${h} ঘণ্টা বাকি` : `${Math.ceil(ms / 60e3)} মিনিট বাকি`;
+}
+const offerCard = (o, price) => {
+  const normal = Math.floor(o.price_taka * 100 / price), extra = o.coins - normal;
+  return `<button type="button" class="offer" data-of="${o.id}">${o.badge ? `<em translate="no">${esc(o.badge)}</em>` : extra > 0 ? `<em>+${Math.round(extra * 100 / Math.max(normal, 1))}%</em>` : ""}
+    <div class="of-c">🪙 ${n(o.coins)}</div>${extra > 0 ? `<s class="tiny">🪙 ${n(normal)}</s>` : ""}<div class="of-t" translate="no">${esc(o.title)}</div>
+    <div class="of-p">৳${n(o.price_taka)}</div>${o.ends_at ? `<div class="of-l">⏰ ${offerLeft(o)}</div>` : ""}</button>`;
+};
+// অ্যাপ খুললে দিনে একবার নতুন অফার পপআপ
+async function offerPopup() {
+  try {
+    if (location.hash.startsWith("#cashin")) return;
+    const offers = await loadOffers(); if (!offers.length) return;
+    const key = "ofseen_" + new Date().toDateString() + "_" + offers.map((o) => o.id).join(".");
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, "1");
+    const price = Number(setting("coin_price_paisa", 100));
+    const d = document.createElement("div");
+    d.className = "upd-gate soft";
+    d.innerHTML = `<div class="upd-card ofpop"><div class="upd-ic">🔥</div><h2>কয়েন অফার চলছে!</h2>
+      <div class="offers">${offers.slice(0, 4).map((o) => offerCard(o, price)).join("")}</div>
+      <button class="btn primary" id="ofGo">এখনই কিনুন</button><button class="btn" id="ofX" style="margin-top:8px">পরে</button></div>`;
+    document.body.appendChild(d);
+    const go = (id) => { d.remove(); S.pickOffer = id ?? null; location.hash = "#cashin"; };
+    d.querySelectorAll("[data-of]").forEach((b) => (b.onclick = () => go(Number(b.dataset.of))));
+    d.querySelector("#ofGo").onclick = () => go();
+    d.querySelector("#ofX").onclick = () => d.remove();
+  } catch { /* ignore */ }
+}
+
 R.cashin = async () => {
   const nums = ["bkash", "nagad", "rocket"].filter((m) => setting(m + "_number", ""));
   const coinPrice = Number(setting("coin_price_paisa", 100));
+  const offers = nums.length ? await loadOffers() : [];
   screen.innerHTML = `<div class="page">${header("কয়েন কিনুন")}
     ${nums.length ? `<div class="card"><b>ধাপ ১:</b> <span>নিচের নম্বরে Send Money করুন</span>
       ${nums.map((m) => `<div class="row" style="margin-top:8px"><span>${METHOD[m]}</span><span class="copy" data-copy="${esc(setting(m + "_number"))}">${esc(setting(m + "_number"))}</span></div>`).join("")}
-      <p class="tiny muted" style="margin:10px 0 0">৳১ = 🪙 ${n(100 / coinPrice)} কয়েন · সর্বনিম্ন ৳${n(setting("min_cash_in_taka", 20))}</p></div>
+      <p class="tiny muted" style="margin:10px 0 0">১ কয়েন = ৳${(coinPrice / 100).toFixed(2).replace(/\.00$/, "")} · ৳১০০ = 🪙 ${n(Math.floor(10000 / coinPrice))} কয়েন · সর্বনিম্ন ৳${n(setting("min_cash_in_taka", 20))}</p></div>
+    ${offers.length ? `<div class="card"><b>🔥 বিশেষ অফার</b> <span class="tiny muted">— একটি বেছে নিন, ঠিক ততো টাকা পাঠান</span>
+      <div class="offers" id="offers">${offers.map((o) => offerCard(o, coinPrice)).join("")}</div>
+      <div class="tiny muted" id="ofSel" style="margin-top:6px"></div></div>` : ""}
     ${setting("cashin_notice", "") ? `<div class="card rules-note"><b>📌 নিয়ম ও নোটিশ</b><div class="tiny" translate="no" style="white-space:pre-line;margin-top:6px">${esc(setting("cashin_notice", ""))}</div></div>` : ""}
     <form class="card" id="cf"><b>ধাপ ২:</b> পেমেন্টের তথ্য দিন
       <div class="methods">${nums.map((m, i) => `<label><input type="radio" name="m" value="${m}" ${i === 0 ? "checked" : ""}>${METHOD[m]}</label>`).join("")}</div>
@@ -924,6 +995,19 @@ R.cashin = async () => {
       <p class="tiny muted">অ্যাডমিন যাচাই করার পর কয়েন যোগ হবে। ভুল/ভুয়া TrxID দিলে অ্যাকাউন্ট ব্লক হবে।</p></form>`
     : `<div class="card">ক্যাশ-ইন এখন বন্ধ আছে। পরে চেষ্টা করুন।</div>`}
     <h3>আপনার রিকোয়েস্ট</h3><div class="card list" id="cl"><div class="spinner"></div></div></div>`;
+  let offerId = null;
+  const pick = (id) => {
+    offerId = offerId === id ? null : id;
+    const o = offers.find((x) => x.id === offerId);
+    document.querySelectorAll("#offers [data-of]").forEach((b) => b.classList.toggle("on", Number(b.dataset.of) === offerId));
+    $("#am").readOnly = !!o;
+    if (o) { $("#am").value = o.price_taka; $("#cv").textContent = `অফার: ঠিক ৳${n(o.price_taka)} পাঠান → পাবেন 🪙 ${n(o.coins)} কয়েন`; }
+    else { $("#cv").textContent = ""; }
+    $("#ofSel").textContent = o ? `✅ "${o.title}" বাছাই করা হয়েছে (আবার চাপলে বাতিল)` : "";
+  };
+  document.querySelectorAll("#offers [data-of]").forEach((b) => (b.onclick = () => { pick(Number(b.dataset.of)); $("#cf").scrollIntoView({ behavior: "smooth", block: "start" }); }));
+  if (S.pickOffer && offers.some((o) => o.id === S.pickOffer)) pick(S.pickOffer);
+  S.pickOffer = null;
   $("#am")?.addEventListener("input", (e) => ($("#cv").textContent = e.target.value ? `আপনি পাবেন 🪙 ${n(Math.floor(e.target.value * 100 / coinPrice))} কয়েন` : ""));
   let proof = null;
   $("#pf")?.addEventListener("change", async (e) => {
@@ -942,7 +1026,7 @@ R.cashin = async () => {
     const b = e.submitter; b.disabled = true;
     try {
       const id = await rpc("request_cash_in", { p_method: $("input[name=m]:checked").value, p_amount_taka: Math.floor(Number($("#am").value)),
-        p_sender: cleanPhone($("#sn").value), p_trx: $("#tx").value.trim() });
+        p_sender: cleanPhone($("#sn").value), p_trx: $("#tx").value.trim(), p_offer_id: offerId });
       if (proof && id) {
         try {
           const path = `${S.me.id}/${id}-${Date.now()}.jpg`;
@@ -1873,10 +1957,13 @@ R.u = async (id) => {
   if (!p) { screen.innerHTML = `<div class="page"><div class="empty">ইউজার পাওয়া যায়নি</div></div>`; return; }
   if (mine) S.me = p;
   let following = !!fl.data;
+  const host = p.account_type === "host";
   const grid = (list) => list.map((v) => `<a href="#watch/${id}/${v.id}">${v.thumb_url ? `<img src="${esc(v.thumb_url)}" loading="lazy" alt="">` : ""}<span class="vc">▶ ${n(v.views_count)}</span></a>`).join("");
-  screen.innerHTML = `<div class="cover" ${p.cover_url ? `style="background-image:url('${esc(p.cover_url)}')"` : ""}><button class="back" onclick="history.back()">←</button></div>
-    <div class="page" style="padding-top:0">
-    <div class="prof">${avatar(p)}<h2 translate="no">${esc(p.full_name ?? "")} ${p.is_verified ? "✔️" : ""}</h2><div class="muted">@${esc(p.username)}</div>
+  const lv = levelOf(p.followers_count);
+  screen.innerHTML = `<div class="cover${host ? " host" : ""}" ${p.cover_url ? `style="background-image:url('${esc(p.cover_url)}')"` : ""}><button class="back" onclick="history.back()">←</button></div>
+    <div class="page${host ? " hostpage" : ""}" style="padding-top:0">
+    <div class="prof${host ? " host" : ""}">${host ? `<div class="avwrap">${avatar(p)}<span class="crown">👑</span></div>` : avatar(p)}<h2 translate="no">${esc(p.full_name ?? "")} ${p.is_verified ? "✔️" : ""}</h2><div class="muted">@${esc(p.username)}</div>
+      <div class="rbadges">${host ? `<span class="rbadge host">👑 HOST</span>` : `<span class="rbadge user">👤 ইউজার</span>`}<span class="rbadge lv">Lv${lv}</span>${p.country_code ? `<span class="rbadge">${flagOf(p.country_code)}</span>` : ""}</div>
       <div class="idtag" data-copy="${p.user_no}">ID: ${p.user_no} ⧉</div>
       <div class="counts"><div><b>${n(p.videos_count)}</b><span>ভিডিও</span></div><div><b id="fc">${n(p.followers_count)}</b><span>ফলোয়ার</span></div><div><b>${n(p.following_count)}</b><span>ফলোয়িং</span></div></div>
       ${p.bio ? `<p translate="no">${esc(p.bio)}</p>` : ""}
@@ -1885,7 +1972,8 @@ R.u = async (id) => {
            <a class="btn" href="#chat/${p.id}" style="min-width:110px">💬 মেসেজ</a></div>`}
     </div>
     ${mine ? `<div id="accBox" class="${S.openAcc ? "" : "hidden"}" style="margin-top:12px">${accountBlock(p)}</div>` : ""}
-    <div class="seg"><button class="on" data-pt="v">🎬 ভিডিও</button><button data-pt="photo">🖼️ ফটো</button><button data-pt="text">✍️ লেখা</button></div>
+    ${host ? `<div class="hoststrip"><span>✨ অফিসিয়াল হোস্ট</span><span>🎬 ${n(p.videos_count)} কন্টেন্ট</span><span>👑 ${n(vids.filter((v) => v.is_premium).length)} প্রিমিয়াম</span></div>` : ""}
+    <div class="seg"><button class="on" data-pt="v">🎬 ভিডিও</button>${host ? `<button data-pt="prem">👑 প্রিমিয়াম</button>` : ""}<button data-pt="photo">🖼️ ফটো</button><button data-pt="text">✍️ লেখা</button></div>
     <div id="ptab"></div>
     <div id="pend"></div>
     <div class="grid3" id="g">${vids.length ? grid(vids) : ""}</div>
@@ -1914,6 +2002,8 @@ R.u = async (id) => {
     ["#g", "#mr"].forEach((q) => $(q)?.classList.toggle("hidden", !show));
     screen.querySelector(".page > .empty")?.classList.toggle("hidden", !show);
     if (show) { $("#ptab").innerHTML = ""; return; }
+    if (k === "prem") { const pv = vids.filter((v) => v.is_premium);
+      $("#ptab").innerHTML = pv.length ? `<div class="grid3">${pv.map((v) => `<a href="#watch/${id}/${v.id}">${v.thumb_url ? `<img src="${esc(v.thumb_url)}" loading="lazy" alt="">` : ""}<span class="vc">👑 ${n(v.premium_coins)}</span></a>`).join("")}</div>` : `<div class="empty">কোনো প্রিমিয়াম ভিডিও নেই</div>`; return; }
     $("#ptab").innerHTML = `<div class="spinner" style="margin-top:14px"></div>`;
     const rows = await rpc("feed_posts", { p_kind: k, p_before: null, p_limit: 50, p_category: null, p_contest: null, p_user: id, p_sort: "new" }).catch(() => []);
     $("#ptab").innerHTML = !rows.length ? `<div class="empty">কিছু নেই</div>` : k === "photo"

@@ -1046,7 +1046,97 @@ routes.coins = async (preNo) => {
       <button class="btn primary" id="csend">কয়েন পাঠান</button>
       <p class="muted small">মনে রাখবেন: এই কয়েন দিয়ে ইউজার গিফট পাঠালে ক্রিয়েটর আসল টাকা আয় করবে, যা উইথড্র করা যায়।</p>
     </div>
+    <h2>💰 কয়েনের দাম</h2>
+    <div class="card" style="max-width:520px">
+      <label>১ কয়েনের দাম (টাকা)<input id="cpr" type="number" inputmode="decimal" step="0.01" min="0.01" placeholder="যেমন 1"></label>
+      <div id="cprInfo" class="muted small" style="margin-top:4px"></div>
+      <label>সর্বনিম্ন কত টাকার কয়েন কেনা যাবে<input id="cmin" type="number" inputmode="numeric" min="1"></label>
+      <button class="btn primary" id="cprSave">দাম সেভ করুন</button>
+      <p class="muted small">⚠️ এই দামেই গিফট ও প্রিমিয়ামের টাকার হিসাব হয় (ক্রিয়েটর কত পাবে)। দাম কমালে ক্রিয়েটরের আয়ও কমবে।</p>
+    </div>
+    <h2>🔥 কয়েন অফার</h2>
+    <p class="muted small">এখানে অফার যোগ করলে ইউজাররা অ্যাপে "কয়েন কিনুন" পেজে ও হোম পেজে অফার দেখবে। শেষ সময় পার হলে অফার নিজে থেকেই লুকিয়ে যাবে।</p>
+    <div class="card" style="max-width:520px" id="ofForm">
+      <input type="hidden" id="ofId">
+      <label>অফারের নাম<input id="ofT" maxlength="60" placeholder="যেমন: ঈদ অফার"></label>
+      <div class="row" style="gap:8px"><label style="flex:1">দাম (টাকা)<input id="ofP" type="number" inputmode="numeric" min="1" placeholder="100"></label>
+        <label style="flex:1">কত কয়েন পাবে<input id="ofC" type="number" inputmode="numeric" min="1" placeholder="150"></label></div>
+      <div id="ofInfo" class="muted small"></div>
+      <label>ব্যাজ লেখা (ঐচ্ছিক)<input id="ofB" maxlength="24" placeholder="যেমন: +50% বোনাস"></label>
+      <div class="row" style="gap:8px"><label style="flex:2">শেষ সময় (ঐচ্ছিক)<input id="ofE" type="datetime-local"></label>
+        <label style="flex:1">ক্রম<input id="ofS" type="number" inputmode="numeric" value="0"></label></div>
+      <label class="row" style="gap:6px;justify-content:flex-start"><input type="checkbox" id="ofA" checked style="width:auto"> চালু থাকবে</label>
+      <div class="row" style="gap:8px"><button class="btn primary" id="ofSave">অফার যোগ করুন</button><button class="btn hidden" id="ofCancel">বাতিল</button></div>
+    </div>
+    <div id="ofList" class="table-wrap"></div>
     <h2>পাঠানো কয়েনের হিসাব</h2><div id="ch" class="table-wrap"></div>`;
+  // ---- কয়েনের দাম ----
+  const { data: st } = await sb.from("settings").select("key,value").in("key", ["coin_price_paisa", "min_cash_in_taka"]);
+  const sv = Object.fromEntries((st ?? []).map((x) => [x.key, Number(x.value)]));
+  let pricePaisa = sv.coin_price_paisa || 100;
+  $("#cpr").value = (pricePaisa / 100).toString(); $("#cmin").value = sv.min_cash_in_taka ?? 20;
+  const prInfo = () => { const p = Number($("#cpr").value); $("#cprInfo").textContent = p > 0 ? `৳১ = ${(1 / p).toFixed(2).replace(/\.00$/, "")} কয়েন · ৳১০০ = ${Math.floor(100 / p)} কয়েন` : ""; };
+  $("#cpr").oninput = prInfo; prInfo();
+  $("#cprSave").onclick = async () => {
+    const pp = Math.round(Number($("#cpr").value) * 100), mn = Math.floor(Number($("#cmin").value));
+    if (!(pp >= 1)) return toast("সঠিক দাম দিন (কমপক্ষে ৳0.01)", true);
+    if (!(mn >= 1)) return toast("সর্বনিম্ন টাকা দিন", true);
+    if (pp !== pricePaisa && !confirm(`১ কয়েনের দাম ৳${(pp / 100).toFixed(2)} করবেন? গিফট ও প্রিমিয়ামের আয়ের হিসাবও এই দামে হবে।`)) return;
+    await act(async () => { await rpc("admin_set_setting", { p_key: "coin_price_paisa", p_value: pp }); await rpc("admin_set_setting", { p_key: "min_cash_in_taka", p_value: mn }); pricePaisa = pp; ofInfo(); }, "সেভ হয়েছে");
+  };
+  // ---- অফার ----
+  const ofInfo = () => {
+    const p = Number($("#ofP").value), c = Number($("#ofC").value);
+    if (!p || !c) { $("#ofInfo").textContent = ""; return; }
+    const normal = Math.floor(p * 100 / pricePaisa), extra = c - normal;
+    $("#ofInfo").innerHTML = `সাধারণ দামে ৳${p} = ${num(normal)} কয়েন · এই অফারে ${num(c)} কয়েন ${extra > 0 ? `<b style="color:#16a34a">(+${num(extra)} বেশি, ${Math.round(extra * 100 / Math.max(normal, 1))}% বোনাস)</b>` : extra < 0 ? `<b class="err">(সাধারণ দামের চেয়ে কম!)</b>` : ""}`;
+  };
+  ["#ofP", "#ofC"].forEach((q) => ($(q).oninput = ofInfo));
+  const resetOf = () => { ["#ofId", "#ofT", "#ofP", "#ofC", "#ofB", "#ofE"].forEach((q) => ($(q).value = "")); $("#ofS").value = 0; $("#ofA").checked = true;
+    $("#ofSave").textContent = "অফার যোগ করুন"; $("#ofCancel").classList.add("hidden"); ofInfo(); };
+  $("#ofCancel").onclick = resetOf;
+  const localDT = (iso) => { const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+  let offers = [];
+  const loadOf = async () => {
+    offers = await rpc("admin_coin_offers").catch(() => []);
+    const now = Date.now();
+    $("#ofList").innerHTML = offers.length ? `<table><tr><th>অফার</th><th class="num">দাম</th><th class="num">কয়েন</th><th>শেষ</th><th>অবস্থা</th><th class="num">বিক্রি</th><th></th></tr>
+      ${offers.map((o) => { const ended = o.ends_at && new Date(o.ends_at) < now;
+        return `<tr><td><b>${esc(o.title)}</b>${o.badge ? ` <span class="pill">${esc(o.badge)}</span>` : ""}</td><td class="num">৳${num(o.price_taka)}</td><td class="num">🪙 ${num(o.coins)}</td>
+        <td>${o.ends_at ? dt(o.ends_at) : "—"}</td><td>${!o.active ? '<span class="pill rejected">বন্ধ</span>' : ended ? '<span class="pill">মেয়াদ শেষ</span>' : '<span class="pill approved">চালু</span>'}</td>
+        <td class="num">${num(o.sold)}${o.pending ? ` <span class="muted small">(+${o.pending} পেন্ডিং)</span>` : ""}</td>
+        <td style="white-space:nowrap"><button class="btn sm" data-oe="${o.id}">এডিট</button> <button class="btn sm" data-ot="${o.id}">${o.active ? "বন্ধ" : "চালু"}</button> <button class="btn sm danger" data-od="${o.id}">মুছুন</button></td></tr>`; }).join("")}</table>`
+      : `<div class="empty">এখনো কোনো অফার নেই</div>`;
+    view.querySelectorAll("[data-oe]").forEach((b) => (b.onclick = () => {
+      const o = offers.find((x) => x.id == b.dataset.oe);
+      $("#ofId").value = o.id; $("#ofT").value = o.title; $("#ofP").value = o.price_taka; $("#ofC").value = o.coins; $("#ofB").value = o.badge ?? "";
+      $("#ofE").value = o.ends_at ? localDT(o.ends_at) : ""; $("#ofS").value = o.sort; $("#ofA").checked = o.active;
+      $("#ofSave").textContent = "পরিবর্তন সেভ করুন"; $("#ofCancel").classList.remove("hidden"); ofInfo();
+      $("#ofForm").scrollIntoView({ behavior: "smooth", block: "center" });
+    }));
+    view.querySelectorAll("[data-ot]").forEach((b) => (b.onclick = async () => {
+      const o = offers.find((x) => x.id == b.dataset.ot);
+      await act(() => rpc("admin_save_coin_offer", { p_id: o.id, p_title: o.title, p_coins: o.coins, p_price_taka: o.price_taka, p_badge: o.badge, p_active: !o.active, p_ends_at: o.ends_at, p_sort: o.sort }), o.active ? "অফার বন্ধ হয়েছে" : "অফার চালু হয়েছে");
+      loadOf();
+    }));
+    view.querySelectorAll("[data-od]").forEach((b) => (b.onclick = async () => {
+      if (!confirm("অফারটি মুছবেন?")) return;
+      try { const r = await rpc("admin_delete_coin_offer", { p_id: Number(b.dataset.od) });
+        toast(r === "disabled" ? "এই অফারে কেনা হয়েছে, তাই হিসাবের জন্য রেখে শুধু বন্ধ করা হলো" : "মুছে ফেলা হয়েছে"); } catch (er) { toast(errMsg(er), true); }
+      loadOf();
+    }));
+  };
+  $("#ofSave").onclick = async () => {
+    const title = $("#ofT").value.trim(), price = Math.floor(Number($("#ofP").value)), coins = Math.floor(Number($("#ofC").value));
+    if (!title) return toast("অফারের নাম দিন", true);
+    if (!(price >= 1) || !(coins >= 1)) return toast("দাম ও কয়েন দিন", true);
+    const ends = $("#ofE").value ? new Date($("#ofE").value).toISOString() : null;
+    if (ends && new Date(ends) < Date.now()) return toast("শেষ সময় ভবিষ্যতের হতে হবে", true);
+    try { await act(() => rpc("admin_save_coin_offer", { p_id: $("#ofId").value ? Number($("#ofId").value) : null, p_title: title, p_coins: coins, p_price_taka: price,
+      p_badge: $("#ofB").value, p_active: $("#ofA").checked, p_ends_at: ends, p_sort: Math.floor(Number($("#ofS").value) || 0) }), "অফার সেভ হয়েছে");
+      resetOf(); loadOf(); } catch { /* toast shown */ }
+  };
+  loadOf();
   let target = null;
   const look = async () => {
     target = null;
