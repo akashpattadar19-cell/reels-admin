@@ -313,6 +313,27 @@ routes.users = async (type = "user") => {
   }).catch(() => {});
 };
 
+// 🔑 এককালীন পাসওয়ার্ড: সার্ভার বানায়, ইউজার লগইন করলেই নিজের নতুন পাসওয়ার্ড দিতে বাধ্য, ২৪ ঘণ্টা পর অচল
+async function giveOtp(p, priv) {
+  if (!confirm(`@${p.username} (ID ${p.user_no})-কে এককালীন পাসওয়ার্ড দেবেন? তার পুরনো পাসওয়ার্ড আর কাজ করবে না।`)) return;
+  const { data, error } = await sb.functions.invoke("admin-tools", { body: { action: "one_time_password", user_id: p.id } });
+  if (error || data?.error) return toast(errMsg(error ?? data.error), true);
+  const phone = String(priv?.phone ?? "");
+  const login = phone && !phone.startsWith("google:") ? phone : priv?.email || `ID ${p.user_no}`;
+  const msg = `Reels Enjoy — আপনার এককালীন পাসওয়ার্ড: ${data.password}\nলগইন: ${login}\nলগইন করার পর নতুন পাসওয়ার্ড দিতে হবে। এটা ২৪ ঘণ্টা পর্যন্ত চলবে।`;
+  const wa = phone && phone.startsWith("+") ? `https://wa.me/${phone.replace(/\D/g, "")}?text=${encodeURIComponent(msg)}` : "";
+  const box = document.createElement("div");
+  box.className = "otp-modal";
+  box.innerHTML = `<div class="card otp-card"><h3 style="margin-top:0">🔑 এককালীন পাসওয়ার্ড</h3>
+    <div class="otp-pw">${esc(data.password)}</div>
+    <p class="small">ইউজার: <b>@${esc(p.username)}</b> · লগইন: <b>${esc(login)}</b><br>২৪ ঘণ্টা চলবে। লগইন করলেই ইউজারকে নতুন পাসওয়ার্ড দিতে বলা হবে।</p>
+    ${phone.startsWith("google:") ? `<p class="small muted">⚠️ এই ইউজার Google দিয়ে খুলেছে — তার পাসওয়ার্ড লাগে না, Google দিয়েই লগইন করবে।</p>` : ""}
+    <div class="toolbar"><button class="btn good" id="otpCopy">📋 বার্তা কপি</button>${wa ? `<a class="btn" href="${wa}" target="_blank">💬 WhatsApp-এ পাঠান</a>` : ""}<button class="btn" id="otpX">বন্ধ</button></div></div>`;
+  document.body.appendChild(box);
+  box.querySelector("#otpCopy").onclick = async () => { try { await navigator.clipboard.writeText(msg); toast("কপি হয়েছে"); } catch { prompt("কপি করুন:", msg); } };
+  box.querySelector("#otpX").onclick = () => box.remove();
+}
+
 routes.user = async (id) => {
   loading();
   const [{ data: p }, { data: priv }, { data: w }, { data: tx }, { data: wd }] = await Promise.all([
@@ -348,6 +369,7 @@ routes.user = async (id) => {
       <button class="btn" id="ban">${p.status === "banned" ? "আনব্যান" : "ব্যান"}</button>
       <button class="btn" id="frz">${w?.is_frozen ? "ওয়ালেট আনফ্রিজ" : "ওয়ালেট ফ্রিজ"}</button>
       <button class="btn" id="adj">ব্যালেন্স অ্যাডজাস্ট</button>
+      <button class="btn good" id="otp">🔑 এককালীন পাসওয়ার্ড</button>
       <button class="btn" id="pw">পাসওয়ার্ড রিসেট</button>
       <button class="btn" id="ver">${p.is_verified ? "ভেরিফাইড বাদ" : "ভেরিফাইড ব্যাজ"}</button>
       <button class="btn" id="role">${p.role === "admin" ? "অ্যাডমিন বাদ" : "অ্যাডমিন বানান"}</button>
@@ -389,6 +411,7 @@ routes.user = async (id) => {
     await act(() => rpc("admin_adjust_wallet", { p_user: id, p_bucket: bucket, p_amount: amount, p_note: note }), "অ্যাডজাস্ট হয়েছে");
     routes.user(id);
   };
+  $("#otp").onclick = () => giveOtp(p, priv);
   $("#pw").onclick = async () => {
     const pw = prompt("নতুন পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর):");
     if (!pw) return;
@@ -559,6 +582,7 @@ routes.lookup = async (no) => {
     </div></div>
     <div class="card" id="ctl">
       <h3 style="margin:0 0 10px">⚙️ নিয়ন্ত্রণ</h3>
+      <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:12px"><button class="btn sm good" data-c="otp">🔑 এককালীন পাসওয়ার্ড দিন</button></div>
       <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:12px">
         <span>অ্যাকাউন্ট: <b>${p.account_type === "host" ? "🎤 হোস্ট" : "👤 ইউজার"}</b></span>
         ${p.account_type === "host" ? `<button class="btn sm warn" data-c="unhost">ইউজার বানান</button>` : `<button class="btn sm good" data-c="host">হোস্ট বানান</button>`}
@@ -613,6 +637,7 @@ routes.lookup = async (no) => {
     const b = e.target.closest("[data-c]"); if (!b) return;
     const c = b.dataset.c;
     if (c === "host" || c === "unhost") await act(() => rpc("admin_set_host", { p_user: p.id, p_host: c === "host" }), "হয়েছে");
+    else if (c === "otp") { const { data: pv } = await sb.from("user_private").select("phone,email").eq("user_id", p.id).maybeSingle(); return giveOtp(p, pv); }
     else if (c === "crate") { const v = $("#crc").value.trim(); await act(() => rpc("admin_set_call_commission", { p_user: p.id, p_commission: v === "" ? null : Number(v) }), "সেভ হয়েছে"); }
     else if (c === "sell_on" || c === "sell_off") await act(() => rpc("admin_set_coin_seller", { p_user: p.id, p_on: c === "sell_on", p_pct: c === "sell_on" ? p.seller_commission_pct ?? null : null }), "হয়েছে");
     else if (c === "pa_on" || c === "pa_off") await act(() => rpc("admin_set_premium_access", { p_user: p.id, p_on: c === "pa_on" }), "হয়েছে");

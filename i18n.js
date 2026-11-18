@@ -1745,7 +1745,17 @@
 "রেট বেশি হলে কল কম আসতে পারে — নিজের মতো ঠিক করুন।": "A higher price may bring fewer calls — set it as you like.",
 "লেভেল অনুযায়ী সর্বোচ্চ রেট": "Highest call price by level",
 "📞 কল নিতে রাজি": "📞 Accept calls",
-"এই রেট আপনার লেভেলের সীমার বাইরে": "This price is above your level's limit"
+"এই রেট আপনার লেভেলের সীমার বাইরে": "This price is above your level's limit",
+"🔑 নতুন পাসওয়ার্ড দিন": "🔑 Set a new password",
+"আপনি এককালীন পাসওয়ার্ড দিয়ে ঢুকেছেন। এখন নিজের নতুন পাসওয়ার্ড ঠিক করুন।": "You logged in with a one-time password. Now set your own new password.",
+"নতুন পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)": "New password (at least 6 characters)",
+"আবার নতুন পাসওয়ার্ড": "New password again",
+"সেভ করে শুরু করুন": "Save and start",
+"পাসওয়ার্ড ভুলে গেলে সাপোর্টে যোগাযোগ করুন — অ্যাডমিন আপনাকে একটি এককালীন পাসওয়ার্ড দেবে।": "Forgot your password? Contact support — the admin will give you a one-time password.",
+"এককালীন পাসওয়ার্ডের মেয়াদ শেষ — সাপোর্ট থেকে নতুন একটি নিন": "The one-time password has expired — get a new one from support",
+"পাসওয়ার্ড কমপক্ষে ৬ অক্ষর দিন": "Use at least 6 characters",
+"দুটো পাসওয়ার্ড মেলেনি": "The two passwords don't match",
+"✅ নতুন পাসওয়ার্ড সেভ হয়েছে": "✅ New password saved"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });

@@ -7,7 +7,7 @@
   <title>Reels Enjoy</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="app.css?v=202611190108">
+  <link rel="stylesheet" href="app.css?v=202611190118">
 </head>
 <body>
   <!-- লগইন / রেজিস্টার -->
@@ -33,6 +33,12 @@
         <input id="obRef" inputmode="numeric" placeholder="রেফার কোড — বন্ধুর ID নম্বর (ঐচ্ছিক)">
         <button class="btn primary" type="submit">শুরু করুন</button>
       </form>
+      <form id="pwForm" class="hidden">
+        <h3 style="margin:6px 0 2px">🔑 নতুন পাসওয়ার্ড দিন</h3><p class="muted tiny" style="margin:0 0 10px">আপনি এককালীন পাসওয়ার্ড দিয়ে ঢুকেছেন। এখন নিজের নতুন পাসওয়ার্ড ঠিক করুন।</p>
+        <input id="npw1" type="password" placeholder="নতুন পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)" autocomplete="new-password">
+        <input id="npw2" type="password" placeholder="আবার নতুন পাসওয়ার্ড" autocomplete="new-password">
+        <button class="btn primary" type="submit">সেভ করে শুরু করুন</button>
+      </form>
       <form id="loginForm" class="hidden">
         <p class="switch" style="margin:0 0 8px;text-align:left"><a href="#" class="toHome">← ফিরে যান</a></p>
         <div class="seg"><button type="button" data-m="phone" class="on">মোবাইল নম্বর</button><button type="button" data-m="email">ইমেইল</button></div>
@@ -57,7 +63,7 @@
         <p class="switch">আগে থেকে অ্যাকাউন্ট আছে? <a href="#" id="toLogin">লগইন</a></p>
       </form>
       <p id="authErr" class="err"></p>
-      <p class="muted tiny">পাসওয়ার্ড ভুলে গেলে সাপোর্টে যোগাযোগ করুন।</p>
+      <p class="muted tiny">পাসওয়ার্ড ভুলে গেলে সাপোর্টে যোগাযোগ করুন — অ্যাডমিন আপনাকে একটি এককালীন পাসওয়ার্ড দেবে।</p>
       <p translate="no"><a href="#" id="authLang" class="tiny" style="color:var(--muted)">🌐 English / বাংলা</a></p>
     </div>
   </section>
@@ -77,8 +83,8 @@
   <div id="sheet" class="sheet-wrap hidden"><div class="sheet"><div class="grab"></div><div id="sheetBody"></div></div></div>
   <div id="toast" class="toast"></div>
 
-  <script src="../i18n.js?v=202611190108"></script>
-  <script src="../config.js?v=202611190108"></script>
-  <script type="module" src="app.js?v=202611190108"></script>
+  <script src="../i18n.js?v=202611190118"></script>
+  <script src="../config.js?v=202611190118"></script>
+  <script type="module" src="app.js?v=202611190118"></script>
 </body>
 </html>

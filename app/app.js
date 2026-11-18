@@ -353,7 +353,7 @@ async function loginWith(identifier, password) {
 // লগইন পেজ: প্রথমে Google / মোবাইল / আরও অপশন (Chamet-এর মতো)
 const GOOGLE_WEB_CLIENT_ID = "851306897519-0dn72ho0853o6kfiogpbi26p98uduoo3.apps.googleusercontent.com"; // Google Cloud → Credentials → "Web application" OAuth client ID
 const authShow = (which) => {
-  ["authHome", "loginForm", "regForm", "onbForm"].forEach((x) => $("#" + x).classList.toggle("hidden", x !== which));
+  ["authHome", "loginForm", "regForm", "onbForm", "pwForm"].forEach((x) => $("#" + x).classList.toggle("hidden", x !== which));
   $("#authErr").textContent = "";
 };
 function showAuth(msg = "") {
@@ -383,6 +383,21 @@ window.onGoogleSignIn = async (token, err) => {
   if (error) { $("#authErr").textContent = errMsg(error); return; }
   start();
 };
+$("#pwForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const b = e.submitter; b.disabled = true;
+  try {
+    const a = $("#npw1").value, c = $("#npw2").value;
+    if (a.length < 6) throw new Error("পাসওয়ার্ড কমপক্ষে ৬ অক্ষর দিন");
+    if (a !== c) throw new Error("দুটো পাসওয়ার্ড মেলেনি");
+    const { error } = await sb.auth.updateUser({ password: a });
+    if (error) throw error;
+    await rpc("clear_must_change_pw");
+    toast("✅ নতুন পাসওয়ার্ড সেভ হয়েছে");
+    start();
+  } catch (er) { $("#authErr").textContent = errMsg(er); }
+  b.disabled = false;
+});
 // Google দিয়ে নতুন অ্যাকাউন্ট: লিঙ্গ, ভাষা, জন্মতারিখ, রেফার কোড
 const MONTHS_BN = ["জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন", "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"];
 function fillDob() {
@@ -488,6 +503,11 @@ async function start() {
   if (!me) { await sb.auth.signOut(); return showAuth("অ্যাকাউন্ট পাওয়া যায়নি"); }
   if (me.status === "banned") { await sb.auth.signOut(); return showAuth(ERR.ACCOUNT_BANNED + (me.ban_reason ? ": " + me.ban_reason : "")); }
   if (me.needs_onboarding) return showOnboard();
+  const { data: pvt } = await sb.from("user_private").select("must_change_pw,temp_pw_expires").eq("user_id", session.user.id).maybeSingle();
+  if (pvt?.must_change_pw) {
+    if (pvt.temp_pw_expires && new Date(pvt.temp_pw_expires) < new Date()) { await sb.auth.signOut(); return showAuth("এককালীন পাসওয়ার্ডের মেয়াদ শেষ — সাপোর্ট থেকে নতুন একটি নিন"); }
+    $("#main").classList.add("hidden"); $("#auth").classList.remove("hidden"); authShow("pwForm"); return;
+  }
   S.me = me;
   S.settings = Object.fromEntries((settings ?? []).map((s) => [s.key, s.value]));
   S.ads = Object.fromEntries((ads ?? []).map((a) => [a.key, a]));

@@ -28,6 +28,9 @@ Phone (any country, E.164 like +8801…, +9665…) or email + password; no SMS c
 phone / optional real email / that login email in `user_private`. `resolve-login` maps phone or email → login email, then the
 client calls `signInWithPassword`.
 Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role = 'admin'`.
+One-time password (forgot password): admin user page / lookup page "🔑 এককালীন পাসওয়ার্ড" → `admin-tools` action `one_time_password`
+(server-generated 8 chars, sets `user_private.must_change_pw` + `temp_pw_expires` = 24 h) → modal with copy / WhatsApp message.
+App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUser` → `clear_must_change_pw`); expired → sign out.
 
 ## Other features
 - `profiles.user_no`: public numeric ID (from 100001) shown in the app; admin "Coin Sent" page mints coins to a user_no via `admin_send_coins` (admin types taka → coins from `coin_price_paisa`) (ledger type `admin_coin_grant`).
