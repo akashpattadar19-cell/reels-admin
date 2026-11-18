@@ -3002,7 +3002,7 @@ async function incomingCall(c) {
 async function startCall(host, kind) {
   try {
     needMedia();
-    if (!confirm(`${kind === "video" ? "📹 ভিডিও" : "📞 অডিও"} কল: প্রতি মিনিটে 🪙 ${n(callRate(host, kind))} কয়েন কাটবে। কল দেবেন?\n\n🛡️ নিরাপত্তার জন্য কল ও লাইভ অ্যাডমিন পর্যবেক্ষণ করতে পারে।`)) return;
+    if (!confirm(`${kind === "video" ? "📹 ভিডিও" : "📞 অডিও"} কল: প্রতি মিনিটে 🪙 ${n(callRate(host, kind))} কয়েন কাটবে। কল দেবেন?`)) return;
     const r = await rpc("call_start", { p_callee: host.id, p_kind: kind });
     location.hash = `#call/${r.call_id}`;
   } catch (e) {

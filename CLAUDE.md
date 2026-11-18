@@ -151,7 +151,7 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
 - Moderation monitor (admin `#monitor`, `admin_monitor`): active lives/parties (thumb, viewers, guests) and calls; "👁 দেখুন" joins the
   Agora channel silently as subscriber (`agora_grant` lets admins subscribe to call channels; the call page only ends when the *other*
   party's uid leaves), ⏹ end (`live_end` / `admin_end_call`), 🚫 jail (`admin_jail_now` = jail + end their live/party/calls).
-  Privacy policy + call confirm text say admins may watch lives/calls live (nothing is recorded).
+  Privacy policy keeps one short line ("may be reviewed for safety") — owner wanted no in-app notice; keep the policy line (Play/legal).
 - PK battles (027): live host ⚔️ → `pk_candidates`/`pk_invite`; other host gets a sheet (realtime INSERT on `pk_battles`) → `pk_answer`.
   `live_rooms.pk_id` set on both rooms; `live_gift` adds coins to score_a/score_b; split screen (2nd Agora client joins the other
   room as audience); `pk_finish` at time-out or host ends early; `_pk_settle` pays winner `pk_winner_bonus_pct` % of its PK gift value
