@@ -2440,7 +2440,7 @@ R.live = async (rid) => {
   screen.innerHTML = `<div class="lvroom"><div class="spinner" style="margin-top:40vh"></div></div>`;
   let info;
   try { needMedia(); info = await rpc("live_join", { p_room: id }); }
-  catch (e) { document.body.classList.remove("story-open"); toast(errMsg(e), true); location.replace("#home/live"); return; }
+  catch (e) { document.body.classList.remove("story-open"); toast(errMsg(e), true); location.replace("#home"); return; }
   const host = info.host_id === S.me.id;
   const { data: hp } = await sb.from("profiles").select("id,username,full_name,avatar_url,user_no,account_type,calls_on,call_video_rate,call_audio_rate").eq("id", info.host_id).single();
   screen.innerHTML = `<div class="lvroom">
@@ -2481,7 +2481,7 @@ R.live = async (rid) => {
   const mainUid = hp.user_no;
   const showEnded = (why) => {
     if (ended) return; ended = true;
-    $("#lvMain").innerHTML = `<div class="lv-wait">${avatar(hp)}<div><b>লাইভ শেষ হয়েছে</b></div><div class="tiny">${esc(why || "")}</div><a class="btn small" href="#home/live" style="margin-top:12px">অন্য লাইভ দেখুন</a></div>`;
+    $("#lvMain").innerHTML = `<div class="lv-wait">${avatar(hp)}<div><b>লাইভ শেষ হয়েছে</b></div><div class="tiny">${esc(why || "")}</div><a class="btn small" href="#home" style="margin-top:12px">অন্য লাইভ দেখুন</a></div>`;
     $("#lvGuest").classList.add("hidden");
     leaveRtc();
   };
@@ -2676,7 +2676,7 @@ R.live = async (rid) => {
   $("#lvCam")?.addEventListener("click", async () => { facing = facing === "user" ? "environment" : "user"; try { await cam?.setDevice({ facingMode: facing }); } catch { toast("ক্যামেরা বদলানো যায়নি", true); } });
   $("#lvMic")?.addEventListener("click", async (e) => { if (!mic) return; const on = !mic.muted; await mic.setMuted(on); e.currentTarget.textContent = on ? "🔇" : "🎤"; });
   const endLive = async () => { await rpc("live_end", { p_room: id }).catch(() => {}); showEnded(); };
-  $("#lvEnd")?.addEventListener("click", async () => { if (confirm("লাইভ শেষ করবেন?")) { await endLive(); location.replace("#home/live"); } });
+  $("#lvEnd")?.addEventListener("click", async () => { if (confirm("লাইভ শেষ করবেন?")) { await endLive(); location.replace("#home"); } });
   $("#lvX").onclick = async () => { if (host && !ended) { if (!confirm("লাইভ শেষ করে বের হবেন?")) return; await endLive(); } history.back(); };
   cleanup = () => {
     clearInterval(hb); sb.removeChannel(ch); clearInterval(pkT); if (pkCh) sb.removeChannel(pkCh); try { pkClient?.leave(); } catch { /* */ }
@@ -2721,7 +2721,7 @@ R.party = async (rid) => {
   screen.innerHTML = `<div class="pty"><div class="spinner" style="margin-top:40vh"></div></div>`;
   let info;
   try { needMedia(); info = await rpc("live_join", { p_room: id }); }
-  catch (e) { document.body.classList.remove("story-open"); toast(errMsg(e), true); location.replace("#home/live"); return; }
+  catch (e) { document.body.classList.remove("story-open"); toast(errMsg(e), true); location.replace("#home"); return; }
   const host = info.host_id === S.me.id;
   const [{ data: hp }, { data: room }] = await Promise.all([
     sb.from("profiles").select("id,username,full_name,avatar_url,user_no,account_type").eq("id", info.host_id).single(),
@@ -2832,7 +2832,7 @@ R.party = async (rid) => {
 
   const showEnded = (why) => {
     if (ended) return; ended = true;
-    $("#pySeats").outerHTML = `<div class="lv-wait" style="position:static;background:none;margin-top:120px">${avatar(hp)}<b>পার্টি শেষ হয়েছে</b><div class="tiny">${esc(why || "")}</div><a class="btn small" href="#home/live" style="margin-top:12px">অন্য লাইভ দেখুন</a></div>`;
+    $("#pySeats").outerHTML = `<div class="lv-wait" style="position:static;background:none;margin-top:120px">${avatar(hp)}<b>পার্টি শেষ হয়েছে</b><div class="tiny">${esc(why || "")}</div><a class="btn small" href="#home" style="margin-top:12px">অন্য লাইভ দেখুন</a></div>`;
     try { mic?.close(); } catch { /* */ } mic = null; try { client?.leave(); } catch { /* */ }
   };
   const ch = sb.channel("party-" + id)
@@ -2901,7 +2901,7 @@ R.party = async (rid) => {
   let likeT = 0;
   $("#pyLike")?.addEventListener("click", () => { heart(); if (Date.now() - likeT > 1500) { likeT = Date.now(); rpc("live_send", { p_room: id, p_body: "❤️", p_kind: "like" }).catch(() => {}); } });
   const endParty = async () => { await rpc("live_end", { p_room: id }).catch(() => {}); showEnded(); };
-  $("#pyEnd")?.addEventListener("click", async () => { if (confirm("পার্টি শেষ করবেন?")) { await endParty(); location.replace("#home/live"); } });
+  $("#pyEnd")?.addEventListener("click", async () => { if (confirm("পার্টি শেষ করবেন?")) { await endParty(); location.replace("#home"); } });
   $("#lvX").onclick = async () => { if (host && !ended) { if (!confirm("পার্টি শেষ করে বের হবেন?")) return; await endParty(); } history.back(); };
   cleanup = () => {
     clearInterval(hb); sb.removeChannel(ch);
@@ -3266,14 +3266,13 @@ S.disc = { lang: "", country: "" };
 try { Object.assign(S.disc, JSON.parse(localStorage.getItem("disc") || "{}")); } catch { /* */ }
 
 R.home = (tab = "video") => {
-  if (!["video", "live", "premium", "photo", "contest"].includes(tab)) tab = "video";
+  if (!["video", "premium", "photo", "contest"].includes(tab)) tab = "video";
   const f = S.disc;
   const countries = Object.keys(COUNTRY_NAMES);
   screen.innerHTML = `<div class="disc">
     <div class="disc-top">
       <div class="disc-tabs">
         <a href="#home" class="${tab === "video" ? "on" : ""}">ভিডিও</a>
-        ${setting("live_enabled", true) !== false ? `<a href="#home/live" class="${tab === "live" ? "on" : ""}"><i class="live-dot"></i>লাইভ</a>` : ""}
         <a href="#home/premium" class="${tab === "premium" ? "on" : ""}">প্রিমিয়াম</a>
         <a href="#home/photo" class="${tab === "photo" ? "on" : ""}">ফটো</a>
         <a href="#home/contest" class="${tab === "contest" ? "on" : ""}">কম্পিটিশন</a>

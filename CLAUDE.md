@@ -133,7 +133,7 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
 - Adult/18+ content: owner asked for a paid 18+ folder; declined (illegal in BD/KSA, breaks AdMob policy, CSAM risk). Don't build it.
 - Live & calls (Agora, APK ≥ v1.0.17 grants WebView camera/mic): Agora Web SDK (`agora-rtc-sdk-ng@4` from jsDelivr, lazy) runs in
   the WebView. Tokens from edge function `agora-token` (AccessToken2; verify_jwt off — it calls `agora_grant(channel)` with the
-  user's JWT; App Certificate in `private_config`). App: Home → লাইভ tab (`list_lives`), `#golive`, `#live/<id>` (host/viewer,
+  user's JWT; App Certificate in `private_config`). App: live hosts shown first in Home → ভিডিও (`list_lives`; separate লাইভ tab removed), `#golive`, `#live/<id>` (host/viewer,
   chat, hearts, gifts via `live_gift`, co-host request/accept → renewToken + publish), host profile call buttons → `#call/<id>`;
   incoming call overlay from realtime on `calls`; both sides call `call_tick` every 30 s (per-minute billing). FLAG_SECURE during
   live/calls. Admin "🔴 লাইভ ও কল" (live monitor + end, rules, call/live history); per-host call rates on the lookup page.
