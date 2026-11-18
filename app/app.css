@@ -724,3 +724,43 @@ a.mention, span.mention { color: #2563eb; font-weight: 600; }
 
 .stv a.tag, .stv a.mention, .stv span.tag, .stv span.mention { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
 .story-open .tabbar { display: none !important; }
+
+/* ✂️ pro video editor */
+.ved { margin-top: 10px; }
+.ved-wrap { display: flex; justify-content: center; background: #0b0b10; border-radius: 16px; padding: 8px; }
+.ved-stage { position: relative; overflow: hidden; border-radius: 10px; background: #000; max-width: 100%; }
+.ved-stage video { width: 100%; height: 100%; object-fit: cover; display: block; touch-action: none; }
+.ved-stage.cropping { outline: 2px dashed #a78bfa; outline-offset: -2px; }
+.ved-stage.cropping video { cursor: grab; }
+.ved-ov { position: absolute; inset: 0; pointer-events: none; }
+.stk { position: absolute; transform: translate(-50%, -50%); line-height: 1.1; white-space: nowrap; user-select: none; touch-action: none; pointer-events: auto; cursor: move; }
+.stk.txt { font-weight: 700; padding: .15em .35em; border-radius: .3em; }
+.stk.sel { outline: 2px dashed #fff; outline-offset: 3px; }
+.ved-play { display: flex; align-items: center; gap: 8px; margin: 8px 2px; font-size: 12px; color: var(--muted); }
+.ved-play button { width: 36px; height: 36px; margin: 0; padding: 0; border-radius: 50%; background: linear-gradient(135deg, #8b5cf6, #ec4899); color: #fff; border: 0; flex: none; }
+.ved-bar { position: relative; flex: 1; height: 26px; background: #ede9fe; border-radius: 8px; overflow: hidden; }
+.ved-bar i { position: absolute; top: 0; bottom: 0; background: rgba(139,92,246,.45); border-left: 3px solid #7c3aed; border-right: 3px solid #7c3aed; }
+.ved-bar b { position: absolute; top: 0; bottom: 0; width: 2px; background: #111; }
+.ved-tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 4px; }
+.ved-tabs::-webkit-scrollbar { display: none; }
+.ved-tabs button { flex: 1 0 auto; min-width: 54px; margin: 0; padding: 6px 4px; background: none; border: 0; border-radius: 10px; font-size: 11px; color: #4b4268; }
+.ved-tabs button b { display: block; font-size: 17px; line-height: 1.2; }
+.ved-tabs button.on { background: linear-gradient(135deg, #8b5cf6, #ec4899); color: #fff; }
+.ved-panel { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; margin-top: 8px; }
+.ved-panel input[type=range] { width: 100%; accent-color: #8b5cf6; margin: 2px 0 8px; }
+.ved-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.ved-chips button { width: auto; margin: 0; padding: 6px 10px; border-radius: 10px; background: #f5f3ff; border: 1.5px solid transparent; font-size: 12.5px; display: flex; align-items: center; gap: 5px; }
+.ved-chips button.on { border-color: #8b5cf6; color: #6d28d9; font-weight: 700; }
+.ved-emojis { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; max-height: 168px; overflow-y: auto; }
+.ved-emojis button { margin: 0; padding: 4px 0; background: none; border: 0; font-size: 24px; }
+.ved-sel { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12.5px; }
+.ved-sel input[type=range] { flex: 1; min-width: 120px; margin: 0; }
+.ved-sel .btn { width: auto; margin: 0; }
+.ved-colors { display: flex; align-items: center; gap: 6px; margin: 8px 0 4px; flex-wrap: wrap; }
+.ved-colors button { width: 26px; height: 26px; margin: 0; padding: 0; border-radius: 50%; border: 2px solid #e5e7eb; }
+.ved-colors button.on { border-color: #8b5cf6; box-shadow: 0 0 0 2px #ede9fe; }
+.ved-song { display: flex; gap: 10px; align-items: center; background: #f5f3ff; border-radius: 12px; padding: 8px 10px; margin: 8px 0; }
+.ved-song .disc { font-size: 20px; animation: spin 3s linear infinite; } .ved-song b { display: block; font-size: 13.5px; } .ved-song small { font-size: 11.5px; color: var(--muted); }
+.ved-wave { position: relative; height: 34px; border-radius: 8px; margin-bottom: 4px;
+  background: repeating-linear-gradient(90deg, #c4b5fd 0 2px, transparent 2px 5px), #f5f3ff; background-size: 5px 60%, auto; background-position: 0 center; background-repeat: repeat-x; }
+.ved-wave i { position: absolute; top: 0; bottom: 0; background: rgba(236,72,153,.28); border: 2px solid #ec4899; border-radius: 6px; }

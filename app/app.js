@@ -699,7 +699,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
         feedEl.appendChild(el);
         obs.observe(el);
       }
-      if (rows.length) sb.from("videos").select("id,music_id,music_start,fx,orig_muted,music:music_id(url,title,artist)").in("id", rows.map((r) => r.id)).then(({ data }) => {
+      if (rows.length) sb.from("videos").select("id,music_id,music_start,fx,orig_muted,music_baked,music:music_id(url,title,artist)").in("id", rows.map((r) => r.id)).then(({ data }) => {
         for (const x of data ?? []) {
           const el = newEls.find((e) => e._v.id === x.id); if (!el) continue;
           el._x = x; el._v._x = x;
@@ -768,7 +768,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
       if (tapT) { clearTimeout(tapT); tapT = null; doLike(el, true, e); return; }
       tapT = setTimeout(() => {
         tapT = null;
-        if (video.paused) { video.play().catch(() => {}); el.querySelector(".paused-ic")?.remove(); if (el._x?.music?.url) bgmPlay(el._x.music.url, el._x.music_start || 0); }
+        if (video.paused) { video.play().catch(() => {}); el.querySelector(".paused-ic")?.remove(); if (el._x?.music?.url && !el._x.music_baked) bgmPlay(el._x.music.url, el._x.music_start || 0); }
         else { video.pause(); BGM.pause(); el.insertAdjacentHTML("beforeend", `<div class="paused-ic">▶</div>`); }
       }, 260);
     });
@@ -802,7 +802,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
 
   function slideMusic(el) {
     const x = el?._x;
-    if (!x?.music?.url || el._v.locked) return bgmStop();
+    if (!x?.music?.url || x.music_baked || el._v.locked) return bgmStop();
     const vd = el.querySelector("video");
     if (x.orig_muted) vd.muted = true;
     if (!vd.paused || vd.readyState < 2) bgmPlay(x.music.url, x.music_start || 0);
@@ -984,14 +984,21 @@ function doReport(v) {
 }
 
 // ---------------- UPLOAD ----------------
+// ---------------- ভিডিও আপলোড + এডিটর ----------------
+const EMOJIS = "😀 😂 🤣 😍 🥰 😘 😎 🤩 🥳 😇 🤔 😢 😭 😡 🤯 😱 👍 👏 🙏 💪 ✌️ 👌 ❤️ 🧡 💛 💚 💙 💜 🖤 💔 🔥 ✨ ⭐ 🌟 💯 🎉 🎂 🎁 🌹 🌸 🌙 ☀️ 🌈 ⚡ 💥 🎵 🎶 📍 🇧🇩 🇸🇦 🕌 ☕ 🍔 🚗 ✈️ 🏆 👑 💎 💰".split(" ");
+const TXT_COLORS = ["#ffffff", "#000000", "#facc15", "#ef4444", "#22c55e", "#3b82f6", "#ec4899", "#a855f7"];
+const CROP_RATIOS = [["orig", "মূল", 0], ["9:16", "9:16", 9 / 16], ["1:1", "1:1", 1], ["4:5", "4:5", 4 / 5], ["3:4", "3:4", 3 / 4], ["16:9", "16:9", 16 / 9]];
+
 R.upload = () => {
   const maxSec = Number(setting("max_video_sec", 90));
+  const pro = !!Native?.editAndUpload;
   screen.innerHTML = `<div class="page">${header("আপলোড", false)}
     <div class="seg" style="margin-top:0"><button class="on">🎬 ভিডিও</button><button onclick="location.hash='#newphoto'">📷 ফটো</button><button onclick="location.hash='#newstory'">📖 স্টোরি</button><button onclick="location.hash='#texts';setTimeout(()=>document.getElementById('newT')?.click(),300)">✍️ লেখা</button></div>
     <label class="pick" id="pickL"><input type="file" id="vf" accept="video/*" class="hidden"><div class="ic">🎬</div>
-      <b>ভিডিও বেছে নিন</b><div class="muted tiny">সর্বোচ্চ ${maxSec} সেকেন্ড · খাড়া (9:16) ভিডিও সবচেয়ে ভালো দেখায়</div></label>
+      <b>ভিডিও বেছে নিন</b><div class="muted tiny">${pro ? `লম্বা ভিডিও কেটে ${maxSec} সেকেন্ডের মধ্যে আনা যাবে` : `সর্বোচ্চ ${maxSec} সেকেন্ড`} · খাড়া (9:16) ভিডিও সবচেয়ে ভালো দেখায়</div></label>
+    ${pro ? "" : `<p class="notice tiny">✂️ ভিডিও কাটা, ক্রপ, স্টিকার ও নিজের গান যোগ করতে অ্যাপ আপডেট করুন।</p>`}
+    <div id="ved"></div>
     <video id="pv" class="preview hidden" controls playsinline></video>
-    <div id="vframe"></div>
     <div id="mtools" class="hidden"></div>
     <label class="lbl">ক্যাটাগরি</label>
     <select id="cat">${CATS.filter(([k]) => k && k !== "premium").map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select>
@@ -1001,18 +1008,18 @@ R.upload = () => {
       <label class="toggle"><span><b>👑 প্রিমিয়াম ভিডিও</b><div class="tiny muted">দর্শক কয়েন দিয়ে দেখবে, আপনি পাবেন ${n(setting("premium_creator_pct", 60))}%। অনুমোদিত হোস্টরা ফ্রি দেখবে। অ্যাডমিন দেখে অনুমোদন দেবেন।</div></span><input type="checkbox" id="prem"></label>
       <div id="premBox" class="hidden"><span class="lbl">কত কয়েন লাগবে</span><input id="premC" type="number" min="1" max="100000" value="${Number(setting("premium_default_coins", 10))}">
         <p class="notice tiny" translate="no">⚠️ ${esc(setting("premium_notice", ""))}</p></div></div>`}
-    <label class="lbl">ক্যাপশন (#হ্যাশট্যাগ দিন)</label>
+    <label class="lbl">ক্যাপশন (#হ্যাশট্যাগ, @মেনশন দিন)</label>
     <textarea id="cap" maxlength="2200" placeholder="ভিডিও সম্পর্কে লিখুন… #funny #bangla"></textarea>
     <button class="btn primary" id="up" disabled>আপলোড করুন</button>
     <div class="progress hidden" id="pg"><div></div></div>
     <p id="msg" class="muted tiny"></p>
     <p class="muted tiny" id="quota"></p>
     <p class="muted tiny">আপলোডের পর ভিডিও অল্প সময় পর্যালোচনায় থাকবে, তারপর সবাই দেখতে পাবে।</p>
-    <p class="muted tiny">অশ্লীল, সহিংস বা অন্যের কপিরাইট করা ভিডিও আপলোড করলে অ্যাকাউন্ট ব্লক ও ইনকাম বাতিল হবে।</p></div>`;
+    <p class="muted tiny">অশ্লীল, সহিংস বা অন্যের কপিরাইট করা ভিডিও বা গান আপলোড করলে অ্যাকাউন্ট ব্লক ও ইনকাম বাতিল হবে।</p></div>`;
   attachSuggest($("#cap"));
   if (S.tagDraft) { $("#cap").value = S.tagDraft; S.tagDraft = null; }
   const vf = $("#vf"), pv = $("#pv");
-  let file = null, duration = 0, vFrame = "orig", mt = null;
+  let file = null, duration = 0, mt = null, ed = null;
   $("#prem").onchange = (e) => $("#premBox").classList.toggle("hidden", !e.target.checked);
   rpc("my_upload_quota").then((q) => {
     const left = Math.max(0, q.limit - q.used);
@@ -1023,35 +1030,31 @@ R.upload = () => {
     file = vf.files[0];
     if (!file) return;
     if (file.size > 50 * 1024 * 1024) { toast(`ফাইল ${(file.size / 1048576).toFixed(0)}MB — সর্বোচ্চ 50MB`, true); file = null; return; }
-    pv.src = URL.createObjectURL(file);
-    pv.classList.remove("hidden");
+    const url = URL.createObjectURL(file);
+    const pk = $("#pickL"); pk.classList.add("pick-sm"); pk.querySelector("b").textContent = "🎬 অন্য ভিডিও বেছে নিন";
+    if (pro) {
+      pv.classList.add("hidden");
+      ed = videoEditor($("#ved"), url, maxSec, (ok) => ($("#up").disabled = !ok));
+      return;
+    }
+    pv.src = url; pv.classList.remove("hidden");
     pv.onloadedmetadata = () => {
       duration = Math.round(pv.duration || 0);
       if (duration > maxSec + 1) { toast(`ভিডিও ${duration} সেকেন্ড — সর্বোচ্চ ${maxSec} সেকেন্ড`, true); file = null; $("#up").disabled = true; return; }
       $("#up").disabled = false;
-      if (!mt) { $("#mtools").classList.remove("hidden"); mt = mediaTools($("#mtools"), pv, { kind: "video" }); }
-      const vw = pv.videoWidth, vh = pv.videoHeight;
       $("#msg").textContent = `${duration} সেকেন্ড · ${(file.size / 1048576).toFixed(1)}MB`;
-      const fr = nearestFrame(vw, vh);
-      vFrame = FRAMES.some((f) => f[0] === fr) ? fr : "orig";
-      $("#vframe").innerHTML = vw ? `<div class="tiny muted" style="margin-top:8px">📐 ভিডিওর আসল ফ্রেম: <b>${fr}</b> · ${vw}×${vh}</div>
-        ${frameChips("vfr", vFrame)}
-        <div class="tiny muted" id="vfrHint"></div>` : "";
-      const applyFrame = () => {
-        const f = FRAMES.find((x) => x[0] === vFrame);
-        pv.style.aspectRatio = vFrame === "orig" ? "" : String(f[2]);
-        pv.style.objectFit = vFrame === "orig" ? "" : "cover";
-        pv.style.width = vFrame === "orig" ? "" : `min(100%, ${(50 * f[2]).toFixed(2)}vh)`;
-        $("#vfrHint").textContent = vFrame === "orig" ? "মূল সাইজে পুরো ভিডিও দেখাবে" : vFrame === "9:16" ? "পুরো স্ক্রিন জুড়ে দেখাবে (দরকার হলে পাশ কেটে)" : `${f[1]} ফ্রেমে দেখাবে — ফ্রেমের বাইরের অংশ কাটা পড়বে`;
-      };
-      $("#vfr").onclick = (ev) => {
-        const b = ev.target.closest("button[data-f]"); if (!b) return;
-        vFrame = b.dataset.f;
-        $("#vfr").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
-        applyFrame();
-      };
-      applyFrame();
+      if (!mt) { $("#mtools").classList.remove("hidden"); mt = mediaTools($("#mtools"), pv, { kind: "video" }); }
     };
+  };
+  const finish = async (id, extras) => {
+    await rpc("set_video_category", { p_id: id, p_category: $("#cat").value }).catch(() => {});
+    if (extras) await rpc("set_media_extras", extras(id)).catch(() => {});
+    const prem = $("#prem").checked;
+    if (prem) await rpc("set_video_premium", { p_video: id, p_premium: true, p_coins: Number($("#premC").value) || null });
+    bgmStop();
+    const mins = Number(setting("auto_approve_minutes", 2));
+    toast(prem ? "আপলোড হয়েছে ✅ প্রিমিয়াম ভিডিও অ্যাডমিন অনুমোদনের পর প্রকাশিত হবে" : mins > 0 ? `আপলোড হয়েছে ✅ ${mins} মিনিটের মধ্যে প্রকাশিত হবে` : "আপলোড হয়েছে ✅ অ্যাডমিন অ্যাপ্রুভ করলে প্রকাশিত হবে");
+    setTimeout(() => (location.hash = "#u/" + S.me.id), 900);
   };
   $("#up").onclick = async () => {
     if (!file) return;
@@ -1059,6 +1062,32 @@ R.upload = () => {
     const pg = $("#pg"); pg.classList.remove("hidden");
     const setP = (x, m) => { pg.firstElementChild.style.width = Math.round(x) + "%"; $("#msg").textContent = m; };
     try {
+      if (pro && ed) {
+        ed.pause();
+        const spec = await ed.spec();
+        const stamp = Date.now();
+        const vPath = `${S.me.id}/${stamp}.mp4`, tPath = `${S.me.id}/${stamp}.jpg`;
+        const { data: { session } } = await sb.auth.getSession();
+        spec.up = { base: SUPABASE_URL, key: SUPABASE_KEY, token: session.access_token, vPath, tPath };
+        const res = await new Promise((resolve, reject) => {
+          window.onEditState = (st) => {
+            if (st.state === "processing") setP(st.p * 0.6, `🎬 ভিডিও তৈরি হচ্ছে… ${st.p}%`);
+            else if (st.state === "uploading") setP(60 + st.p * 0.38, `⬆️ আপলোড হচ্ছে… ${st.p}%`);
+            else if (st.state === "done") resolve(st.x || {});
+            else if (st.state === "busy") reject(new Error("আগের কাজ শেষ হতে দিন"));
+            else if (st.state === "error") reject(new Error(st.x === "music" ? "গান লোড করা যায়নি" : st.x === "upload" ? "আপলোড হয়নি — ইন্টারনেট দেখুন" : st.x === "nofile" ? "ভিডিওটি আবার বেছে নিন" : "এই ভিডিও এডিট করা যায়নি — অন্য ভিডিও চেষ্টা করুন"));
+          };
+          Native.editAndUpload(JSON.stringify(spec));
+        });
+        setP(99, "শেষ করা হচ্ছে…");
+        const vUrl = sb.storage.from("videos").getPublicUrl(vPath).data.publicUrl;
+        const tUrl = res.thumb ? sb.storage.from("thumbs").getPublicUrl(tPath).data.publicUrl : null;
+        const id = await rpc("create_video", { p_video_path: vPath, p_video_url: vUrl, p_thumb_url: tUrl, p_caption: $("#cap").value, p_duration: res.dur || spec._len });
+        if (spec._frame) await rpc("set_video_frame", { p_video: id, p_frame: spec._frame }).catch(() => {});
+        setP(100, "✅ আপলোড সম্পন্ন!");
+        await finish(id, spec._libMusic ? (vid) => ({ p_kind: "video", p_id: vid, p_music: spec._libMusic, p_start: Math.round((spec.music?.s || 0) / 1000), p_fx: null, p_mute: false, p_baked: true }) : null);
+        return;
+      }
       setP(2, "থাম্বনেইল তৈরি হচ্ছে…");
       const thumb = await makeThumb(pv);
       const stamp = Date.now();
@@ -1070,19 +1099,183 @@ R.upload = () => {
       if (thumb) { await xhrUpload("thumbs", tPath, thumb, "image/jpeg", () => {}); tUrl = sb.storage.from("thumbs").getPublicUrl(tPath).data.publicUrl; }
       const vUrl = sb.storage.from("videos").getPublicUrl(vPath).data.publicUrl;
       const id = await rpc("create_video", { p_video_path: vPath, p_video_url: vUrl, p_thumb_url: tUrl, p_caption: $("#cap").value, p_duration: duration });
-      await rpc("set_video_category", { p_id: id, p_category: $("#cat").value }).catch(() => {});
-      if (vFrame !== "orig") await rpc("set_video_frame", { p_video: id, p_frame: vFrame }).catch(() => {});
-      if (mt && (mt.music || !fxEmpty(mt.fx))) await rpc("set_media_extras", { p_kind: "video", p_id: id, p_music: mt.music?.id ?? null, p_start: mt.start, p_fx: fxEmpty(mt.fx) ? null : mt.fx, p_mute: !!mt.mute }).catch(() => {});
-      const prem = $("#prem").checked;
-      if (prem) await rpc("set_video_premium", { p_video: id, p_premium: true, p_coins: Number($("#premC").value) || null });
       setP(100, "✅ আপলোড সম্পন্ন!");
-      const mins = Number(setting("auto_approve_minutes", 2));
-      toast(prem ? "আপলোড হয়েছে ✅ প্রিমিয়াম ভিডিও অ্যাডমিন অনুমোদনের পর প্রকাশিত হবে" : mins > 0 ? `আপলোড হয়েছে ✅ ${mins} মিনিটের মধ্যে প্রকাশিত হবে` : "আপলোড হয়েছে ✅ অ্যাডমিন অ্যাপ্রুভ করলে প্রকাশিত হবে");
-      void id;
-      setTimeout(() => (location.hash = "#u/" + S.me.id), 900);
+      await finish(id, mt && (mt.music || !fxEmpty(mt.fx)) ? (vid) => ({ p_kind: "video", p_id: vid, p_music: mt.music?.id ?? null, p_start: mt.start, p_fx: fxEmpty(mt.fx) ? null : mt.fx, p_mute: !!mt.mute, p_baked: false }) : null);
     } catch (e) { toast(errMsg(e), true); $("#msg").textContent = "ব্যর্থ: " + errMsg(e); btn.disabled = false; }
   };
 };
+
+// প্রো ভিডিও এডিটর (APK ≥ 1.0.16): কাটা · ক্রপ · স্টিকার · লেখা · গান · সাউন্ড · ফিল্টার
+function videoEditor(box, url, maxSec, onValid) {
+  const E = { s: 0, e: 0, dur: 0, ratio: "orig", px: 0.5, py: 0.5, stickers: [], sel: null, music: null, mS: 0, mVol: 100, oVol: 100, fx: { f: "none", b: 100, c: 100, s: 100 } };
+  box.innerHTML = `<div class="ved">
+    <div class="ved-wrap"><div class="ved-stage" id="vs"><video id="vv" playsinline loop src="${url}"></video><div class="ved-ov" id="vo"></div></div></div>
+    <div class="ved-play"><button type="button" id="vpp">▶</button><span id="vtime">0:00</span><div class="ved-bar" id="vbar"><i id="vbsel"></i><b id="vbcur"></b></div><span id="vlen"></span></div>
+    <div class="ved-tabs" id="vt">${[["trim", "✂️", "কাটুন"], ["crop", "⛶", "ক্রপ"], ["emoji", "😀", "ইমোজি"], ["text", "Aa", "লেখা"], ["music", "🎵", "গান"], ["sound", "🔊", "সাউন্ড"], ["fx", "🎨", "ফিল্টার"]]
+      .map(([k, i, l], j) => `<button type="button" data-t="${k}" class="${j === 0 ? "on" : ""}"><b>${i}</b><span>${l}</span></button>`).join("")}</div>
+    <div class="ved-panel" id="vp"></div></div>`;
+  const v = $("#vv", box), stage = $("#vs", box), ov = $("#vo", box);
+  let tab = "trim";
+  const len = () => Math.max(0, E.e - E.s);
+  const valid = () => E.dur > 0 && len() >= 1 && len() <= maxSec + 0.5;
+  const fmt = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+  const ratioVal = () => CROP_RATIOS.find((r) => r[0] === E.ratio)?.[2] || (v.videoWidth ? v.videoWidth / v.videoHeight : 9 / 16);
+  const layout = () => {
+    const r = ratioVal();
+    stage.style.aspectRatio = String(r);
+    stage.style.width = `min(100%, ${(56 * r).toFixed(2)}vh)`;
+    v.style.objectPosition = `${E.px * 100}% ${E.py * 100}%`;
+    v.style.filter = fxCss(E.fx);
+    v.volume = E.oVol / 100; BGM.volume = E.mVol / 100;
+  };
+  const bar = () => {
+    if (!E.dur) return;
+    $("#vbsel", box).style.left = (E.s / E.dur) * 100 + "%"; $("#vbsel", box).style.width = (len() / E.dur) * 100 + "%";
+    $("#vbcur", box).style.left = (v.currentTime / E.dur) * 100 + "%";
+    $("#vtime", box).textContent = fmt(v.currentTime); $("#vlen", box).textContent = `${fmt(len())}${len() > maxSec + 0.5 ? " ⚠️" : ""}`;
+  };
+  const musicStart = () => { if (E.music) bgmPlay(E.music.url, E.mS + Math.max(0, v.currentTime - E.s)); };
+  v.addEventListener("loadedmetadata", () => {
+    E.dur = v.duration || 0; E.e = Math.min(E.dur, maxSec);
+    layout(); bar(); panel(); onValid(valid());
+    if (E.dur > maxSec + 0.5) toast(`ভিডিও ${Math.round(E.dur)} সেকেন্ড — "কাটুন" দিয়ে ${maxSec} সেকেন্ডের মধ্যে আনুন`);
+  });
+  v.addEventListener("timeupdate", () => { if (v.currentTime > E.e || v.currentTime < E.s - 0.3) { v.currentTime = E.s; if (E.music && !v.paused) bgmPlay(E.music.url, E.mS); } bar(); });
+  v.addEventListener("play", () => { $("#vpp", box).textContent = "⏸"; S.muted = false; if (E.music) { BGM.pause(); BGM._url = null; musicStart(); } });
+  v.addEventListener("pause", () => { $("#vpp", box).textContent = "▶"; BGM.pause(); });
+  $("#vpp", box).onclick = () => (v.paused ? v.play().catch(() => {}) : v.pause());
+  $("#vbar", box).onclick = (e) => { const r = $("#vbar", box).getBoundingClientRect(); v.currentTime = Math.max(E.s, Math.min(E.e, ((e.clientX - r.left) / r.width) * E.dur)); };
+  // ক্রপ: ভিডিও টেনে সরানো
+  let drag = null;
+  v.addEventListener("pointerdown", (e) => { if (tab !== "crop" || E.ratio === "orig") return; drag = { x: e.clientX, y: e.clientY, px: E.px, py: E.py }; v.setPointerCapture(e.pointerId); });
+  v.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const r = stage.getBoundingClientRect(), vr = v.videoWidth / v.videoHeight, sr = ratioVal();
+    if (vr > sr) E.px = Math.max(0, Math.min(1, drag.px - (e.clientX - drag.x) / (r.width * (vr / sr - 1) || 1)));
+    else E.py = Math.max(0, Math.min(1, drag.py - (e.clientY - drag.y) / (r.height * (sr / vr - 1) || 1)));
+    layout();
+  });
+  v.addEventListener("pointerup", () => (drag = null));
+  // স্টিকার
+  const drawStickers = () => {
+    ov.innerHTML = E.stickers.map((st, i) => `<div class="stk ${E.sel === i ? "sel" : ""} ${st.t === "text" ? "txt" : ""}" data-i="${i}" style="left:${st.x * 100}%;top:${st.y * 100}%;font-size:${st.size * stage.clientWidth}px;${st.t === "text" ? `color:${st.color};${st.bg ? `background:${st.color === "#ffffff" ? "rgba(0,0,0,.55)" : "rgba(255,255,255,.85)"};` : ""}` : ""}">${esc(st.v)}</div>`).join("");
+  };
+  let sd = null;
+  ov.addEventListener("pointerdown", (e) => {
+    const el = e.target.closest(".stk"); if (!el) return;
+    const i = Number(el.dataset.i); E.sel = i; sd = { i, x: e.clientX, y: e.clientY, sx: E.stickers[i].x, sy: E.stickers[i].y };
+    el.setPointerCapture(e.pointerId); drawStickers(); if (tab === "emoji" || tab === "text") panel();
+  });
+  ov.addEventListener("pointermove", (e) => {
+    if (!sd) return;
+    const r = stage.getBoundingClientRect(), st = E.stickers[sd.i];
+    st.x = Math.max(0.03, Math.min(0.97, sd.sx + (e.clientX - sd.x) / r.width)); st.y = Math.max(0.03, Math.min(0.97, sd.sy + (e.clientY - sd.y) / r.height));
+    const el = ov.querySelector(`[data-i="${sd.i}"]`); if (el) { el.style.left = st.x * 100 + "%"; el.style.top = st.y * 100 + "%"; }
+  });
+  ov.addEventListener("pointerup", () => (sd = null));
+  const selTools = () => E.sel != null && E.stickers[E.sel] ? `<div class="ved-sel"><span>নির্বাচিত: <b>${esc(E.stickers[E.sel].v.slice(0, 12))}</b></span>
+      <label class="tiny">সাইজ</label><input type="range" id="ssz" min="4" max="40" value="${Math.round(E.stickers[E.sel].size * 100)}"><button type="button" class="btn small" id="sdel">🗑️ মুছুন</button></div>` : `<p class="tiny muted">স্টিকারে চেপে ধরে টেনে জায়গা বদলান</p>`;
+  const bindSel = () => {
+    $("#ssz", box)?.addEventListener("input", (e) => { E.stickers[E.sel].size = Number(e.target.value) / 100; drawStickers(); });
+    $("#sdel", box)?.addEventListener("click", () => { E.stickers.splice(E.sel, 1); E.sel = null; drawStickers(); panel(); });
+  };
+  function panel() {
+    const P = $("#vp", box);
+    box.querySelectorAll("#vt button").forEach((b) => b.classList.toggle("on", b.dataset.t === tab));
+    stage.classList.toggle("cropping", tab === "crop" && E.ratio !== "orig");
+    if (tab === "trim") {
+      P.innerHTML = `<div class="tiny muted">পুরো ভিডিও ${fmt(E.dur)} · রাখবেন <b>${fmt(len())}</b> (সর্বোচ্চ ${fmt(maxSec)})</div>
+        <label class="tiny">শুরু: <b id="ts">${fmt(E.s)}</b></label><input type="range" id="trs" min="0" max="${E.dur.toFixed(1)}" step="0.1" value="${E.s}">
+        <label class="tiny">শেষ: <b id="te">${fmt(E.e)}</b></label><input type="range" id="tre" min="0" max="${E.dur.toFixed(1)}" step="0.1" value="${E.e}">
+        <div class="row-btns"><button type="button" class="btn small" id="tsNow">⏱ এখান থেকে শুরু</button><button type="button" class="btn small" id="teNow">⏱ এখানে শেষ</button></div>`;
+      const upd = () => { $("#ts", box).textContent = fmt(E.s); $("#te", box).textContent = fmt(E.e); bar(); onValid(valid()); P.querySelector(".tiny b").textContent = fmt(len()); };
+      $("#trs", box).oninput = (e) => { E.s = Math.min(Number(e.target.value), E.e - 1); e.target.value = E.s; v.currentTime = E.s; upd(); };
+      $("#tre", box).oninput = (e) => { E.e = Math.max(Number(e.target.value), E.s + 1); e.target.value = E.e; v.currentTime = Math.max(E.s, E.e - 2); upd(); };
+      $("#tsNow", box).onclick = () => { E.s = Math.min(v.currentTime, E.e - 1); $("#trs", box).value = E.s; upd(); };
+      $("#teNow", box).onclick = () => { E.e = Math.max(v.currentTime, E.s + 1); $("#tre", box).value = E.e; upd(); };
+    } else if (tab === "crop") {
+      P.innerHTML = `<div class="ved-chips">${CROP_RATIOS.map(([k, l, r]) => `<button type="button" data-r="${k}" class="${E.ratio === k ? "on" : ""}">${FRAME_ICON(r)}${l}</button>`).join("")}</div>
+        <p class="tiny muted">${E.ratio === "orig" ? "মূল সাইজে পুরো ভিডিও থাকবে" : "👆 ভিডিও টেনে কোন অংশ রাখবেন ঠিক করুন — বাইরের অংশ কেটে যাবে"}</p>`;
+      P.querySelectorAll("[data-r]").forEach((b) => (b.onclick = () => { E.ratio = b.dataset.r; E.px = 0.5; E.py = 0.5; layout(); drawStickers(); panel(); }));
+    } else if (tab === "emoji") {
+      P.innerHTML = `<div class="ved-emojis">${EMOJIS.map((x) => `<button type="button" data-e="${x}">${x}</button>`).join("")}</div>${selTools()}`;
+      P.querySelectorAll("[data-e]").forEach((b) => (b.onclick = () => { E.stickers.push({ t: "emoji", v: b.dataset.e, x: 0.5, y: 0.4, size: 0.16 }); E.sel = E.stickers.length - 1; drawStickers(); panel(); }));
+      bindSel();
+    } else if (tab === "text") {
+      P.innerHTML = `<div class="row" style="gap:6px"><input id="tx" maxlength="60" placeholder="ভিডিওর উপর লেখা…" style="flex:1;margin:0"><button type="button" class="btn small primary" id="txAdd" style="width:auto;margin:0">যোগ</button></div>
+        <div class="ved-colors">${TXT_COLORS.map((c, i) => `<button type="button" data-c="${c}" style="background:${c}" class="${i === 0 ? "on" : ""}"></button>`).join("")}<label class="tiny"><input type="checkbox" id="txBg" checked style="width:auto"> পটভূমি</label></div>${selTools()}`;
+      let col = TXT_COLORS[0];
+      P.querySelectorAll("[data-c]").forEach((b) => (b.onclick = () => { col = b.dataset.c; P.querySelectorAll("[data-c]").forEach((x) => x.classList.toggle("on", x === b)); const st = E.stickers[E.sel]; if (st?.t === "text") { st.color = col; drawStickers(); } }));
+      $("#txAdd", box).onclick = () => { const t = $("#tx", box).value.trim(); if (!t) return; E.stickers.push({ t: "text", v: t, x: 0.5, y: 0.75, size: 0.07, color: col, bg: $("#txBg", box).checked }); E.sel = E.stickers.length - 1; $("#tx", box).value = ""; drawStickers(); panel(); };
+      bindSel();
+    } else if (tab === "music") {
+      const md = E.music?.duration_sec || 0, maxStart = Math.max(0, md - Math.min(len(), md));
+      P.innerHTML = `<div class="row-btns"><button type="button" class="btn small" id="mLib">🎵 অ্যাপের গান</button><label class="btn small">📁 ফোনের গান<input type="file" id="mOwn" accept="audio/*" class="hidden"></label>${E.music ? `<button type="button" class="btn small" id="mRm">🚫 বাদ</button>` : ""}</div>
+        ${E.music ? `<div class="ved-song"><span class="disc">🎵</span><span><b translate="no">${esc(E.music.title)}</b><small translate="no">${E.music.local ? "📁 আপনার ফোন থেকে" : esc(E.music.artist ?? "")} · ${fmt(md)}</small></span></div>
+          <label class="tiny">✂️ গানের কোন অংশ বাজবে: <b id="mseg">${fmt(E.mS)} – ${fmt(Math.min(md, E.mS + len()))}</b></label>
+          <input type="range" id="mst" min="0" max="${maxStart.toFixed(1)}" step="0.5" value="${Math.min(E.mS, maxStart)}">
+          <div class="ved-wave" id="mwave"><i style="left:${md ? (E.mS / md) * 100 : 0}%;width:${md ? (Math.min(len(), md) / md) * 100 : 100}%"></i></div>
+          <p class="tiny muted">স্লাইডার সরিয়ে গানের পছন্দের অংশ বাছুন। ▶ চেপে ভিডিওর সাথে শুনে দেখুন।</p>`
+        : `<p class="tiny muted">অ্যাপের তালিকা থেকে গান বাছুন, অথবা নিজের ফোনের গান দিন। নিজের গান দিলে তা যেন আপনার নিজের বা অনুমতিপ্রাপ্ত হয়।</p>`}`;
+      $("#mLib", box).onclick = async () => { v.pause(); const r = await pickMusic(E.music?.local ? null : E.music); if (r === "remove") E.music = null; else if (r?.music) { E.music = r.music; E.mS = 0; } panel(); };
+      $("#mOwn", box).onchange = (e) => {
+        const f = e.target.files[0]; if (!f) return;
+        if (f.size > 20 * 1048576) return toast("গানের ফাইল 20MB-এর বেশি", true);
+        const a = new Audio(URL.createObjectURL(f));
+        a.onloadedmetadata = () => { E.music = { local: true, title: (f.name || "আমার গান").replace(/\.[^.]+$/, "").slice(0, 60), url: a.src, duration_sec: Math.round(a.duration || 0) }; E.mS = 0; panel(); v.currentTime = E.s; v.play().catch(() => {}); };
+        a.onerror = () => toast("এই গানের ফাইল চালানো যায়নি", true);
+      };
+      $("#mRm", box)?.addEventListener("click", () => { E.music = null; bgmStop(); panel(); });
+      $("#mst", box)?.addEventListener("input", (e) => { E.mS = Number(e.target.value); $("#mseg", box).textContent = `${fmt(E.mS)} – ${fmt(Math.min(md, E.mS + len()))}`; $("#mwave i", box).style.left = (md ? (E.mS / md) * 100 : 0) + "%"; });
+      $("#mst", box)?.addEventListener("change", () => { v.currentTime = E.s; if (!v.paused) musicStart(); else v.play().catch(() => {}); });
+    } else if (tab === "sound") {
+      P.innerHTML = `<label class="tiny">🎬 ভিডিওর আসল সাউন্ড: <b id="ovv">${E.oVol}%</b></label><input type="range" id="ovr" min="0" max="100" value="${E.oVol}">
+        <label class="tiny">🎵 গানের সাউন্ড: <b id="mvv">${E.mVol}%</b></label><input type="range" id="mvr" min="0" max="100" value="${E.mVol}" ${E.music ? "" : "disabled"}>
+        <p class="tiny muted">${E.music ? "আসল সাউন্ড ০% করলে শুধু গান শোনা যাবে।" : "গান যোগ করলে দুটোর ভলিউম আলাদা করে ঠিক করতে পারবেন।"}</p>`;
+      $("#ovr", box).oninput = (e) => { E.oVol = Number(e.target.value); $("#ovv", box).textContent = E.oVol + "%"; layout(); };
+      $("#mvr", box).oninput = (e) => { E.mVol = Number(e.target.value); $("#mvv", box).textContent = E.mVol + "%"; layout(); };
+    } else if (tab === "fx") {
+      P.innerHTML = `<div class="fxrow">${FX_PRESETS.map(([k, l, c]) => `<button type="button" data-f="${k}" class="${E.fx.f === k ? "on" : ""}"><i style="filter:${c}"></i><span>${l}</span></button>`).join("")}</div>
+        ${[["b", "☀️ উজ্জ্বলতা"], ["c", "◐ কনট্রাস্ট"], ["s", "🌈 রং"]].map(([k, l]) => `<label class="tiny">${l} <b id="fv${k}">${E.fx[k]}%</b></label><input type="range" min="50" max="150" value="${E.fx[k]}" data-k="${k}">`).join("")}`;
+      P.querySelectorAll("[data-f]").forEach((b) => (b.onclick = () => { E.fx.f = b.dataset.f; P.querySelectorAll("[data-f]").forEach((x) => x.classList.toggle("on", x === b)); layout(); }));
+      P.querySelectorAll("input[data-k]").forEach((r) => (r.oninput = () => { E.fx[r.dataset.k] = Number(r.value); $("#fv" + r.dataset.k, box).textContent = r.value + "%"; layout(); }));
+    }
+  }
+  box.querySelector("#vt").onclick = (e) => { const b = e.target.closest("[data-t]"); if (!b) return; tab = b.dataset.t; panel(); };
+  window.addEventListener("resize", drawStickers);
+  return {
+    pause: () => { v.pause(); bgmStop(); },
+    async spec() {
+      const vw = v.videoWidth, vh = v.videoHeight, vr = vw / vh, sr = ratioVal();
+      let crop = null;
+      if (E.ratio !== "orig" && vw) {
+        if (vr > sr) { const w = sr / vr; crop = { x: (1 - w) * E.px, y: 0, w, h: 1 }; } else { const h = vr / sr; crop = { x: 0, y: (1 - h) * E.py, w: 1, h }; }
+      }
+      let overlay = "";
+      if (E.stickers.length) {
+        const W = 1080, H = Math.round(W / sr), c = document.createElement("canvas"); c.width = W; c.height = H;
+        const cx = c.getContext("2d"); cx.textAlign = "center"; cx.textBaseline = "middle";
+        for (const st of E.stickers) {
+          const fs = st.size * W, x = st.x * W, y = st.y * H;
+          if (st.t === "emoji") { cx.font = `${fs}px sans-serif`; cx.fillText(st.v, x, y); continue; }
+          cx.font = `700 ${fs}px sans-serif`;
+          if (st.bg) { const tw = cx.measureText(st.v).width; cx.fillStyle = st.color === "#ffffff" ? "rgba(0,0,0,.55)" : "rgba(255,255,255,.85)"; cx.beginPath(); cx.roundRect?.(x - tw / 2 - fs * 0.3, y - fs * 0.7, tw + fs * 0.6, fs * 1.4, fs * 0.3); cx.fill(); }
+          cx.fillStyle = st.color; cx.fillText(st.v, x, y);
+        }
+        overlay = c.toDataURL("image/png");
+      }
+      const md = E.music?.duration_sec || 0;
+      const fr = CROP_RATIOS.find((r) => r[0] === E.ratio);
+      return {
+        trim: { s: Math.round(E.s * 1000), e: Math.round(E.e * 1000) }, crop, overlay, fx: fxEmpty(E.fx) ? null : E.fx,
+        music: E.music ? { src: E.music.local ? "local" : "url", url: E.music.local ? "" : E.music.url, s: Math.round(E.mS * 1000), e: Math.round(Math.min(md || 1e6, E.mS + len()) * 1000) } : null,
+        ov: E.oVol / 100, mv: E.mVol / 100,
+        _libMusic: E.music && !E.music.local ? E.music.id : null, _len: Math.round(len()),
+        _frame: fr && FRAMES.some((f) => f[0] === E.ratio) ? E.ratio : null,
+      };
+    },
+  };
+}
 
 async function makeThumb(video) {
   try {
@@ -1936,10 +2129,10 @@ async function downloadVideo(v) {
   }
   if (!v.video_url) return;
   if (v._x === undefined) {
-    const { data } = await sb.from("videos").select("music_start,fx,orig_muted,music:music_id(url)").eq("id", v.id).maybeSingle();
+    const { data } = await sb.from("videos").select("music_start,fx,orig_muted,music_baked,music:music_id(url)").eq("id", v.id).maybeSingle();
     v._x = data ?? null;
   }
-  const x = v._x;
+  const x = v._x?.music_baked ? null : v._x;
   const hasExtra = !!(x?.music?.url || (x?.fx && !fxEmpty(x.fx)));
   if (hasExtra && !Native.downloadVideo2) { toast("গান ও ফিল্টারসহ ডাউনলোড করতে অ্যাপ আপডেট করুন", true); checkUpdate(); return; }
   let bar = $("#dlbar");

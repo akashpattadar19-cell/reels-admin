@@ -9,3 +9,4 @@
 --   view_story, story_viewers (owner/admin), admin_stories.
 -- premium_downloads + premium_download(video): charges settings.premium_download_coins once per user/video
 --   (owner free; 0 = premium downloads off), creator gets premium_creator_pct (host rate via _urate) as pending.
+-- (applied as "music_baked") videos.music_baked; set_media_extras(kind, id, music, start, fx, mute, baked default false).

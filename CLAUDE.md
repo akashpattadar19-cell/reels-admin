@@ -122,6 +122,12 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
 - Downloads with song/filter: APK ≥ v1.0.15 `ReelsAndroid.downloadVideo2(url, brand, user, id, optsJson)` — opts
   {music, start, mute, fx}; native mixes the song (looping EditedMediaItemSequence + forceAudioTrack; original muted via a
   zero ChannelMixingMatrix) and maps fx to media3 RgbAdjustment/HslAdjustment/Contrast/Brightness/RgbFilter. Older APKs are asked to update.
+- Pro video editor (APK ≥ v1.0.16): `videoEditor()` on `#upload` — trim (long videos allowed, trimmed to `max_video_sec`), crop
+  ratios with drag, emoji/text stickers (rendered to one PNG overlay), song from the app list or the phone (`<input accept=audio/*>`,
+  native keeps `lastAudioUri`), song segment, original/song volume, filter. `ReelsAndroid.editAndUpload(spec)` renders with media3
+  (Crop, Presentation ≤720p, fx, static BitmapOverlay, looping music sequence, ChannelMixing volumes) and uploads straight to
+  Supabase storage with the user's JWT; progress via `window.onEditState`. Baked videos set `videos.music_baked` (no BGM/remix).
+  Old APKs/browsers fall back to the simple upload + playback-time song/filter.
 - Premium download: `premium_download(video)` charges `premium_download_coins` once (creator gets premium %); feed shows 🪙N on the save button.
 - TODO (owner postponed): move video storage to Cloudflare R2 (account opened; needs bucket + API keys) and allow 1 s – 59 min videos.
 - Adult/18+ content: owner asked for a paid 18+ folder; declined (illegal in BD/KSA, breaks AdMob policy, CSAM risk). Don't build it.
