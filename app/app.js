@@ -28,6 +28,7 @@ const ago = (s) => {
 const cleanPhone = (p) => String(p).trim().replace(/[\s-]/g, "").replace(/^\+?88/, "");
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2));
 const setting = (k, d = 0) => (S.settings[k] ?? d);
+const notifOn = () => { try { return localStorage.getItem("notif") !== "off"; } catch { return true; } };
 const METHOD = { bkash: "bKash", nagad: "Nagad", rocket: "Rocket" };
 const STATUS = { pending: "পেন্ডিং", approved: "অ্যাপ্রুভড", paid: "পেমেন্ট সম্পন্ন", rejected: "রিজেক্টেড" };
 const avatar = (p, cls = "av") => `<div class="${cls}">${p?.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="">` : esc((p?.full_name || p?.username || "?").trim().charAt(0).toUpperCase())}</div>`;
@@ -66,6 +67,9 @@ const ERR = {
   TRY_LATER: "একটু পরে চেষ্টা করুন",
   ACCOUNT_BANNED: "আপনার অ্যাকাউন্ট ব্লক করা হয়েছে",
   JAILED: "আপনার অ্যাকাউন্ট জেলে আছে",
+  SUPPORT_OFF: "সাপোর্ট এখন বন্ধ আছে",
+  RATE_LIMIT: "একটু ধীরে — কিছুক্ষণ পর আবার চেষ্টা করুন",
+  ADMIN_ACCOUNT: "অ্যাডমিন অ্যাকাউন্ট এখান থেকে ডিলিট করা যায় না",
   UPLOAD_LIMIT: "আজকের আপলোড সীমা শেষ — কাল আবার দিন",
   TOO_MANY_LINES: "লাইন বেশি হয়ে গেছে",
   TEXT_TOO_LONG: "লেখা অনেক লম্বা",
@@ -264,12 +268,12 @@ function realtime() {
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${S.me.id}` }, (p) => {
       S.unread++; paintUnread();
       if (["gift", "withdraw", "cash_in"].includes(p.new.type)) toast(p.new.title);
-      if (document.hidden) { try { Native?.notify?.(p.new.title, p.new.body || ""); } catch { /* */ } }
+      if (document.hidden && notifOn()) { try { Native?.notify?.(p.new.title, p.new.body || ""); } catch { /* */ } }
     })
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `receiver_id=eq.${S.me.id}` }, (p) => {
       if (S.chatWith === p.new.sender_id) { document.dispatchEvent(new CustomEvent("chatmsg", { detail: p.new })); return; }
       S.msgUnread = (S.msgUnread || 0) + 1; paintUnread();
-      if (document.hidden) { try { Native?.notify?.("💬 নতুন মেসেজ", p.new.body); } catch { /* */ } }
+      if (document.hidden && notifOn()) { try { Native?.notify?.("💬 নতুন মেসেজ", p.new.body); } catch { /* */ } }
       else toast("💬 নতুন মেসেজ");
     })
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "wallets", filter: `user_id=eq.${S.me.id}` }, (p) => {
@@ -303,7 +307,7 @@ function route() {
   if (!R[name]) name = "home";
   if (S.me.jailed && !["jail", "cashin", "history"].includes(name)) name = "jail";
   const TABS = { home: ["home", "post", "contest", "newphoto", "top"], feed: ["feed", "following", "watch", "play"],
-    me: ["me", "invite", "rules", "settings", "vault", "edit", "level", "wallet", "history", "withdraw", "cashin", "inbox", "chat"] };
+    me: ["me", "support", "policy", "delacct", "invite", "rules", "settings", "vault", "edit", "level", "wallet", "history", "withdraw", "cashin", "inbox", "chat"] };
   document.querySelectorAll(".tabbar a").forEach((x) => x.classList.toggle("on", x.dataset.t === name || (TABS[x.dataset.t] ?? []).includes(name)));
   screen.classList.remove("full");
   $(".tabbar").classList.toggle("dark", TABS.feed.includes(name));
@@ -1329,13 +1333,10 @@ R.me = async () => {
     </div></div>`;
 };
 
-R.settings = async () => {
-  const en = window.getLang?.() === "en";
-  const { data: p } = await sb.from("profiles").select("*").eq("id", S.me.id).single();
-  if (p) S.me = p;
-  const me = S.me, host = me.account_type === "host", pending = !host && me.host_requested_at;
-  screen.innerHTML = `<div class="page">${header("সেটিংস")}
-    <div class="card"><b>অ্যাকাউন্টের ধরন</b>
+// ---------- আমার অ্যাকাউন্ট (আগের সেটিংস — এখন প্রোফাইল পেজে) ----------
+function accountBlock(me) {
+  const en = window.getLang?.() === "en", host = me.account_type === "host", pending = !host && me.host_requested_at;
+  return `<div class="card acct-card"><b>অ্যাকাউন্টের ধরন</b>
       <div class="acct">
         <button data-t="user" class="${host ? "" : "on"}"><b>👤 ইউজার</b><small>প্রিমিয়াম ভিডিও কয়েন দিয়ে দেখবেন</small></button>
         <button data-t="host" class="${host ? "on" : ""}"><b>🎤 হোস্ট</b><small>${pending ? "⏳ আবেদন অপেক্ষায়" : "প্রিমিয়াম ভিডিও দিতে পারবেন"}</small></button>
@@ -1343,16 +1344,19 @@ R.settings = async () => {
       <p class="tiny muted" style="margin:8px 0 0">হোস্ট হতে আবেদন করলে অ্যাডমিন যাচাই করে অনুমোদন দেবেন। হোস্টরা প্রিমিয়ামে ভিডিও দিতে পারেন; প্রিমিয়াম ফ্রি দেখার অনুমতি অ্যাডমিন আলাদা করে দেন।</p>
       ${host ? `<p class="tiny" style="margin:6px 0 0">👑 প্রিমিয়াম ফ্রি দেখা: <b>${me.premium_access ? "✅ চালু" : "❌ বন্ধ (অ্যাডমিনের অনুমতি লাগবে)"}</b></p>` : ""}</div>
     <div class="card list">
-      <a class="li" href="#wallet"><span>💰 ওয়ালেট ও উইথড্র</span><span>›</span></a>
-      <a class="li" href="#vault"><span>🔒 লক ফোল্ডার</span><span>›</span></a>
       <a class="li" href="#edit"><span>✏️ প্রোফাইল এডিট</span><span>›</span></a>
+      <a class="li" href="#wallet"><span>💰 ওয়ালেট ও উইথড্র</span><span>›</span></a>
+      <a class="li" href="#cashin"><span>💎 কয়েন কিনুন</span><span>›</span></a>
+      <a class="li" href="#vault"><span>🔒 লক ফোল্ডার</span><span>›</span></a>
       <div class="li"><span>🌐 অ্যাপের ভাষা / Language</span><button class="btn small" id="lang" translate="no">${en ? "বাংলা" : "English"}</button></div>
       <div class="li"><span>🆔 আমার ID</span><b data-copy="${me.user_no}">${me.user_no} ⧉</b></div>
-      <div class="li"><span>📱 অ্যাপ ভার্সন</span><span class="muted">${esc(Native?.appVersion?.() ?? "web")}</span></div>
     </div>
-    <button class="btn" id="lo" style="width:100%;color:#e5484d">🚪 লগআউট</button></div>`;
-  $("#lang").onclick = () => window.setLang?.(en ? "bn" : "en");
-  $("#lo").onclick = async () => { if (!confirm("লগআউট করবেন?")) return; await sb.auth.signOut(); S.me = null; location.hash = ""; showAuth(); };
+    <button class="btn" id="lo" style="width:100%;color:#e5484d">🚪 লগআউট</button>`;
+}
+function bindAccount(me, reload) {
+  const en = window.getLang?.() === "en", host = me.account_type === "host", pending = !host && me.host_requested_at;
+  $("#lang")?.addEventListener("click", () => window.setLang?.(en ? "bn" : "en"));
+  $("#lo")?.addEventListener("click", async () => { if (!confirm("লগআউট করবেন?")) return; await sb.auth.signOut(); S.me = null; location.hash = ""; showAuth(); });
   document.querySelectorAll(".acct button").forEach((b) => (b.onclick = async () => {
     const t = b.dataset.t;
     if ((t === "host" && (host || pending)) || (t === "user" && !host && !pending)) return;
@@ -1360,9 +1364,113 @@ R.settings = async () => {
     try {
       const r = await rpc("set_account_type", { p_type: t });
       toast(r === "pending" ? "✅ হোস্ট আবেদন পাঠানো হয়েছে" : r === "host" ? "🎤 আপনি এখন হোস্ট" : "👤 ইউজার অ্যাকাউন্ট");
-      R.settings();
+      reload();
     } catch (e) { toast(errMsg(e), true); }
   }));
+}
+
+// ---------- সেটিংস: সাপোর্ট, নীতিমালা, নোটিফিকেশন, অ্যাকাউন্ট ডিলিট ----------
+const POLICIES = [["privacy", "🔐", "গোপনীয়তা নীতি"], ["terms", "📄", "ব্যবহারের শর্তাবলি"], ["community", "🤝", "কমিউনিটি নির্দেশিকা"],
+  ["child-safety", "🧒", "শিশু সুরক্ষা নীতি"], ["copyright", "©️", "কপিরাইট নীতি"], ["coins", "💎", "কয়েন ও রিফান্ড নীতি"],
+  ["earnings", "💸", "আয় ও উইথড্র নীতি"], ["about", "ℹ️", "আমাদের সম্পর্কে"]];
+R.settings = async () => {
+  const { data: p } = await sb.from("profiles").select("*").eq("id", S.me.id).single();
+  if (p) S.me = p;
+  const me = S.me, delAt = me.deletion_requested_at;
+  const tgUser = String(setting("support_telegram", "") || "").replace(/^@/, "");
+  const { data: th } = await sb.from("support_threads").select("unread_user").eq("user_id", me.id).maybeSingle();
+  screen.innerHTML = `<div class="page">${header("সেটিংস")}
+    <a class="card support-cta" href="#support"><span class="sic">🎧</span><span><b>লাইভ সাপোর্ট</b><div class="tiny muted">${me.account_type === "host" ? "হোস্ট সাপোর্ট — " : ""}যেকোনো সমস্যা লিখুন, আমরা উত্তর দেব</div></span>
+      <em>${th?.unread_user ? `<b class="badge-n">${th.unread_user}</b>` : ""}›</em></a>
+    ${tgUser ? `<a class="card list-1" href="https://t.me/${esc(tgUser)}" target="_blank" rel="noopener"><span>✈️ টেলিগ্রামে যোগাযোগ</span><span class="muted">@${esc(tgUser)} ›</span></a>` : ""}
+    <div class="card list">
+      <label class="li"><span>🔔 নোটিফিকেশন</span><input type="checkbox" id="nt" class="sw" ${notifOn() ? "checked" : ""}></label>
+    </div>
+    <h3 class="sec">নীতিমালা</h3>
+    <div class="card list">${POLICIES.map(([k, i, t]) => `<a class="li" href="#policy/${k}"><span>${i} ${t}</span><span>›</span></a>`).join("")}</div>
+    <div class="card list">
+      <a class="li" href="#delacct"><span style="color:#e5484d">🗑️ অ্যাকাউন্ট ডিলিট</span><span class="muted">${delAt ? "⏳ অনুরোধ করা হয়েছে" : ""} ›</span></a>
+      <div class="li"><span>📱 অ্যাপ ভার্সন</span><span class="muted">${esc(Native?.appVersion?.() ?? "web")}</span></div>
+    </div></div>`;
+  $("#nt").onchange = (e) => { try { localStorage.setItem("notif", e.target.checked ? "on" : "off"); } catch { /* */ } toast(e.target.checked ? "🔔 নোটিফিকেশন চালু" : "🔕 নোটিফিকেশন বন্ধ"); };
+};
+
+R.policy = async (key) => {
+  const item = POLICIES.find(([k]) => k === key) ?? [key, "📄", key === "delete-account" ? "অ্যাকাউন্ট ডিলিট" : "নীতি"];
+  screen.innerHTML = `<div class="page">${header(item[2])}<div class="spinner"></div></div>`;
+  try {
+    const html = await (await fetch(`../policy/${key}.html`, { cache: "no-cache" })).text();
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const sec = doc.querySelector(window.getLang?.() === "en" ? "#en" : "#bn");
+    sec?.querySelector("h2")?.remove();
+    sec?.querySelectorAll("a[href$='.html']").forEach((a) => a.setAttribute("href", "#policy/" + a.getAttribute("href").replace(".html", "")));
+    const upd = doc.querySelector("header .u")?.textContent ?? "";
+    screen.innerHTML = `<div class="page">${header(item[2])}<div class="card policy" translate="no">${sec ? sec.innerHTML : ""}<p class="tiny muted">${esc(upd)}</p></div></div>`;
+  } catch { screen.innerHTML = `<div class="page">${header(item[2])}<div class="empty">ইন্টারনেট সংযোগ নেই</div></div>`; }
+};
+
+R.delacct = async () => {
+  const [{ data: p }, { data: w }] = await Promise.all([
+    sb.from("profiles").select("deletion_requested_at").eq("id", S.me.id).single(),
+    sb.from("wallets").select("earning_paisa,pending_paisa,coin_balance,points").eq("user_id", S.me.id).maybeSingle(),
+  ]);
+  const at = p?.deletion_requested_at;
+  const until = at ? new Date(new Date(at).getTime() + 7 * 864e5) : null;
+  screen.innerHTML = `<div class="page">${header("🗑️ অ্যাকাউন্ট ডিলিট")}
+    ${at ? `<div class="card" style="border-color:#f5b4b4;background:#fff3f3"><b>⏳ ডিলিটের অনুরোধ করা হয়েছে</b>
+        <p class="tiny">${dt(until)}-এর পর আপনার অ্যাকাউন্ট স্থায়ীভাবে মুছে যাবে। এর আগে মত বদলালে নিচের বাটন চাপুন।</p>
+        <button class="btn primary" id="cancelDel">↩️ ডিলিট বাতিল করুন</button></div>`
+    : `<div class="card"><b>ডিলিট করলে যা মুছে যাবে</b><ul class="tiny">
+        <li>প্রোফাইল, নাম, ছবি, কভার, বায়ো</li><li>সব ভিডিও, ছবি, লেখা, কমেন্ট, ফলো</li><li>মেসেজ, সাপোর্ট মেসেজ ও লক ফোল্ডার</li><li>ফোন নম্বর, ইমেইল, জন্মতারিখ ও লোকেশন</li></ul>
+        <p class="tiny muted">টাকা-কয়েনের লেনদেনের হিসাব আইনের প্রয়োজনে কিছুদিন রাখা হতে পারে। অবশিষ্ট ব্যালেন্স, পয়েন্ট ও কয়েন বাতিল হবে।</p></div>
+      ${Number(w?.earning_paisa) + Number(w?.pending_paisa) > 0 || Number(w?.coin_balance) > 0 ? `<div class="notice">⚠️ আপনার এখনো ${tk(w.earning_paisa)} ব্যালেন্স, ${tk(w.pending_paisa)} পেন্ডিং ও 🪙 ${n(w.coin_balance)} কয়েন আছে। ডিলিটের আগে উইথড্র করে নিন।</div>` : ""}
+      <p class="tiny muted">অনুরোধের ৭ দিন পর অ্যাকাউন্ট মুছে যাবে। এই ৭ দিনের মধ্যে চাইলে বাতিল করতে পারবেন।</p>
+      <button class="btn" id="doDel" style="width:100%;background:#e5484d;color:#fff;border:0">🗑️ আমার অ্যাকাউন্ট ডিলিট করুন</button>`}
+    <p class="tiny muted" style="margin-top:12px">বিস্তারিত: <a href="#policy/delete-account">অ্যাকাউন্ট ডিলিট নীতি</a></p></div>`;
+  $("#doDel")?.addEventListener("click", async () => {
+    if (!confirm("সত্যিই অ্যাকাউন্ট ডিলিট করবেন? ৭ দিন পর সব তথ্য স্থায়ীভাবে মুছে যাবে।")) return;
+    try { await rpc("request_account_deletion", { p_cancel: false }); toast("ডিলিটের অনুরোধ নেওয়া হয়েছে"); R.delacct(); } catch (e) { toast(errMsg(e), true); }
+  });
+  $("#cancelDel")?.addEventListener("click", async () => {
+    try { await rpc("request_account_deletion", { p_cancel: true }); toast("✅ ডিলিট বাতিল হয়েছে"); R.delacct(); } catch (e) { toast(errMsg(e), true); }
+  });
+};
+
+// ---------- লাইভ সাপোর্ট ----------
+R.support = async () => {
+  const host = S.me.account_type === "host";
+  screen.classList.add("chatmode");
+  const tgUser = String(setting("support_telegram", "") || "").replace(/^@/, "");
+  screen.innerHTML = `<div class="chat">
+    <div class="chat-top"><button class="back" onclick="history.back()">←</button><span class="sic">🎧</span><span style="flex:1"><b>${host ? "হোস্ট সাপোর্ট" : "লাইভ সাপোর্ট"}</b><div class="tiny muted" translate="no">${esc(setting("support_hours", ""))}</div></span>
+      ${tgUser ? `<a class="btn small" href="https://t.me/${esc(tgUser)}" target="_blank" rel="noopener">✈️ Telegram</a>` : ""}</div>
+    <div class="chat-list" id="cl"><div class="spinner"></div></div>
+    <form class="chat-box" id="cf"><input id="ci" placeholder="আপনার সমস্যা লিখুন…" maxlength="2000" autocomplete="off"><button class="btn small primary" style="width:auto;margin:0">পাঠান</button></form></div>`;
+  const list = $("#cl");
+  const bubble = (m) => `<div class="bub ${m.from_admin ? "" : "mine"}"><span translate="no">${esc(m.body)}</span><i>${m.from_admin ? "🎧 সাপোর্ট · " : ""}${new Date(m.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</i></div>`;
+  const seen = new Set();
+  const add = (m) => { if (seen.has(m.id)) return; seen.add(m.id); list.insertAdjacentHTML("beforeend", bubble(m)); list.scrollTop = list.scrollHeight; };
+  try {
+    const rows = await rpc("support_my_messages");
+    list.innerHTML = `<div class="sys-msg">👋 আসসালামু আলাইকুম! আপনার সমস্যা বা প্রশ্ন লিখে পাঠান। ${host ? "হোস্টদের মেসেজ আলাদাভাবে দেখা হয়।" : ""} কয়েন/উইথড্র নিয়ে হলে TrxID বা তারিখ লিখে দিন।</div>`;
+    rows.reverse().forEach(add);
+  } catch (e) { list.innerHTML = `<div class="empty">${esc(errMsg(e))}</div>`; }
+  const ch = sb.channel("sup-" + S.me.id)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages", filter: `user_id=eq.${S.me.id}` }, (p) => add(p.new))
+    .subscribe();
+  cleanup = () => { sb.removeChannel(ch); screen.classList.remove("chatmode"); };
+  $("#cf").onsubmit = async (e) => {
+    e.preventDefault();
+    const body = $("#ci").value.trim(); if (!body) return;
+    const btn = e.submitter; btn.disabled = true;
+    try {
+      const id = await rpc("support_send", { p_body: body });
+      $("#ci").value = "";
+      add({ id, body, from_admin: false, created_at: new Date().toISOString() });
+      sb.functions.invoke("support-telegram", { body: { action: "notify", id } }).catch(() => {});
+    } catch (er) { toast(errMsg(er), true); }
+    btn.disabled = false;
+  };
 };
 
 R.invite = async () => {
@@ -1440,10 +1548,11 @@ R.u = async (id) => {
       <div class="idtag" data-copy="${p.user_no}">ID: ${p.user_no} ⧉</div>
       <div class="counts"><div><b>${n(p.videos_count)}</b><span>ভিডিও</span></div><div><b id="fc">${n(p.followers_count)}</b><span>ফলোয়ার</span></div><div><b>${n(p.following_count)}</b><span>ফলোয়িং</span></div></div>
       ${p.bio ? `<p translate="no">${esc(p.bio)}</p>` : ""}
-      ${mine ? `<div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap"><a class="btn small" href="#edit">✏️ প্রোফাইল এডিট</a><a class="btn small" href="#me">⬅ আমার পেজ</a></div>`
+      ${mine ? `<div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap"><a class="btn small" href="#edit">✏️ প্রোফাইল এডিট</a><button class="btn small" id="accT">⚙️ আমার অ্যাকাউন্ট</button></div>`
         : `<div class="row" style="justify-content:center;gap:8px"><button class="btn" id="fb" style="min-width:130px;${following ? "" : "background:var(--purple);color:#fff;border:0"}">${following ? "ফলোয়িং" : "ফলো করুন"}</button>
            <a class="btn" href="#chat/${p.id}" style="min-width:110px">💬 মেসেজ</a></div>`}
     </div>
+    ${mine ? `<div id="accBox" class="${S.openAcc ? "" : "hidden"}" style="margin-top:12px">${accountBlock(p)}</div>` : ""}
     <div class="seg"><button class="on" data-pt="v">🎬 ভিডিও</button><button data-pt="photo">🖼️ ফটো</button><button data-pt="text">✍️ লেখা</button></div>
     <div id="ptab"></div>
     <div id="pend"></div>
@@ -1451,6 +1560,8 @@ R.u = async (id) => {
     ${vids.length ? "" : `<div class="empty">${mine ? "এখনো কোনো ভিডিও নেই — ＋ চেপে প্রথম ভিডিও দিন" : "কোনো ভিডিও নেই"}</div>`}
     ${vids.length === 30 ? `<button class="btn" id="mr" style="width:100%;margin-top:10px">আরও</button>` : ""}</div>`;
   if (mine) {
+    bindAccount(p, () => { S.openAcc = true; R.u(id); });
+    $("#accT").onclick = () => { S.openAcc = $("#accBox").classList.toggle("hidden") === false; };
     const { data: pv } = await sb.from("videos").select("id,thumb_url,status,created_at,reject_reason").eq("user_id", id).in("status", ["pending", "rejected"]).order("id", { ascending: false }).limit(12);
     if (pv?.length) $("#pend").innerHTML = `<div class="card" style="margin-top:14px"><b>পর্যালোচনায় থাকা ভিডিও</b><div class="list">${pv.map((v) => `<div class="li"><span class="tiny">${dt(v.created_at)}${v.reject_reason ? ` · <span translate="no">${esc(v.reject_reason)}</span>` : ""}</span>
       <span class="pill ${v.status === "pending" ? "pending" : "rejected"}">${v.status === "pending" ? "⏳ পেন্ডিং" : "রিজেক্টেড"}</span></div>`).join("")}</div></div>`;

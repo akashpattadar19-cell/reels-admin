@@ -113,6 +113,8 @@ async function refreshBadges() {
     $("#bRp").textContent = d.reports_open || "";
     const { count } = await sb.from("videos").select("id", { count: "exact", head: true }).eq("status", "pending");
     $("#bPv").textContent = count || "";
+    const sc = await rpc("admin_support_counts").catch(() => null);
+    if (sc) { $("#bSu").textContent = sc.user || ""; $("#bSh").textContent = sc.host || ""; $("#bDl").textContent = sc.deletions || ""; }
   } catch { /* ignore */ }
 }
 
@@ -740,6 +742,111 @@ routes.contests = async (id) => {
     }).join("") || `<div class="empty">কোনো কম্পিটিশন নেই — "+ নতুন কম্পিটিশন" চাপুন</div>`}</div>`;
 };
 
+// ---------- লাইভ সাপোর্ট (ইউজার ও হোস্ট আলাদা) ----------
+routes.support = async (arg = "user") => {
+  const [kind, uid] = String(arg).split(":");
+  const title = kind === "host" ? "🎤 হোস্ট সাপোর্ট" : "🎧 ইউজার সাপোর্ট";
+  if (uid) return supportThread(kind, uid, title);
+  const status = sessionStorage.getItem("supStatus") || "open";
+  view.innerHTML = `<h1>${title}</h1>
+    <div class="tabs"><a class="btn sm ${status === "open" ? "on" : ""}" data-s="open">খোলা</a><a class="btn sm ${status === "closed" ? "on" : ""}" data-s="closed">সমাধান হয়েছে</a>
+      <a class="btn sm" href="#support/${kind === "host" ? "user" : "host"}">${kind === "host" ? "🎧 ইউজার সাপোর্টে যান" : "🎤 হোস্ট সাপোর্টে যান"}</a></div>
+    <div id="list" class="list"><div class="empty">লোড হচ্ছে…</div></div>
+    <div id="tgBox" style="margin-top:18px"></div>`;
+  view.querySelectorAll("[data-s]").forEach((b) => (b.onclick = () => { sessionStorage.setItem("supStatus", b.dataset.s); routes.support(kind); }));
+  try {
+    const rows = await rpc("admin_support_threads", { p_kind: kind, p_status: status });
+    $("#list").innerHTML = rows.length ? rows.map((t) => `<a class="item" href="#support/${kind}:${t.user_id}" style="text-decoration:none;color:inherit">
+      <div class="top"><b>${flag(t.country_code)} ${t.user_no} @${esc(t.username)}</b>${t.unread_admin ? `<span class="pill rejected">${t.unread_admin} নতুন</span>` : `<span class="muted small">${dt(t.last_at)}</span>`}</div>
+      <div class="muted small" translate="no">${esc(t.last_body ?? "")}</div></a>`).join("")
+      : `<div class="empty">${status === "open" ? "কোনো খোলা মেসেজ নেই 🎉" : "কিছু নেই"}</div>`;
+  } catch (e) { $("#list").innerHTML = `<div class="empty err">${esc(errMsg(e))}</div>`; }
+  telegramSetup($("#tgBox"));
+};
+
+async function supportThread(kind, uid, title) {
+  view.innerHTML = `<h1><a href="#support/${kind}" style="text-decoration:none">←</a> ${title}</h1><div id="thr"><div class="empty">লোড হচ্ছে…</div></div>`;
+  const [{ data: p }, msgs, { data: t }] = await Promise.all([
+    sb.from("profiles").select("id,user_no,username,full_name,country_code,account_type,status").eq("id", uid).maybeSingle(),
+    rpc("admin_support_open", { p_user: uid }).catch(() => []),
+    sb.from("support_threads").select("status").eq("user_id", uid).maybeSingle(),
+  ]);
+  refreshBadges();
+  const closed = t?.status === "closed";
+  $("#thr").innerHTML = `<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <div><b translate="no">${esc(p?.full_name ?? "")}</b> @${esc(p?.username ?? "")} · ID <a href="#lookup/${p?.user_no}">${p?.user_no}</a> ${flag(p?.country_code)} ${p?.account_type === "host" ? '<span class="pill approved">হোস্ট</span>' : ""}</div>
+      <button class="btn sm ${closed ? "" : "good"}" id="stBtn">${closed ? "↩️ আবার খুলুন" : "✅ সমাধান হয়েছে"}</button></div>
+    <div class="sup-list" id="sl">${msgs.slice().reverse().map((m) => `<div class="sup ${m.from_admin ? "adm" : ""}"><div translate="no">${esc(m.body)}</div>
+      <span>${m.from_admin ? (m.via === "telegram" ? "✈️ টেলিগ্রাম থেকে" : "🛡️ অ্যাডমিন") : "👤 ইউজার"} · ${dt(m.created_at)}</span></div>`).join("") || `<div class="empty">কোনো মেসেজ নেই</div>`}</div>
+    <form id="rf" class="card" style="display:flex;gap:8px;align-items:flex-end"><textarea id="rb" rows="2" placeholder="উত্তর লিখুন…" style="flex:1;min-height:44px"></textarea><button class="btn good">পাঠান</button></form>
+    <div class="toolbar"><a class="btn sm" href="#lookup/${p?.user_no}">🔎 ইউজারের সব তথ্য</a><a class="btn sm" href="#coins/${p?.user_no}">🪙 কয়েন পাঠান</a></div>`;
+  const sl = $("#sl"); sl.scrollTop = sl.scrollHeight;
+  $("#stBtn").onclick = async () => { await act(() => rpc("admin_support_status", { p_user: uid, p_status: closed ? "open" : "closed" }), "হয়েছে"); supportThread(kind, uid, title); };
+  $("#rf").onsubmit = async (e) => {
+    e.preventDefault();
+    const body = $("#rb").value.trim(); if (!body) return;
+    const b = e.submitter; b.disabled = true;
+    try { await rpc("admin_support_reply", { p_user: uid, p_body: body }); supportThread(kind, uid, title); }
+    catch (er) { toast(errMsg(er), true); b.disabled = false; }
+  };
+}
+
+async function telegramSetup(box) {
+  const st = await rpc("admin_telegram_status").catch(() => null);
+  if (!st) return;
+  box.innerHTML = `<h2>✈️ টেলিগ্রাম দিয়ে উত্তর</h2>
+    <div class="card">
+      <p class="small">চালু করলে ইউজার ও হোস্টের সাপোর্ট মেসেজ আপনার টেলিগ্রামে আসবে। টেলিগ্রামে মেসেজটিতে <b>Reply</b> করে লিখলেই উত্তর অ্যাপে ইউজারের কাছে চলে যাবে।</p>
+      <div class="kv"><div>বট</div><div>${st.bot ? "@" + esc(st.bot) : "—"}</div><div>অবস্থা</div><div>${st.linked ? "✅ চালু (আপনার টেলিগ্রাম যুক্ত)" : st.has_token ? "⏳ বট আছে, এখনো যুক্ত হয়নি" : "❌ বন্ধ"}</div></div>
+      <ol class="small" style="margin:10px 0 6px;padding-left:18px">
+        <li>টেলিগ্রামে <b>@BotFather</b> খুলে <code>/newbot</code> লিখুন, একটি নাম ও ইউজারনেম দিন (যেমন ReelsEnjoySupportBot)।</li>
+        <li>BotFather যে <b>token</b> দেবে (123456:ABC... এরকম) সেটা নিচে বসিয়ে "সেভ ও চালু করুন" চাপুন।</li>
+        <li>এরপর যে লিংক আসবে সেটা খুলে টেলিগ্রামে <b>Start</b> চাপুন — আপনার টেলিগ্রাম যুক্ত হয়ে যাবে।</li></ol>
+      <div class="row" style="flex-wrap:nowrap;gap:8px"><input id="tgTok" placeholder="Bot token" autocomplete="off"><button class="btn good" id="tgSave" style="flex:none">সেভ ও চালু করুন</button></div>
+      ${st.bot && st.link_code && !st.linked ? `<p><a class="btn" href="https://t.me/${esc(st.bot)}?start=${esc(st.link_code)}" target="_blank" rel="noopener">👉 টেলিগ্রামে Start চাপুন</a></p>` : ""}
+      ${st.linked ? `<button class="btn sm" id="tgTest">পরীক্ষা মেসেজ পাঠান</button>` : ""}
+      <p class="muted small" style="margin-top:10px">ইউজারদের জন্য সাপোর্ট টেলিগ্রাম ইউজারনেম ও উত্তরের সময় <a href="#rules">ইনকাম রুলস</a> পেজের "লাইভ সাপোর্ট" অংশে বসান।</p>
+    </div>`;
+  $("#tgSave").onclick = async (e) => {
+    const tok = $("#tgTok").value.trim();
+    if (!/^\d+:[\w-]{20,}$/.test(tok)) return toast("সঠিক Bot token দিন", true);
+    e.target.disabled = true;
+    try {
+      await rpc("admin_set_private_config", { p_key: "telegram_bot_token", p_value: tok });
+      const { data, error } = await sb.functions.invoke("support-telegram", { body: { action: "setup" } });
+      if (error || !data?.ok) throw new Error(data?.error ?? error?.message ?? "FAILED");
+      toast("✅ বট চালু হয়েছে — এখন টেলিগ্রামে Start চাপুন");
+      window.open(data.link, "_blank");
+      telegramSetup(box);
+    } catch (er) { toast(String(er.message).includes("BAD_TOKEN") ? "Token ভুল — BotFather থেকে আবার কপি করুন" : errMsg(er), true); e.target.disabled = false; }
+  };
+  $("#tgTest")?.addEventListener("click", async () => {
+    const { data } = await sb.functions.invoke("support-telegram", { body: { action: "test" } });
+    toast(data?.ok ? "✅ টেলিগ্রামে পরীক্ষা মেসেজ গেছে" : "পাঠানো যায়নি", !data?.ok);
+  });
+}
+
+// ---------- অ্যাকাউন্ট ডিলিট রিকোয়েস্ট ----------
+routes.deletions = async () => {
+  view.innerHTML = `<h1>🗑️ অ্যাকাউন্ট ডিলিট রিকোয়েস্ট</h1>
+    <p class="muted small">ইউজার অ্যাপ থেকে ডিলিটের অনুরোধ করলে এখানে দেখাবে। ৭ দিন পর অটোমেটিক ডিলিট হয় (তার মধ্যে ইউজার বাতিল করতে পারে)। চাইলে এখনই ডিলিট করতে পারেন। ডিলিটে প্রোফাইল, কনটেন্ট, মেসেজ, ফোন ও ইমেইল মুছে যায়; শুধু টাকার লেনদেনের হিসাব থাকে।</p>
+    <div id="list" class="list"><div class="empty">লোড হচ্ছে…</div></div>`;
+  try {
+    const rows = await rpc("admin_deletion_requests");
+    $("#list").innerHTML = rows.length ? rows.map((r) => `<div class="item" data-id="${r.id}">
+      <div class="top"><b><a href="#lookup/${r.user_no}">${r.user_no}</a> @${esc(r.username)}</b><span class="muted small">অনুরোধ: ${dt(r.requested_at)}</span></div>
+      <div class="small">ব্যালেন্স ${taka(r.earning_paisa)} · পেন্ডিং ${taka(r.pending_paisa)} · কয়েন ${num(r.coin_balance)}</div>
+      <div class="actions"><button class="btn sm bad" data-del>এখনই ডিলিট করুন</button></div></div>`).join("") : `<div class="empty">কোনো অনুরোধ নেই</div>`;
+    $("#list").onclick = async (e) => {
+      const b = e.target.closest("[data-del]"); if (!b) return;
+      const it = b.closest(".item");
+      if (!confirm("এই অ্যাকাউন্ট স্থায়ীভাবে ডিলিট করবেন? এটা আর ফেরানো যাবে না।")) return;
+      await act(() => rpc("admin_delete_account", { p_user: it.dataset.id }), "ডিলিট হয়েছে");
+      it.remove(); refreshBadges();
+    };
+  } catch (e) { $("#list").innerHTML = `<div class="empty err">${esc(errMsg(e))}</div>`; }
+};
+
 // ---------- ইনকাম রুলস ----------
 routes.rules = async () => {
   loading();
@@ -796,6 +903,12 @@ routes.rules = async () => {
       ${row("premium_upload_hosts_only", "শুধু হোস্টরা প্রিমিয়াম ভিডিও দিতে পারবে", "bool")}
       ${row("premium_notice", "প্রিমিয়াম আপলোডের নোটিশ (হোস্টরা আপলোডের সময় দেখবে)", "text")}
       ${row("cashin_notice", "কয়েন কেনার পেজের নোটিশ (সব ইউজার নম্বরের নিচে দেখবে)", "text")}
+    </div>
+    <h2>🎧 লাইভ সাপোর্ট</h2><div class="list">
+      ${row("support_enabled", "লাইভ সাপোর্ট চালু", "bool")}
+      ${row("support_telegram", "ইউজারদের জন্য সাপোর্ট টেলিগ্রাম ইউজারনেম (যেমন @ReelsEnjoySupport, খালি রাখলে দেখাবে না)", "text")}
+      ${row("support_hours", "উত্তরের সময়ের লেখা (সাপোর্ট পেজে দেখাবে)", "text")}
+      ${row("support_email", "সাপোর্ট ইমেইল", "text")}
     </div>
     <h2>🖼️ ফটো, ✍️ টেক্সট আর্নিং ও কম্পিটিশন</h2><div class="list">
       ${row("post_like_rate_paisa", "প্রতি লাইকে পোস্টের মালিক পাবে", "taka")}

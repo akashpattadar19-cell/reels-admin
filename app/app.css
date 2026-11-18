@@ -418,3 +418,20 @@ input, select, textarea { padding: 10px 12px; border-radius: 11px; font-size: 14
 .feed-top a { font-size: 15px; }
 .cat-row a { font-size: 12px; padding: 3px 10px; }
 .fab { padding: 10px 15px; font-size: 13.5px; }
+
+/* settings / support / policy */
+.agree { display: flex; gap: 8px; align-items: flex-start; text-align: left; font-size: 12.5px; color: var(--muted); margin: 8px 2px; }
+.agree input { width: 18px; height: 18px; margin: 2px 0 0; flex: none; accent-color: var(--purple); }
+.agree a { color: var(--purple); }
+.support-cta { display: flex; align-items: center; gap: 12px; background: linear-gradient(135deg, #f2eaff, #ffe9f6); border-color: #e4d6ff; }
+.support-cta em { margin-left: auto; font-style: normal; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+.sic { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; font-size: 20px; background: linear-gradient(135deg, #9b5cff, #e34cf0); flex: none; }
+.chat-top .sic { width: 32px; height: 32px; font-size: 16px; }
+.badge-n { background: #ef4444; color: #fff; border-radius: 99px; padding: 0 7px; font-size: 11px; }
+.list-1 { display: flex; justify-content: space-between; align-items: center; }
+h3.sec { font-size: 13px; color: var(--muted); margin: 14px 4px 6px; font-weight: 600; }
+input.sw { width: 40px; height: 22px; margin: 0; accent-color: var(--purple); }
+.policy h3 { font-size: 14.5px; margin: 14px 0 4px; color: #5b2bd0; }
+.policy p, .policy li { font-size: 13.5px; line-height: 1.6; }
+.policy ul, .policy ol { padding-left: 18px; }
+.sys-msg { align-self: center; max-width: 92%; text-align: center; font-size: 12.5px; color: var(--muted); background: #fff; border-radius: 12px; padding: 8px 12px; margin-bottom: 6px; }

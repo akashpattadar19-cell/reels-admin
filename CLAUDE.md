@@ -65,6 +65,16 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
 - Buy coins: notice text `settings.cashin_notice` (admin Income rules page) shown under the numbers; optional payment
   screenshot → private bucket `proofs` (`<uid>/<id>-*.jpg`) via `set_cash_in_proof`; admin sees it on Cash-in page (signed URL).
 - APK ≥ v1.0.5 is edge-to-edge: native pushes `--safe-t/--safe-b` CSS vars; `ReelsAndroid.setDarkBars(bool)` per page.
+- Settings (app `#settings`): Live Support, Telegram link, notifications toggle, policies (`#policy/<key>` renders
+  `/policy/<key>.html`, bilingual public pages for Play Store: privacy, terms, community, child-safety, copyright, coins,
+  earnings, delete-account, about), delete account (`#delacct`). Old settings (account type, wallet, vault, language, logout)
+  are in the own profile page under "⚙️ আমার অ্যাকাউন্ট". Signup requires an 18+ / terms checkbox.
+- Live support: `support_threads/support_messages`, `support_send`, admin pages `#support/user` and `#support/host`
+  (`admin_support_*`). Telegram bridge = edge function `support-telegram` (verify_jwt off): admin saves BotFather token
+  (`private_config`, service-role only) → setup sets webhook → admin taps Start link; user messages go to Telegram with
+  `#U<user_no>`, admin replies by Telegram Reply → `support_reply_by_user_no`.
+- Account deletion: `request_account_deletion` → cron `process-account-deletions` anonymises after 7 days (`_delete_account`),
+  or admin "অ্যাকাউন্ট ডিলিট" page deletes now. Money ledger rows are kept.
 - TODO (owner postponed): move video storage to Cloudflare R2 (account opened; needs bucket + API keys) and allow 1 s – 59 min videos.
 - Adult/18+ content: owner asked for a paid 18+ folder; declined (illegal in BD/KSA, breaks AdMob policy, CSAM risk). Don't build it.
 - Live streaming: not built yet (owner postponed; needs ZEGOCLOUD/Agora + FLAG_SECURE in the APK for no screenshots).
