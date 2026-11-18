@@ -502,7 +502,7 @@ async function start() {
   ]);
   if (!me) { await sb.auth.signOut(); return showAuth("অ্যাকাউন্ট পাওয়া যায়নি"); }
   if (me.status === "banned") { await sb.auth.signOut(); return showAuth(ERR.ACCOUNT_BANNED + (me.ban_reason ? ": " + me.ban_reason : "")); }
-  if (me.needs_onboarding) return showOnboard();
+  if (me.needs_onboarding) rpc("finish_onboarding_skip").catch(() => {});
   const { data: pvt } = await sb.from("user_private").select("must_change_pw,temp_pw_expires").eq("user_id", session.user.id).maybeSingle();
   if (pvt?.must_change_pw) {
     if (pvt.temp_pw_expires && new Date(pvt.temp_pw_expires) < new Date()) { await sb.auth.signOut(); return showAuth("এককালীন পাসওয়ার্ডের মেয়াদ শেষ — সাপোর্ট থেকে নতুন একটি নিন"); }
@@ -3462,7 +3462,6 @@ R.me = async () => {
     <a href="#invite" class="me-banner"><span>রেফার করে আয় করুন</span><b>${tk(refs?.earned_paisa ?? 0)} ›</b></a>
     <div class="me-menu">
       ${p.account_type === "host" ? `<a href="#callprice"><i class="mi c1"><svg viewBox="0 0 24 24"><path d="M6.5 3.5l3 3.5-2 2.5a12 12 0 0 0 7 7l2.5-2 3.5 3-1.6 2.6c-.4.6-1.1.9-1.8.8C10 20 4 14 3.1 7.4c-.1-.7.2-1.4.8-1.8z"/></svg></i>আমার কলের রেট<em>🪙 ${n(p.call_video_rate ?? setting("call_video_coins_per_min", 60))}/মিনিট ›</em></a>` : ""}
-      <a href="#myprofile"><i class="mi c3"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 19.5c1.2-3.6 4-5.4 7.2-5.4s6 1.8 7.2 5.4"/></svg></i>আমার প্রোফাইল<em>›</em></a>
       <a href="#inbox"><i class="mi c1"><svg viewBox="0 0 24 24"><path d="M4 6.5h16a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5v-3.5H4A1.5 1.5 0 0 1 2.5 17V8A1.5 1.5 0 0 1 4 6.5z"/><path d="M7.5 12.5h.01M12 12.5h.01M16.5 12.5h.01" stroke-width="2.6"/></svg></i>মেসেজ<em>${S.msgUnread ? `${S.msgUnread} <b class="red"></b>` : ""}›</em></a>
       <a href="#history"><i class="mi c2"><svg viewBox="0 0 24 24"><path d="M7 3.5h10a1.5 1.5 0 0 1 1.5 1.5v15l-3-2-3 2-3-2-3 2V5A1.5 1.5 0 0 1 7 3.5z"/><path d="M9 8.5h6M9 12h6"/></svg></i>লেনদেনের হিসাব<em>›</em></a>
       <a href="#creator"><i class="mi c4"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></i>ক্রিয়েটর ড্যাশবোর্ড<em>›</em></a>
@@ -3706,7 +3705,7 @@ R.u = async (id) => {
       <div class="counts"><div><b>${n(p.videos_count)}</b><span>ভিডিও</span></div><div><b id="fc">${n(p.followers_count)}</b><span>ফলোয়ার</span></div><div><b>${n(p.following_count)}</b><span>ফলোয়িং</span></div></div>
       ${p.bio ? `<p translate="no">${esc(p.bio)}</p>` : ""}
       ${p.interests?.length ? `<div class="int-chips">${p.interests.map((t) => `<span>${esc(t)}</span>`).join("")}</div>` : ""}
-      ${mine ? `<div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap"><a class="btn small" href="#edit">✏️ প্রোফাইল এডিট</a><button class="btn small" id="accT">⚙️ আমার অ্যাকাউন্ট</button></div>`
+      ${mine ? `<div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap"><a class="btn small" href="#myprofile">✏️ প্রোফাইল এডিট</a><button class="btn small" id="accT">⚙️ আমার অ্যাকাউন্ট</button></div>`
         : `<div class="row" style="justify-content:center;gap:8px"><button class="btn" id="fb" style="min-width:130px;${following ? "" : "background:var(--purple);color:#fff;border:0"}">${following ? "ফলোয়িং" : "ফলো করুন"}</button>
            <a class="btn" href="#chat/${p.id}" style="min-width:110px">💬 মেসেজ</a></div>`}
     </div>

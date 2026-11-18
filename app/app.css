@@ -1058,3 +1058,29 @@ html, body, .auth, .auth-card { overflow-x: clip; }
 .cp-quick { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 12px; }
 .cp-quick button { width: auto; margin: 0; padding: 5px 12px; border-radius: 99px; border: 1px solid var(--line); background: #fff; font: inherit; font-size: 13px; }
 .cp-page label.li.card { display: flex; align-items: center; justify-content: space-between; width: 100%; box-sizing: border-box; padding: 12px 14px; }
+/* ===== login, refreshed ===== */
+.auth { background: radial-gradient(120% 70% at 85% 0%, #f472b6 0%, transparent 55%), radial-gradient(90% 60% at 0% 100%, #6366f1 0%, transparent 60%), linear-gradient(165deg, #8b5cf6 0%, #7c3aed 45%, #5b21b6 100%); }
+.auth-bg i { background: rgba(255,255,255,.10); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); backdrop-filter: blur(2px); opacity: .55; }
+.logo-img { width: 84px; height: 84px; border-radius: 26px; box-shadow: 0 0 0 6px rgba(255,255,255,.18), 0 14px 34px rgba(30,0,80,.45); }
+.auth-card h1 { font-size: 30px; letter-spacing: .3px; margin-top: 16px; text-shadow: 0 2px 10px rgba(40,0,90,.35); }
+.auth .tag { font-size: 14px; opacity: .92; margin-bottom: 30px; }
+.auth-home { gap: 12px; }
+.ab { height: 50px; font-size: 15.5px; box-shadow: none; transition: transform .1s; }
+.ab:active { transform: scale(.98); }
+.ab.google { background: #fff; color: #1f1640; box-shadow: 0 8px 22px rgba(30,0,80,.28); }
+.ab.google svg { width: 22px; height: 22px; }
+.ab.phone { background: rgba(255,255,255,.14); border: 1.5px solid rgba(255,255,255,.65); box-shadow: none; backdrop-filter: blur(6px); }
+.ab.more { height: 32px; font-size: 14px; opacity: .9; text-decoration: underline; text-underline-offset: 4px; }
+.more-opts button { height: 44px; font-size: 14.5px; background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.45); }
+.agree.home { font-size: 12px; opacity: .92; }
+.auth form { border-radius: 22px; padding: 18px 16px; box-shadow: 0 18px 40px rgba(30,0,80,.35); }
+.auth > .auth-card > .tiny { font-size: 12px; opacity: .85; }
+/* ===== Me menu smaller ===== */
+.me-menu a { font-size: 13.5px; padding: 7px 4px; gap: 11px; }
+.me-menu .mi { width: 27px; height: 27px; border-radius: 8px; }
+.me-menu .mi svg { width: 15px; height: 15px; }
+.me-menu em { font-size: 12px; }
+.mc span { font-size: 12px; } .mc b { font-size: 17px; }
+.mc .deco { width: 50px; height: 50px; }
+.me-banner { font-size: 13.5px; }
+.auth { display: flex; flex-direction: column; justify-content: center; min-height: 100vh; box-sizing: border-box; }
