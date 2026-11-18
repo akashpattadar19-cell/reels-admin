@@ -275,8 +275,15 @@ routes.cashins = async (tab = "pending") => {
 };
 
 // ---------- users ----------
-routes.users = async () => {
-  view.innerHTML = `<h1>ইউজার</h1>
+routes.users = async (type = "user") => {
+  type = ["user", "host", "seller"].includes(type) ? type : "user";
+  view.innerHTML = `<h1>👥 ইউজার</h1>
+    <div class="tcards">
+      <a class="tcard u ${type === "user" ? "on" : ""}" href="#users/user"><span>👤</span><div><b>ইউজার (নরমাল)</b><em id="tcU">…</em><small id="tcU2"></small></div></a>
+      <a class="tcard h ${type === "host" ? "on" : ""}" href="#users/host"><span>🎤</span><div><b>হোস্ট</b><em id="tcH">…</em><small id="tcH2"></small></div></a>
+    </div>
+    <a class="tcard-mini ${type === "seller" ? "on" : ""}" href="#users/seller">💰 কয়েন সেলার হোস্ট: <b id="tcS">…</b> ›</a>
+    <h2 style="margin-top:14px">${type === "host" ? "🎤 হোস্ট তালিকা" : type === "seller" ? "💰 কয়েন সেলার তালিকা" : "👤 ইউজার তালিকা"}</h2>
     <div class="toolbar"><input id="q" placeholder="নাম, ইউজারনেম বা ফোন">
       <select id="st"><option value="">সব</option><option value="active">সক্রিয়</option><option value="banned">ব্যান</option></select>
       <button class="btn" id="go">খুঁজুন</button></div>
@@ -284,12 +291,12 @@ routes.users = async () => {
   let offset = 0, rows = [];
   const load = async (reset) => {
     if (reset) { offset = 0; rows = []; }
-    const data = await act(() => rpc("admin_users", { p_q: $("#q").value.trim(), p_status: $("#st").value, p_limit: 50, p_offset: offset }));
+    const data = await act(() => rpc("admin_users", { p_q: $("#q").value.trim(), p_status: $("#st").value, p_limit: 50, p_offset: offset, p_type: type }));
     rows = rows.concat(data); offset += data.length;
     $("#cnt").textContent = `${rows.length} / ${data[0]?.total_count ?? rows.length}`;
     $("#more").classList.toggle("hidden", data.length < 50);
     $("#list").innerHTML = rows.length ? `<table><tr><th>ID</th><th>ইউজার</th><th>ফোন</th><th>স্ট্যাটাস</th><th class="num">ভিডিও</th><th class="num">কয়েন</th><th class="num">ব্যালেন্স</th><th class="num">পেন্ডিং</th><th class="num">পয়েন্ট</th><th>যোগদান</th></tr>
-      ${rows.map((u) => `<tr><td><a href="#lookup/${u.user_no}"><b>${u.user_no}</b></a></td><td><a href="#user/${u.id}">@${esc(u.username)}</a><br><span class="muted small">${esc(u.full_name ?? "")}${u.role === "admin" ? " · অ্যাডমিন" : ""}</span></td>
+      ${rows.map((u) => `<tr><td><a href="#lookup/${u.user_no}"><b>${u.user_no}</b></a></td><td><a href="#user/${u.id}">@${esc(u.username)}</a>${u.account_type === "host" ? ' <span class="pill host">🎤</span>' : ""}${u.coin_seller ? ' <span class="pill seller">💰</span>' : ""}<br><span class="muted small">${esc(u.full_name ?? "")}${u.role === "admin" ? " · অ্যাডমিন" : ""}</span></td>
         <td>${esc(u.phone ?? "")}</td><td>${pill(u.status)}${u.is_frozen ? ' <span class="pill rejected">ফ্রিজ</span>' : ""}</td>
         <td class="num">${num(u.videos_count)}</td><td class="num">${num(u.coin_balance)}</td><td class="num">${taka(u.earning_paisa)}</td>
         <td class="num">${taka(u.pending_paisa)}</td><td class="num">${num(u.points)}</td><td>${dt(u.created_at)}</td></tr>`).join("")}</table>`
@@ -299,6 +306,11 @@ routes.users = async () => {
   $("#q").onkeydown = (e) => e.key === "Enter" && load(true);
   $("#more").onclick = () => load(false);
   load(true);
+  rpc("admin_user_type_counts").then((c) => {
+    $("#tcU").textContent = num(c.user); $("#tcH").textContent = num(c.host); $("#tcS").textContent = num(c.seller);
+    $("#tcU2").textContent = `৭ দিনে নতুন ${num(c.user_new_7d)}`;
+    $("#tcH2").textContent = c.host_requests ? `⏳ ${num(c.host_requests)} জন আবেদন করেছে` : `৭ দিনে নতুন ${num(c.host_new_7d)}`;
+  }).catch(() => {});
 };
 
 routes.user = async (id) => {
@@ -552,6 +564,10 @@ routes.lookup = async (no) => {
         ${p.account_type === "host" ? `<button class="btn sm warn" data-c="unhost">ইউজার বানান</button>` : `<button class="btn sm good" data-c="host">হোস্ট বানান</button>`}
       </div>
       <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <span>💰 কয়েন সেলার: <b>${p.coin_seller ? `✅ হ্যাঁ${p.seller_commission_pct != null ? ` (কমিশন ${p.seller_commission_pct}%)` : ""}` : "❌ না"}</b></span>
+        ${p.coin_seller ? `<button class="btn sm warn" data-c="sell_off">বাদ দিন</button>` : `<button class="btn sm good" data-c="sell_on" ${p.account_type === "host" ? "" : "disabled title='আগে হোস্ট বানান'"}>সেলার বানান</button>`}
+      </div>
+      <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:12px">
         <span>👑 প্রিমিয়াম ফ্রি দেখা: <b>${p.premium_access ? "✅ চালু" : "❌ বন্ধ"}</b></span>
         ${p.premium_access ? `<button class="btn sm warn" data-c="pa_off">বন্ধ করুন</button>` : `<button class="btn sm good" data-c="pa_on" ${p.account_type === "host" ? "" : "disabled title='আগে হোস্ট বানান'"}>অনুমতি দিন</button>`}
       </div>
@@ -593,6 +609,7 @@ routes.lookup = async (no) => {
     const b = e.target.closest("[data-c]"); if (!b) return;
     const c = b.dataset.c;
     if (c === "host" || c === "unhost") await act(() => rpc("admin_set_host", { p_user: p.id, p_host: c === "host" }), "হয়েছে");
+    else if (c === "sell_on" || c === "sell_off") await act(() => rpc("admin_set_coin_seller", { p_user: p.id, p_on: c === "sell_on", p_pct: c === "sell_on" ? p.seller_commission_pct ?? null : null }), "হয়েছে");
     else if (c === "pa_on" || c === "pa_off") await act(() => rpc("admin_set_premium_access", { p_user: p.id, p_on: c === "pa_on" }), "হয়েছে");
     else if (c === "limit") { const v = $("#ul").value.trim(); await act(() => rpc("admin_set_upload_limit", { p_user: p.id, p_limit: v === "" ? null : Number(v) }), "সেভ হয়েছে"); }
     else if (c === "unjail") { if (!confirm("জেল থেকে মুক্ত করবেন?")) return; await act(() => rpc("admin_jail_user", { p_user: p.id, p_jail: false, p_reason: null, p_fee: null }), "মুক্ত করা হয়েছে"); }
@@ -921,7 +938,8 @@ routes.deletions = async () => {
 };
 
 // ---------- ইনকাম রুলস ----------
-routes.rules = async () => {
+routes.rules = async (kind = "user") => {
+  if (kind === "host") return routes.hostRules();
   loading();
   const [{ data: st }, { data: tiers }, { data: ads }] = await Promise.all([
     sb.from("settings").select("*"), sb.from("referral_tiers").select("*").order("referrals"), sb.from("ad_placements").select("*").eq("key", "rewarded_points").maybeSingle(),
@@ -938,8 +956,8 @@ routes.rules = async () => {
         : `<input name="v" type="number" step="${kind === "taka" ? "0.01" : "1"}" min="0" value="${esc(shown)}">${kind === "taka" ? '<span class="muted">৳</span>' : ""}`}
         <button class="btn sm good" data-save>সেভ</button></div></div>`;
   };
-  view.innerHTML = `<h1>💰 ইউজার ইনকাম রুলস</h1>
-    <p class="muted small">এখানে বদলালে সাথে সাথে অ্যাপের "কীভাবে আয় করবেন" অংশেও বদলে যাবে। টাকার ঘরগুলো সরাসরি টাকায় লিখুন।</p>
+  view.innerHTML = `<h1>💰 ইনকাম রুলস</h1>${rulesTabs("user")}
+    <p class="muted small">👤 সাধারণ ইউজারদের (এবং সবার জন্য সাধারণ) নিয়ম। হোস্টদের আয়ের রেট আলাদা — "হোস্ট ইনকাম রুলস" কার্ডে চাপুন। এখানে বদলালে সাথে সাথে অ্যাপের "কীভাবে আয় করবেন" অংশেও বদলে যাবে। টাকার ঘরগুলো সরাসরি টাকায় লিখুন।</p>
     <h2>🎬 ক্রিয়েটর (ভিডিও বানালে)</h2><div class="list">
       ${row("view_rate_paisa_per_1000", "প্রতি ১০০০ ভিউতে", "taka")}
       ${row("like_rate_paisa", "প্রতি লাইকে", "taka")}
@@ -1039,6 +1057,113 @@ routes.rules = async () => {
       if (error) return toast(String(error.message).includes("duplicate") ? "এই সংখ্যার ধাপ আগেই আছে" : errMsg(error), true);
       toast("সেভ হয়েছে");
       if (id === "new") routes.rules();
+    }
+  };
+};
+
+const rulesTabs = (on) => `<div class="tcards">
+  <a class="tcard u ${on === "user" ? "on" : ""}" href="#rules/user"><span>👤</span><div><b>ইউজার ইনকাম রুলস</b><small>সাধারণ ইউজার, দর্শক, রেফার, উইথড্র</small></div></a>
+  <a class="tcard h ${on === "host" ? "on" : ""}" href="#rules/host"><span>🎤</span><div><b>হোস্ট ইনকাম রুলস</b><small>হোস্টের আলাদা রেট ও কয়েন সেলার</small></div></a></div>`;
+
+// ---------- হোস্ট ইনকাম রুলস (settings: host_<key>) ----------
+routes.hostRules = async () => {
+  loading();
+  const { data: st } = await sb.from("settings").select("key,value");
+  const S = Object.fromEntries((st ?? []).map((x) => [x.key, x.value]));
+  const row = (key, label, kind, userKey) => {
+    const v = S[key], shown = kind === "taka" ? Number(v ?? 0) / 100 : v;
+    const uv = userKey ? S[userKey] : undefined;
+    const hint = uv === undefined ? "" : `<span class="muted small">ইউজারের রেট: ${kind === "taka" ? taka(uv) : esc(uv)}${kind === "pct" ? "%" : ""}</span>`;
+    return `<div class="item" data-key="${key}" data-kind="${kind}"><div class="top"><b>${label}</b>${hint}</div>
+      <div class="row" style="flex-wrap:nowrap">${kind === "bool"
+        ? `<select name="v"><option value="true" ${v === true ? "selected" : ""}>চালু</option><option value="false" ${v === false ? "selected" : ""}>বন্ধ</option></select>`
+        : `<input name="v" type="number" step="${kind === "taka" ? "0.01" : "1"}" min="0" value="${esc(shown ?? 0)}">${kind === "taka" ? '<span class="muted">৳</span>' : kind === "pct" ? '<span class="muted">%</span>' : ""}`}
+        <button class="btn sm good" data-save>সেভ</button></div></div>`;
+  };
+  view.innerHTML = `<h1>💰 ইনকাম রুলস</h1>${rulesTabs("host")}
+    <p class="muted small">🎤 শুধু হোস্টদের জন্য রেট। হোস্ট ভিডিও/ফটো দিলে এই রেটে আয় হবে, সাধারণ ইউজার পাবে ইউজার রেটে। শুরুতে দুটো একই ছিল — এখানে বদলালে শুধু হোস্টদের বদলাবে।</p>
+    <h2>🎬 ভিডিও থেকে আয়</h2><div class="list">
+      ${row("host_view_rate_paisa_per_1000", "প্রতি ১০০০ ভিউতে", "taka", "view_rate_paisa_per_1000")}
+      ${row("host_like_rate_paisa", "প্রতি লাইকে", "taka", "like_rate_paisa")}
+      ${row("host_comment_rate_paisa", "প্রতি কমেন্টকারীতে", "taka", "comment_rate_paisa")}
+      ${row("host_creator_daily_view_cap_paisa", "ভিউ থেকে দিনে সর্বোচ্চ আয়", "taka", "creator_daily_view_cap_paisa")}
+    </div>
+    <h2>🎁 গিফট ও 👑 প্রিমিয়াম</h2><div class="list">
+      ${row("host_gift_creator_pct", "গিফটের কত % হোস্ট পাবে (০ = প্রতিটি গিফটের নিজের % — গিফট পেজে)", "pct")}
+      ${row("host_premium_creator_pct", "প্রিমিয়াম আনলকের কত % হোস্ট পাবে", "pct", "premium_creator_pct")}
+    </div>
+    <h2>🖼️ ফটো ও ✍️ লেখা থেকে আয়</h2><div class="list">
+      ${row("host_post_like_rate_paisa", "প্রতি লাইকে", "taka", "post_like_rate_paisa")}
+      ${row("host_post_comment_rate_paisa", "প্রতি কমেন্টকারীতে", "taka", "post_comment_rate_paisa")}
+      ${row("host_post_share_rate_paisa", "প্রতি শেয়ারে", "taka", "post_share_rate_paisa")}
+      ${row("host_post_daily_cap_paisa", "ফটো/লেখা থেকে দিনে সর্বোচ্চ আয়", "taka", "post_daily_cap_paisa")}
+    </div>
+    <h2>🤝 রেফার</h2><div class="list">
+      ${row("host_referral_bonus_paisa", "হোস্ট প্রতি সফল রেফারে পাবে", "taka", "referral_bonus_paisa")}
+    </div>
+    <h2>💰 কয়েন সেলার (হোস্ট + এডমিন)</h2>
+    <p class="muted small">যে হোস্টকে আপনি সেলার বানাবেন, সে নিজের কয়েন থেকে ইউজারদের কাছে টাকার বিনিময়ে কয়েন বিক্রি করতে পারবে। প্রতি বিক্রিতে কমিশন হিসেবে বাড়তি কয়েন তার স্টক থেকে কাটা যাবে (যেমন ৫% হলে ১০০০ বিক্রিতে ১০৫০ কাটা)। সেলার বানাতে <a href="#sellers">কয়েন সেলার পেজে</a> যান।</p>
+    <div class="list">
+      ${row("coin_seller_enabled", "কয়েন সেলার চালু", "bool")}
+      ${row("seller_commission_pct", "প্রতিটি বিক্রিতে এডমিন কমিশন (সবার জন্য, আলাদা সেলারের জন্য সেলার পেজে)", "pct")}
+    </div>`;
+  view.onclick = async (e) => {
+    const b = e.target.closest("[data-save]"); if (!b) return;
+    const it = b.closest(".item"), raw = it.querySelector("[name=v]").value, kind = it.dataset.kind;
+    const value = kind === "bool" ? raw === "true" : kind === "taka" ? Math.round(Number(raw) * 100) : Math.round(Number(raw));
+    if (kind !== "bool" && (isNaN(value) || value < 0 || (kind === "pct" && value > 100))) return toast("সঠিক সংখ্যা দিন", true);
+    await act(() => rpc("admin_set_setting", { p_key: it.dataset.key, p_value: value }), "সেভ হয়েছে");
+  };
+};
+
+// ---------- কয়েন সেলার (হোস্ট) ----------
+routes.sellers = async () => {
+  view.innerHTML = `<h1>💰 কয়েন সেলার</h1>
+    <p class="muted small">সেলার হোস্টরা নিজের কয়েন থেকে ইউজারদের কাছে কয়েন বিক্রি করে, টাকা সরাসরি তারা নেয়। প্রতি বিক্রিতে কমিশন কয়েন তাদের স্টক থেকে কাটা যায় — অর্থাৎ সেলার আপনার কাছ থেকে কয়েন কিনে (Coin Sent / ক্যাশ-ইন) বিক্রি করবে, আপনাকে আলাদা করে টাকা দিতে হবে না।</p>
+    <div class="card" style="max-width:520px"><b>➕ নতুন সেলার বানান</b>
+      <label>হোস্টের ID নম্বর<input id="sn" type="number" inputmode="numeric" placeholder="যেমন 100005"></label>
+      <div id="sw" class="muted small" style="min-height:1.3em"></div>
+      <label>কমিশন % (খালি = সবার জন্য নির্ধারিত)<input id="sp" type="number" min="0" max="100" placeholder="ডিফল্ট"></label>
+      <button class="btn primary" id="sadd">সেলার বানান</button></div>
+    <h2>সেলার তালিকা</h2><div id="sl" class="table-wrap"><div class="empty">লোড হচ্ছে…</div></div>
+    <h2>সর্বশেষ বিক্রি</h2><div id="ss" class="table-wrap"></div>`;
+  let target = null, tm;
+  $("#sn").oninput = () => { clearTimeout(tm); tm = setTimeout(async () => {
+    target = null; const no = Number($("#sn").value); if (!no) return ($("#sw").textContent = "");
+    const { data } = await sb.from("profiles").select("id,username,full_name,account_type,coin_seller").eq("user_no", no).maybeSingle();
+    if (!data) return ($("#sw").innerHTML = `<span class="err">এই ID-তে কেউ নেই</span>`);
+    if (data.account_type !== "host") return ($("#sw").innerHTML = `<span class="err">@${esc(data.username)} হোস্ট নয় — আগে <a href="#lookup/${no}">হোস্ট বানান</a></span>`);
+    target = data; $("#sw").innerHTML = `✅ <b translate="no">${esc(data.full_name ?? "")}</b> @${esc(data.username)}${data.coin_seller ? " · আগে থেকেই সেলার" : ""}`;
+  }, 350); };
+  $("#sadd").onclick = async () => {
+    if (!target) return toast("সঠিক হোস্ট ID দিন", true);
+    const pv = $("#sp").value.trim();
+    try { await act(() => rpc("admin_set_coin_seller", { p_user: target.id, p_on: true, p_pct: pv === "" ? null : Number(pv) }), "সেলার বানানো হয়েছে"); routes.sellers(); } catch { /* */ }
+  };
+  const [sellers, sales] = await Promise.all([rpc("admin_coin_sellers").catch(() => []), rpc("admin_coin_sales", { p_seller: null, p_limit: 100 }).catch(() => [])]);
+  const { data: dp } = await sb.from("settings").select("value").eq("key", "seller_commission_pct").maybeSingle();
+  $("#sl").innerHTML = (sellers ?? []).length ? `<table><tr><th>ID</th><th>সেলার</th><th class="num">স্টক</th><th class="num">কমিশন</th><th class="num">মোট বিক্রি</th><th class="num">৩০ দিনে</th><th class="num">আপনার কমিশন</th><th>শেষ বিক্রি</th><th></th></tr>
+    ${sellers.map((x) => `<tr><td><a href="#lookup/${x.user_no}">${x.user_no}</a></td><td>@${esc(x.username)}<br><span class="muted small" translate="no">${esc(x.full_name ?? "")}</span></td>
+      <td class="num">🪙 ${num(x.stock)}</td><td class="num">${x.pct ?? dp?.value ?? 5}%${x.pct == null ? ' <span class="muted small">(ডিফল্ট)</span>' : ""}</td>
+      <td class="num">🪙 ${num(x.coins)}<br><span class="muted small">${num(x.sales)} বার</span></td><td class="num">🪙 ${num(x.coins_30d)}</td><td class="num"><b>🪙 ${num(x.commission)}</b></td>
+      <td>${x.last_sale ? dt(x.last_sale) : "—"}</td>
+      <td style="white-space:nowrap"><button class="btn sm" data-pct="${x.id}" data-cur="${x.pct ?? ""}">কমিশন</button> <a class="btn sm" href="#coins/${x.user_no}">🪙 স্টক দিন</a> <button class="btn sm bad" data-off="${x.id}">বাদ দিন</button></td></tr>`).join("")}</table>`
+    : `<div class="empty">এখনো কোনো সেলার নেই</div>`;
+  const tot = (sales ?? []).reduce((a, r) => [a[0] + Number(r.coins), a[1] + Number(r.commission)], [0, 0]);
+  $("#ss").innerHTML = (sales ?? []).length ? `<table><tr><th>সময়</th><th>সেলার</th><th>ক্রেতা</th><th class="num">কয়েন</th><th class="num">কমিশন</th><th class="num">টাকা</th><th>নোট</th></tr>
+    ${sales.map((r) => `<tr><td>${dt(r.created_at)}</td><td>@${esc(r.seller)}</td><td><a href="#lookup/${r.buyer_no}">@${esc(r.buyer)}</a></td><td class="num">🪙 ${num(r.coins)}</td>
+      <td class="num">🪙 ${num(r.commission)}</td><td class="num">${r.taka_paisa ? taka(r.taka_paisa) : "—"}</td><td translate="no">${esc(r.note ?? "")}</td></tr>`).join("")}
+    <tr><td colspan="3"><b>মোট (সর্বশেষ ১০০)</b></td><td class="num"><b>🪙 ${num(tot[0])}</b></td><td class="num"><b>🪙 ${num(tot[1])}</b></td><td colspan="2"></td></tr></table>` : `<div class="empty">এখনো কোনো বিক্রি নেই</div>`;
+  $("#sl").onclick = async (e) => {
+    const pb = e.target.closest("[data-pct]"), ob = e.target.closest("[data-off]");
+    if (pb) {
+      const v = prompt("এই সেলারের কমিশন % (খালি = ডিফল্ট)", pb.dataset.cur); if (v === null) return;
+      const pct = v.trim() === "" ? null : Number(v);
+      if (pct !== null && (isNaN(pct) || pct < 0 || pct > 100)) return toast("০–১০০ এর মধ্যে দিন", true);
+      try { await act(() => rpc("admin_set_coin_seller", { p_user: pb.dataset.pct, p_on: true, p_pct: pct }), "সেভ হয়েছে"); routes.sellers(); } catch { /* */ }
+    } else if (ob) {
+      if (!confirm("এই হোস্টকে সেলার থেকে বাদ দেবেন? তার কয়েন তার কাছেই থাকবে।")) return;
+      try { await act(() => rpc("admin_set_coin_seller", { p_user: ob.dataset.off, p_on: false, p_pct: null }), "বাদ দেওয়া হয়েছে"); routes.sellers(); } catch { /* */ }
     }
   };
 };

@@ -36,6 +36,13 @@ const avatar = (p, cls = "av") => `<div class="${cls}">${p?.avatar_url ? `<img s
 const ERR = {
   "Invalid login credentials": "মোবাইল নম্বর বা পাসওয়ার্ড ভুল",
   INSUFFICIENT_COINS: "কয়েন যথেষ্ট নেই — আগে কয়েন কিনুন",
+  NOT_SELLER: "আপনি কয়েন সেলার নন",
+  SELLER_OFF: "কয়েন বিক্রি এখন বন্ধ আছে",
+  SELF_SALE: "নিজের কাছে বিক্রি করা যায় না",
+  USER_NOT_FOUND: "এই ID-তে কোনো ইউজার নেই",
+  USER_BANNED: "এই ইউজার ব্যান করা",
+  BAD_AMOUNT: "সঠিক পরিমাণ দিন",
+  TOO_MANY: "সর্বোচ্চ ৫টি নম্বর সেভ করা যায়",
   INSUFFICIENT_BALANCE: "ব্যালেন্স যথেষ্ট নেই",
   INSUFFICIENT_POINTS: "পয়েন্ট যথেষ্ট নেই",
   BELOW_MIN: "সর্বনিম্ন পরিমাণের চেয়ে কম",
@@ -415,7 +422,7 @@ function route() {
   if (!R[name]) name = "home";
   if (S.me.jailed && !["jail", "cashin", "history"].includes(name)) name = "jail";
   const TABS = { home: ["home", "post", "contest", "newphoto", "top"], feed: ["feed", "following", "watch", "play"],
-    me: ["me", "creator", "support", "policy", "delacct", "invite", "rules", "settings", "vault", "edit", "level", "wallet", "history", "withdraw", "cashin", "inbox", "chat"] };
+    me: ["me", "seller", "creator", "support", "policy", "delacct", "invite", "rules", "settings", "vault", "edit", "level", "wallet", "history", "withdraw", "cashin", "inbox", "chat"] };
   document.querySelectorAll(".tabbar a").forEach((x) => x.classList.toggle("on", x.dataset.t === name || (TABS[x.dataset.t] ?? []).includes(name)));
   screen.classList.remove("full");
   $(".tabbar").classList.toggle("dark", TABS.feed.includes(name));
@@ -978,6 +985,8 @@ R.cashin = async () => {
   const nums = ["bkash", "nagad", "rocket"].filter((m) => setting(m + "_number", ""));
   const coinPrice = Number(setting("coin_price_paisa", 100));
   const offers = nums.length ? await loadOffers() : [];
+  const { data: sellers } = setting("coin_seller_enabled", true) === false ? { data: [] }
+    : await sb.from("profiles").select("id,username,full_name,avatar_url,user_no,country_code").eq("coin_seller", true).eq("account_type", "host").eq("status", "active").limit(20);
   screen.innerHTML = `<div class="page">${header("কয়েন কিনুন")}
     ${nums.length ? `<div class="card"><b>ধাপ ১:</b> <span>নিচের নম্বরে Send Money করুন</span>
       ${nums.map((m) => `<div class="row" style="margin-top:8px"><span>${METHOD[m]}</span><span class="copy" data-copy="${esc(setting(m + "_number"))}">${esc(setting(m + "_number"))}</span></div>`).join("")}
@@ -996,6 +1005,8 @@ R.cashin = async () => {
       <button class="btn primary">রিকোয়েস্ট পাঠান</button>
       <p class="tiny muted">অ্যাডমিন যাচাই করার পর কয়েন যোগ হবে। ভুল/ভুয়া TrxID দিলে অ্যাকাউন্ট ব্লক হবে।</p></form>`
     : `<div class="card">ক্যাশ-ইন এখন বন্ধ আছে। পরে চেষ্টা করুন।</div>`}
+    ${sellers?.length ? `<div class="card"><b>💰 হোস্ট সেলারের কাছ থেকে কিনুন</b> <span class="tiny muted">— মেসেজ দিয়ে দাম জেনে নিন</span>
+      <div class="sellers">${sellers.filter((x) => x.id !== S.me.id).map((x) => `<a class="sl-item" href="#u/${x.id}">${avatar(x)}<span><b translate="no">${esc(x.full_name || x.username)}</b><small>${flagOf(x.country_code)} ID ${x.user_no}</small></span><em onclick="event.preventDefault();location.hash='#chat/${x.id}'">💬</em></a>`).join("")}</div></div>` : ""}
     <h3>আপনার রিকোয়েস্ট</h3><div class="card list" id="cl"><div class="spinner"></div></div></div>`;
   let offerId = null;
   const pick = (id) => {
@@ -1048,10 +1059,12 @@ R.cashin = async () => {
 
 R.withdraw = async () => {
   screen.innerHTML = `<div class="page">${header("উইথড্র")}<div class="spinner"></div></div>`;
-  const [el, { data: hist }] = await Promise.all([
+  const [el, { data: hist }, { data: accs }] = await Promise.all([
     rpc("withdraw_eligibility").catch((e) => ({ error: e })),
     sb.from("withdraw_requests").select("*").eq("user_id", S.me.id).order("id", { ascending: false }).limit(20),
+    sb.from("payout_accounts").select("*").eq("user_id", S.me.id).order("id"),
   ]);
+  const saved = accs ?? [];
   if (el.error) { screen.innerHTML = `<div class="page">${header("উইথড্র")}<div class="empty">${esc(errMsg(el.error))}</div></div>`; return; }
   let block = "";
   if (el.frozen) block = ERR.WALLET_FROZEN;
@@ -1062,13 +1075,22 @@ R.withdraw = async () => {
   screen.innerHTML = `<div class="page">${header("উইথড্র")}
     <div class="card hero"><div class="k">উইথড্রযোগ্য ব্যালেন্স</div><div class="v">${tk(el.balance_paisa)}</div>
       <div class="tiny" style="color:#d5cbee">সর্বনিম্ন ${tk(el.min_paisa)} · ${n(setting("withdraw_cooldown_days", 7))} দিনে একবার${el.fee_pct ? ` · চার্জ ${el.fee_pct}%` : ""}</div></div>
+    <div class="card"><div class="row"><b>📱 আমার উইথড্র নম্বর</b><button class="btn small" id="addAcc" type="button">＋ নম্বর যোগ</button></div>
+      <div id="accList" class="acc-list">${saved.length ? saved.map((a, i) => `<label class="acc"><input type="radio" name="acc" value="${a.id}" ${i === 0 ? "checked" : ""}>
+        <span class="acc-ic ${a.method}">${METHOD[a.method]}</span><span style="flex:1"><b>${esc(a.account)}</b>${a.name ? `<div class="tiny muted" translate="no">${esc(a.name)}</div>` : ""}</span>
+        <button type="button" class="acc-del" data-del="${a.id}" aria-label="মুছুন">🗑️</button></label>`).join("") : `<div class="tiny muted" style="padding:6px 0">কোনো নম্বর সেভ করা নেই। "＋ নম্বর যোগ" চেপে বিকাশ/নগদ/রকেট নম্বর যোগ করুন।</div>`}</div>
+      <form id="accForm" class="hidden" style="margin-top:8px">
+        <div class="methods">${["bkash", "nagad", "rocket"].map((m, i) => `<label><input type="radio" name="am2" value="${m}" ${i === 0 ? "checked" : ""}>${METHOD[m]}</label>`).join("")}</div>
+        <input id="aNo" inputmode="numeric" placeholder="নম্বর (01XXXXXXXXX)" required><input id="aNm" placeholder="অ্যাকাউন্টের নাম (ঐচ্ছিক)">
+        <button class="btn primary">নম্বর সেভ করুন</button></form></div>
     ${block === "cooldown" ? `<div class="card" style="text-align:center"><div class="muted">পরবর্তী উইথড্র করা যাবে</div><div style="font-size:24px;font-weight:700" id="cd"></div><div class="tiny muted">${dt(el.next_available_at)}</div></div>`
       : block ? `<div class="notice">${esc(block)}</div>`
       : `<form class="card" id="wf">
-        <span class="lbl">কোথায় নেবেন</span>
+        ${saved.length ? `<div class="tiny muted">উপরের বাছাই করা নম্বরে টাকা যাবে</div>` : `<span class="lbl">কোথায় নেবেন</span>
         <div class="methods">${["bkash", "nagad", "rocket"].map((m, i) => `<label><input type="radio" name="m" value="${m}" ${i === 0 ? "checked" : ""}>${METHOD[m]}</label>`).join("")}</div>
         <input id="ac" inputmode="numeric" placeholder="অ্যাকাউন্ট নম্বর (01XXXXXXXXX)" required>
         <input id="an" placeholder="অ্যাকাউন্টের নাম (ঐচ্ছিক)">
+        <label class="agree"><input type="checkbox" id="sv" checked> <span>এই নম্বর পরের বারের জন্য সেভ রাখুন</span></label>`}
         <input id="am" type="number" inputmode="decimal" step="0.01" placeholder="কত টাকা" value="${(el.balance_paisa / 100).toFixed(2)}" required>
         <button class="btn primary">উইথড্র রিকোয়েস্ট</button>
         <p class="tiny muted">রিকোয়েস্টের পর টাকা ব্যালেন্স থেকে আটকে রাখা হবে। অ্যাডমিন পেমেন্ট পাঠালে নোটিফিকেশন পাবেন; রিজেক্ট হলে টাকা ফেরত আসবে।</p></form>`}
@@ -1086,16 +1108,87 @@ R.withdraw = async () => {
     const t = setInterval(tick, 30000);
     cleanup = () => clearInterval(t);
   }
+  $("#addAcc").onclick = () => { $("#accForm").classList.toggle("hidden"); $("#aNo").focus(); };
+  $("#accForm").addEventListener("submit", async (e) => {
+    e.preventDefault(); const b = e.submitter; b.disabled = true;
+    try { await rpc("add_payout_account", { p_method: $("input[name=am2]:checked").value, p_account: cleanPhone($("#aNo").value), p_name: $("#aNm").value }); toast("নম্বর সেভ হয়েছে ✅"); R.withdraw(); }
+    catch (er) { toast(errMsg(er), true); b.disabled = false; }
+  });
+  $("#accList").addEventListener("click", async (e) => {
+    const d = e.target.closest("[data-del]"); if (!d) return;
+    e.preventDefault();
+    if (!confirm("এই নম্বর মুছবেন?")) return;
+    try { await rpc("delete_payout_account", { p_id: Number(d.dataset.del) }); R.withdraw(); } catch (er) { toast(errMsg(er), true); }
+  });
   $("#wf")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const amount = Math.round(Number($("#am").value) * 100);
-    const m = $("input[name=m]:checked").value, acc = cleanPhone($("#ac").value);
+    const sel = saved.find((a) => a.id === Number($("input[name=acc]:checked")?.value));
+    const m = sel ? sel.method : $("input[name=m]:checked").value, acc = sel ? sel.account : cleanPhone($("#ac").value), nm = sel ? sel.name ?? "" : $("#an").value;
+    if (!acc) return toast("নম্বর দিন", true);
     if (!confirm(`${tk(amount)} ${METHOD[m]} ${acc} নম্বরে উইথড্র করবেন?`)) return;
     const b = e.submitter; b.disabled = true;
     try {
-      await rpc("request_withdraw", { p_amount_paisa: amount, p_method: m, p_account: acc, p_name: $("#an").value });
+      if (!sel && $("#sv")?.checked) await rpc("add_payout_account", { p_method: m, p_account: acc, p_name: nm }).catch(() => {});
+      await rpc("request_withdraw", { p_amount_paisa: amount, p_method: m, p_account: acc, p_name: nm });
       toast("রিকোয়েস্ট পাঠানো হয়েছে ✅");
       R.withdraw();
+    } catch (er) { toast(errMsg(er), true); b.disabled = false; }
+  });
+};
+
+// ---------------- কয়েন সেলার প্যানেল (হোস্ট + এডমিন অনুমতি) ----------------
+R.seller = async () => {
+  screen.innerHTML = `<div class="page">${header("💰 কয়েন সেলার")}<div class="spinner"></div></div>`;
+  let d;
+  try { d = await rpc("seller_summary"); } catch (e) { screen.innerHTML = `<div class="page">${header("💰 কয়েন সেলার")}<div class="empty">${esc(errMsg(e))}</div></div>`; return; }
+  const price = Number(setting("coin_price_paisa", 100)), pct = Number(d.pct);
+  const com = (c) => Math.ceil((c * pct) / 100);
+  screen.innerHTML = `<div class="page seller-page">${header("💰 কয়েন সেলার")}
+    <div class="sl-hero"><div class="sl-badge">👑 HOST · 💰 OFFICIAL COIN SELLER</div>
+      <div class="tiny">আপনার কয়েন স্টক</div><b id="stk">🪙 ${n(d.stock)}</b>
+      <div class="sl-row"><span>আজ বিক্রি<br><b>🪙 ${n(d.today.coins)}</b></span><span>মোট বিক্রি<br><b>🪙 ${n(d.total.coins)}</b></span><span>ক্রেতা<br><b>${n(d.total.buyers)}</b></span></div>
+      <div class="tiny" style="opacity:.85;margin-top:8px">প্রতি বিক্রিতে এডমিন কমিশন ${pct}% (আপনার স্টক থেকে বাড়তি কাটা হবে)</div>
+      <a class="btn sl-buy" href="#cashin">＋ স্টক বাড়ান (এডমিন থেকে কয়েন কিনুন)</a></div>
+    <form class="card" id="sf"><b>🪙 কয়েন বিক্রি করুন</b>
+      <input id="bno" type="number" inputmode="numeric" placeholder="ক্রেতার ID নম্বর (যেমন 100001)" required>
+      <div id="bwho" class="bwho"></div>
+      <input id="bc" type="number" inputmode="numeric" min="1" placeholder="কত কয়েন দেবেন" required>
+      <div class="row-btns">${[100, 500, 1000, 5000, 10000].map((x) => `<button type="button" class="btn small" data-q="${x}">${n(x)}</button>`).join("")}</div>
+      <input id="bt" type="number" inputmode="decimal" step="0.01" min="0" placeholder="কত টাকা পেয়েছেন (ঐচ্ছিক, শুধু আপনার হিসাবের জন্য)">
+      <input id="bn" maxlength="80" placeholder="নোট (ঐচ্ছিক, যেমন: বিকাশ TrxID)">
+      <div id="bcalc" class="bcalc"></div>
+      <button class="btn primary">কয়েন পাঠান</button>
+      <p class="tiny muted">ক্রেতার কাছ থেকে টাকা নিশ্চিত হওয়ার পরেই কয়েন পাঠান। একবার পাঠালে ফেরত নেওয়া যায় না।</p></form>
+    <h3>বিক্রির হিসাব</h3><div class="card list">${d.recent.length ? d.recent.map((r) => `<div class="li"><div><b>@${esc(r.username)}</b> <span class="tiny muted">ID ${r.user_no}</span>
+        <div class="tiny muted">${dt(r.created_at)}${r.taka_paisa ? ` · ${tk(r.taka_paisa)}` : ""}${r.note ? ` · <span translate="no">${esc(r.note)}</span>` : ""}</div></div>
+        <span style="text-align:right"><b class="minus-amt">−🪙 ${n(r.coins)}</b>${Number(r.commission_coins) ? `<div class="tiny muted">কমিশন ${n(r.commission_coins)}</div>` : ""}</span></div>`).join("") : `<div class="empty">এখনো কোনো বিক্রি নেই</div>`}</div></div>`;
+  let buyer = null, tm;
+  const calc = () => {
+    const c = Math.floor(Number($("#bc").value)); if (!c) { $("#bcalc").innerHTML = ""; return; }
+    const tot = c + com(c), ok = tot <= Number(d.stock);
+    $("#bcalc").innerHTML = `ক্রেতা পাবে <b>🪙 ${n(c)}</b> · কমিশন 🪙 ${n(com(c))}<br>আপনার স্টক থেকে কাটবে <b class="${ok ? "" : "minus-amt"}">🪙 ${n(tot)}</b>${ok ? "" : " — স্টক যথেষ্ট নেই"}
+      <div class="tiny muted">অ্যাপের দামে এই কয়েনের মূল্য প্রায় ${tk(c * price)}</div>`;
+  };
+  $("#bc").oninput = calc;
+  document.querySelectorAll("#sf [data-q]").forEach((b) => (b.onclick = () => { $("#bc").value = b.dataset.q; calc(); }));
+  $("#bno").oninput = () => { clearTimeout(tm); tm = setTimeout(async () => {
+    buyer = null; const no = Number($("#bno").value); if (!no) { $("#bwho").innerHTML = ""; return; }
+    const { data } = await sb.from("profiles").select("id,username,full_name,avatar_url,status").eq("user_no", no).maybeSingle();
+    if (!data) { $("#bwho").innerHTML = `<span class="minus-amt tiny">এই ID-তে কেউ নেই</span>`; return; }
+    if (data.id === S.me.id) { $("#bwho").innerHTML = `<span class="minus-amt tiny">এটা আপনার নিজের ID</span>`; return; }
+    buyer = data; $("#bwho").innerHTML = `${avatar(data)}<span><b translate="no">${esc(data.full_name || data.username)}</b><div class="tiny muted">@${esc(data.username)}</div></span>✅`;
+  }, 350); };
+  $("#sf").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!buyer) return toast("সঠিক ক্রেতার ID দিন", true);
+    const c = Math.floor(Number($("#bc").value)); if (!c || c < 1) return toast(ERR.BAD_AMOUNT, true);
+    if (!confirm(`@${buyer.username}-কে 🪙 ${n(c)} কয়েন পাঠাবেন?\nআপনার স্টক থেকে কাটবে 🪙 ${n(c + com(c))} (কমিশনসহ)`)) return;
+    const b = e.submitter; b.disabled = true;
+    try {
+      const r = await rpc("seller_sell_coins", { p_user_no: Number($("#bno").value), p_coins: c, p_taka: $("#bt").value ? Number($("#bt").value) : null, p_note: $("#bn").value });
+      toast(`✅ @${r.buyer}-কে 🪙 ${n(c)} পাঠানো হয়েছে`);
+      R.seller();
     } catch (er) { toast(errMsg(er), true); b.disabled = false; }
   });
 };
@@ -1738,6 +1831,8 @@ R.me = async () => {
       <a href="#cashin" class="mc coins"><span>আমার কয়েন</span><b>${n(w?.coin_balance)}</b><svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="gm1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9f0ff"/><stop offset="1" stop-color="#5aa9ff"/></linearGradient><linearGradient id="gm2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd3ff"/><stop offset="1" stop-color="#3b82f6"/></linearGradient></defs><path d="M14 22 24 10h16l10 12-18 30z" fill="url(#gm1)"/><path d="M14 22h36L32 52z" fill="url(#gm2)" opacity=".9"/><path d="M24 10l-4 12 12 30 12-30-4-12" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.5"/><path d="M14 22h36" stroke="#fff" stroke-opacity=".8" stroke-width="1.5"/></svg></a>
       <a href="#wallet" class="mc money"><span>আমার ব্যালেন্স</span><b>${tk(w?.earning_paisa)}</b><svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="cn1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset="1" stop-color="#f5a524"/></linearGradient></defs><ellipse cx="34" cy="46" rx="20" ry="7" fill="#e08c14"/><rect x="14" y="36" width="40" height="10" fill="#f0a020"/><ellipse cx="34" cy="36" rx="20" ry="7" fill="url(#cn1)"/><circle cx="26" cy="24" r="15" fill="url(#cn1)" stroke="#e8961a" stroke-width="2"/><text x="26" y="30" text-anchor="middle" font-size="16" font-weight="700" fill="#c06a00" font-family="sans-serif">৳</text></svg></a>
     </div>
+    <div class="me-quick"><a href="#withdraw">💸 উইথড্র</a><a href="#cashin">🪙 কয়েন কিনুন</a><a href="#history">📜 লেনদেন</a></div>
+    ${p.coin_seller ? `<a href="#seller" class="me-banner seller"><span>💰 কয়েন সেলার প্যানেল</span><b>বিক্রি করুন ›</b></a>` : ""}
     <a href="#invite" class="me-banner"><span>রেফার করে আয় করুন</span><b>${tk(refs?.earned_paisa ?? 0)} ›</b></a>
     <div class="me-menu">
       <a href="#inbox"><i class="mi c1"><svg viewBox="0 0 24 24"><path d="M4 6.5h16a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5v-3.5H4A1.5 1.5 0 0 1 2.5 17V8A1.5 1.5 0 0 1 4 6.5z"/><path d="M7.5 12.5h.01M12 12.5h.01M16.5 12.5h.01" stroke-width="2.6"/></svg></i>মেসেজ<em>${(S.unread || 0) + (S.msgUnread || 0) ? `${(S.unread || 0) + (S.msgUnread || 0)} <b class="red"></b>` : ""}›</em></a>
@@ -1959,13 +2054,13 @@ R.u = async (id) => {
   if (!p) { screen.innerHTML = `<div class="page"><div class="empty">ইউজার পাওয়া যায়নি</div></div>`; return; }
   if (mine) S.me = p;
   let following = !!fl.data;
-  const host = p.account_type === "host";
+  const host = p.account_type === "host", seller = host && p.coin_seller;
   const grid = (list) => list.map((v) => `<a href="#watch/${id}/${v.id}">${v.thumb_url ? `<img src="${esc(v.thumb_url)}" loading="lazy" alt="">` : ""}<span class="vc">▶ ${n(v.views_count)}</span></a>`).join("");
   const lv = levelOf(p.followers_count);
-  screen.innerHTML = `<div class="cover${host ? " host" : ""}" ${p.cover_url ? `style="background-image:url('${esc(p.cover_url)}')"` : ""}><button class="back" onclick="history.back()">←</button></div>
-    <div class="page${host ? " hostpage" : ""}" style="padding-top:0">
-    <div class="prof${host ? " host" : ""}">${host ? `<div class="avwrap">${avatar(p)}<span class="crown">👑</span></div>` : avatar(p)}<h2 translate="no">${esc(p.full_name ?? "")} ${p.is_verified ? "✔️" : ""}</h2><div class="muted">@${esc(p.username)}</div>
-      <div class="rbadges">${host ? `<span class="rbadge host">👑 HOST</span>` : `<span class="rbadge user">👤 ইউজার</span>`}<span class="rbadge lv">Lv${lv}</span>${p.country_code ? `<span class="rbadge">${flagOf(p.country_code)}</span>` : ""}</div>
+  screen.innerHTML = `<div class="cover${seller ? " seller" : host ? " host" : ""}" ${p.cover_url ? `style="background-image:url('${esc(p.cover_url)}')"` : ""}><button class="back" onclick="history.back()">←</button></div>
+    <div class="page${host ? " hostpage" : ""}${seller ? " sellerpage" : ""}" style="padding-top:0">
+    <div class="prof${host ? " host" : ""}${seller ? " seller" : ""}">${host ? `<div class="avwrap">${avatar(p)}<span class="crown">👑</span></div>` : avatar(p)}<h2 translate="no">${esc(p.full_name ?? "")} ${p.is_verified ? "✔️" : ""}</h2><div class="muted">@${esc(p.username)}</div>
+      <div class="rbadges">${host ? `<span class="rbadge host">👑 HOST</span>` : `<span class="rbadge user">👤 ইউজার</span>`}${seller ? `<span class="rbadge seller">💰 কয়েন সেলার</span>` : ""}<span class="rbadge lv">Lv${lv}</span>${p.country_code ? `<span class="rbadge">${flagOf(p.country_code)}</span>` : ""}</div>
       <div class="idtag" data-copy="${p.user_no}">ID: ${p.user_no} ⧉</div>
       <div class="counts"><div><b>${n(p.videos_count)}</b><span>ভিডিও</span></div><div><b id="fc">${n(p.followers_count)}</b><span>ফলোয়ার</span></div><div><b>${n(p.following_count)}</b><span>ফলোয়িং</span></div></div>
       ${p.bio ? `<p translate="no">${esc(p.bio)}</p>` : ""}
@@ -1974,6 +2069,8 @@ R.u = async (id) => {
            <a class="btn" href="#chat/${p.id}" style="min-width:110px">💬 মেসেজ</a></div>`}
     </div>
     ${mine ? `<div id="accBox" class="${S.openAcc ? "" : "hidden"}" style="margin-top:12px">${accountBlock(p)}</div>` : ""}
+    ${seller && !mine ? `<a class="sellcta" href="#chat/${p.id}"><span>🪙</span><div><b>এই হোস্টের কাছ থেকে কয়েন কিনুন</b><small>মেসেজ দিন → টাকা পাঠান → কয়েন সাথে সাথে পাবেন</small></div><em>›</em></a>` : ""}
+    ${seller && mine ? `<a class="sellcta" href="#seller"><span>💰</span><div><b>কয়েন সেলার প্যানেল</b><small>ইউজারদের কাছে কয়েন বিক্রি করুন</small></div><em>›</em></a>` : ""}
     ${host ? `<div class="hoststrip"><span>✨ অফিসিয়াল হোস্ট</span><span>🎬 ${n(p.videos_count)} কন্টেন্ট</span><span>👑 ${n(vids.filter((v) => v.is_premium).length)} প্রিমিয়াম</span></div>` : ""}
     <div class="seg"><button class="on" data-pt="v">🎬 ভিডিও</button>${host ? `<button data-pt="prem">👑 প্রিমিয়াম</button>` : ""}<button data-pt="photo">🖼️ ফটো</button><button data-pt="text">✍️ লেখা</button></div>
     <div id="ptab"></div>
