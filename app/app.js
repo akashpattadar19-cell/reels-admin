@@ -3002,7 +3002,7 @@ async function incomingCall(c) {
 async function startCall(host, kind) {
   try {
     needMedia();
-    if (!confirm(`${kind === "video" ? "📹 ভিডিও" : "📞 অডিও"} কল: প্রতি মিনিটে 🪙 ${n(callRate(host, kind))} কয়েন কাটবে। কল দেবেন?`)) return;
+    if (!confirm(`${kind === "video" ? "📹 ভিডিও" : "📞 অডিও"} কল: প্রতি মিনিটে 🪙 ${n(callRate(host, kind))} কয়েন কাটবে। কল দেবেন?\n\n🛡️ নিরাপত্তার জন্য কল ও লাইভ অ্যাডমিন পর্যবেক্ষণ করতে পারে।`)) return;
     const r = await rpc("call_start", { p_callee: host.id, p_kind: kind });
     location.hash = `#call/${r.call_id}`;
   } catch (e) {
@@ -3052,7 +3052,7 @@ R.call = async (cid) => {
         if (type === "audio") user.audioTrack?.play();
         if (type === "video") { $("#clR").innerHTML = ""; user.videoTrack?.play($("#clR")); $("#clR").classList.add("on"); }
       });
-      client.on("user-left", () => finish("অন্যজন কল কেটে দিয়েছে"));
+      client.on("user-left", (u) => { if (u.uid === o.user_no) finish("অন্যজন কল কেটে দিয়েছে"); });
       await client.join(tk.appId, `call_${id}`, tk.token, tk.uid);
       if (video) { [mic, cam] = await A.createMicrophoneAndCameraTracks({}, { encoderConfig: "480p_1", facingMode: "user" }); cam.play($("#clL"), { mirror: true }); await client.publish([mic, cam]); }
       else { mic = await A.createMicrophoneAudioTrack(); await client.publish([mic]); }

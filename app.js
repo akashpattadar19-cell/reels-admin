@@ -126,6 +126,7 @@ function route() {
   const [name, arg] = (location.hash.slice(1) || "dashboard").split("/");
   document.querySelectorAll("#nav a").forEach((a) => a.classList.toggle("active", a.getAttribute("href") === "#" + name));
   view.onclick = null;
+  try { window.__leave?.(); } catch { /* */ } window.__leave = null;
   (routes[name] ?? routes.dashboard)(arg);
   window.scrollTo(0, 0);
 }
@@ -1155,6 +1156,89 @@ routes.hostRules = async () => {
     if (kind !== "bool" && (isNaN(value) || value < 0 || (kind === "pct" && value > 100))) return toast("সঠিক সংখ্যা দিন", true);
     await act(() => rpc("admin_set_setting", { p_key: it.dataset.key, p_value: value }), "সেভ হয়েছে");
   };
+};
+
+// ---------- 🛡️ লাইভ ও কল মনিটর (এডমিন দেখে, খারাপ কিছু হলে সাথে সাথে জেল) ----------
+let AgoraRTC = null;
+async function loadAgora() {
+  if (AgoraRTC) return AgoraRTC;
+  if (!window.AgoraRTC) await new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = "https://cdn.jsdelivr.net/npm/agora-rtc-sdk-ng@4/AgoraRTC_N-production.js"; sc.onload = res; sc.onerror = () => rej(new Error("Agora লোড হয়নি")); document.head.appendChild(sc); });
+  AgoraRTC = window.AgoraRTC; try { AgoraRTC.setLogLevel(3); AgoraRTC.disableLogUpload?.(); } catch { /* */ }
+  return AgoraRTC;
+}
+async function agoraTok(channel) {
+  const { data, error } = await sb.functions.invoke("agora-token", { body: { channel } });
+  if (error || data?.error) throw new Error(data?.error || error?.message || "TOKEN");
+  return data;
+}
+const ago = (t) => { const m = Math.max(0, Math.round((Date.now() - new Date(t)) / 60000)); return m < 60 ? `${m} মিনিট` : `${Math.floor(m / 60)} ঘণ্টা ${m % 60} মি.`; };
+routes.monitor = async () => {
+  view.innerHTML = `<h1>🛡️ লাইভ ও কল মনিটর</h1><div class="empty">লোড হচ্ছে…</div>`;
+  let watch = null; // {client, box}
+  const stopWatch = async () => { if (!watch) return; const w = watch; watch = null; try { await w.client.leave(); } catch { /* */ } w.box?.remove(); };
+  const paint = async () => {
+    let d; try { d = await rpc("admin_monitor"); } catch (e) { view.innerHTML = `<h1>🛡️ লাইভ ও কল মনিটর</h1><div class="empty err">${esc(errMsg(e))}</div>`; return; }
+    const lv = d.lives, cl = d.calls;
+    view.innerHTML = `<h1>🛡️ লাইভ ও কল মনিটর</h1>
+      <p class="muted small">প্রতি ১৫ সেকেন্ডে নিজে থেকে আপডেট হয়। "👁 দেখুন" চাপলে আপনি চুপচাপ দর্শক হিসেবে দেখবেন — কেউ জানবে না। খারাপ কিছু দেখলে "🚫 জেল" চাপুন: সাথে সাথে আইডি জেলে যাবে আর লাইভ/কল বন্ধ হবে।</p>
+      <div class="grid"><div class="card stat"><div class="k">🔴 লাইভ</div><div class="v">${lv.filter((x) => x.kind !== "party").length}</div></div>
+        <div class="card stat"><div class="k">🎉 পার্টি</div><div class="v">${lv.filter((x) => x.kind === "party").length}</div></div>
+        <div class="card stat"><div class="k">📞 চলমান কল</div><div class="v">${cl.filter((x) => x.status === "active").length}</div></div></div>
+      <h2>🔴 লাইভ ও 🎉 পার্টি এখন</h2>
+      ${lv.length ? `<div class="mon-grid">${lv.map((r) => `<div class="mon-card">
+        <div class="mon-ph">${r.thumb_url || r.avatar_url ? `<img src="${esc(r.thumb_url || r.avatar_url)}" alt="">` : ""}<span class="mon-b ${r.kind}">${r.kind === "party" ? "🎉 পার্টি" : "🔴 LIVE"}</span><span class="mon-v">👁 ${num(r.viewers)}</span></div>
+        <div class="mon-i"><a href="#lookup/${r.user_no}"><b>@${esc(r.username)}</b></a> <span class="muted small">ID ${r.user_no}</span>
+          <div class="small muted">${esc(r.title ?? "")} · ${ago(r.started_at)}${r.guests ? ` · 🎤 ${r.guests} অতিথি` : ""} · 🪙 ${num(r.gift_coins)}</div></div>
+        <div class="toolbar"><button class="btn sm good" data-w="live_${r.id}" data-k="${r.kind}" data-n="@${esc(r.username)}">👁 দেখুন</button>
+          <button class="btn sm" data-endl="${r.id}">⏹ বন্ধ</button><button class="btn sm bad" data-jail="${r.host_id}" data-n="@${esc(r.username)}">🚫 জেল</button></div></div>`).join("")}</div>` : `<div class="empty">এখন কেউ লাইভে নেই</div>`}
+      <h2>📞 কল এখন</h2>
+      ${cl.length ? `<div class="table-wrap"><table><tr><th>কলার</th><th>হোস্ট</th><th>ধরন</th><th>সময়</th><th></th></tr>
+        ${cl.map((c) => `<tr><td><a href="#lookup/${c.caller_no}">@${esc(c.caller)}</a></td><td><a href="#lookup/${c.host_no}">@${esc(c.host)}</a></td>
+          <td>${c.kind === "video" ? "📹" : "📞"} ${c.status === "active" ? "🟢" : "🔔 বাজছে"}</td><td>${c.started_at ? ago(c.started_at) : "—"} · ${num(c.billed_minutes)} মি.</td>
+          <td><div class="toolbar">${c.status === "active" ? `<button class="btn sm good" data-w="call_${c.id}" data-k="${c.kind}" data-n="@${esc(c.caller)} ↔ @${esc(c.host)}">👁 দেখুন</button>` : ""}
+            <button class="btn sm" data-endc="${c.id}">⏹ কাটুন</button><button class="btn sm bad" data-jail="${c.host_id}" data-n="হোস্ট @${esc(c.host)}">🚫 হোস্ট জেল</button><button class="btn sm bad" data-jail="${c.caller_id}" data-n="কলার @${esc(c.caller)}">🚫 কলার জেল</button></div></td></tr>`).join("")}</table></div>` : `<div class="empty">এখন কোনো কল চলছে না</div>`}`;
+  };
+  const watchIt = async (channel, kind, name) => {
+    await stopWatch();
+    const box = document.createElement("div");
+    box.className = "mon-watch";
+    box.innerHTML = `<div class="mon-wh"><b>👁 ${esc(name)}</b><span class="muted small">${channel.startsWith("call") ? "কল" : kind === "party" ? "পার্টি" : "লাইভ"}</span>
+      <button class="btn sm" id="mwSnd">🔇 শব্দ চালু</button><button class="btn sm" id="mwX">✕ বন্ধ</button></div><div class="mon-vids" id="mwV"><div class="empty">সংযোগ হচ্ছে…</div></div>`;
+    document.body.appendChild(box);
+    try {
+      const A = await loadAgora();
+      const tk = await agoraTok(channel);
+      const client = A.createClient({ mode: channel.startsWith("call") ? "rtc" : "live", codec: "vp8" });
+      watch = { client, box };
+      if (!channel.startsWith("call")) await client.setClientRole("audience", { level: 1 });
+      const audios = new Set(); let soundOn = false;
+      client.on("user-published", async (user, type) => {
+        await client.subscribe(user, type);
+        if (type === "audio") { audios.add(user.audioTrack); if (soundOn) user.audioTrack.play(); }
+        if (type === "video") { const v = box.querySelector("#mwV"); v.querySelector(".empty")?.remove(); let t = v.querySelector(`[data-u="${user.uid}"]`); if (!t) { t = document.createElement("div"); t.className = "mon-tile"; t.dataset.u = user.uid; v.appendChild(t); } user.videoTrack.play(t); }
+      });
+      client.on("user-unpublished", (user, type) => { if (type === "video") box.querySelector(`[data-u="${user.uid}"]`)?.remove(); });
+      await client.join(tk.appId, channel, tk.token, tk.uid);
+      setTimeout(() => { const v = box.querySelector("#mwV .empty"); if (v) v.textContent = kind === "party" || kind === "audio" ? "🎧 শুধু শব্দ — উপরে \"শব্দ চালু\" চাপুন" : "ভিডিও আসছে…"; }, 3000);
+      box.querySelector("#mwSnd").onclick = (e) => { soundOn = !soundOn; audios.forEach((a) => (soundOn ? a.play() : a.stop())); e.target.textContent = soundOn ? "🔊 শব্দ বন্ধ" : "🔇 শব্দ চালু"; };
+    } catch (e) { box.querySelector("#mwV").innerHTML = `<div class="empty err">${esc(errMsg(e))}</div>`; }
+    box.querySelector("#mwX").onclick = stopWatch;
+  };
+  view.onclick = async (e) => {
+    const w = e.target.closest("[data-w]"), el = e.target.closest("[data-endl]"), ec = e.target.closest("[data-endc]"), j = e.target.closest("[data-jail]");
+    if (w) return watchIt(w.dataset.w, w.dataset.k, w.dataset.n);
+    if (el) { if (!confirm("এই লাইভ/পার্টি বন্ধ করবেন?")) return; await act(() => rpc("live_end", { p_room: Number(el.dataset.endl), p_reason: "admin" }), "বন্ধ করা হয়েছে"); return paint(); }
+    if (ec) { if (!confirm("এই কল কেটে দেবেন?")) return; await act(() => rpc("admin_end_call", { p_call: Number(ec.dataset.endc) }), "কল কাটা হয়েছে"); return paint(); }
+    if (j) {
+      const reason = prompt(`${j.dataset.n}-কে জেলে দেবেন? কারণ লিখুন (ইউজার দেখবে):`, "লাইভ/কলে অশ্লীল বা নিয়মবিরোধী আচরণ");
+      if (reason === null) return;
+      await act(() => rpc("admin_jail_now", { p_user: j.dataset.jail, p_reason: reason }), "🚫 জেলে দেওয়া হয়েছে, লাইভ/কল বন্ধ");
+      await stopWatch(); return paint();
+    }
+  };
+  await paint();
+  const timer = setInterval(() => { if (!watch) paint(); }, 15000);
+  window.__leave = () => { clearInterval(timer); stopWatch(); };
 };
 
 // ---------- 🔴 লাইভ ও 📞 কল ----------

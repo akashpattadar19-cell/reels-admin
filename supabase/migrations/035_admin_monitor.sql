@@ -1,0 +1,1 @@
+-- 035 (applied as admin_monitor): agora_grant lets admins subscribe to call_<id>; admin_monitor(); admin_end_call(call); admin_jail_now(user, reason).
