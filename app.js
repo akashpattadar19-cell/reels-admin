@@ -1133,7 +1133,7 @@ routes.live = async () => {
   view.innerHTML = `<h1>🔴 লাইভ ও 📞 কল</h1><div class="empty">লোড হচ্ছে…</div>`;
   let d;
   try { d = await rpc("admin_live_overview"); } catch (e) { view.innerHTML = `<h1>🔴 লাইভ ও 📞 কল</h1><div class="empty err">${esc(errMsg(e))}</div>`; return; }
-  const { data: st } = await sb.from("settings").select("key,value").in("key", ["live_enabled", "live_hosts_only", "live_max_cohosts", "calls_enabled", "call_video_coins_per_min", "call_audio_coins_per_min", "call_host_pct", "live_gift_host_pct", "coin_price_paisa", "pk_enabled", "pk_duration_sec", "pk_winner_bonus_pct", "pk_bonus_cap_paisa"]);
+  const { data: st } = await sb.from("settings").select("key,value").in("key", ["live_enabled", "live_hosts_only", "live_max_cohosts", "calls_enabled", "call_video_coins_per_min", "call_audio_coins_per_min", "call_host_pct", "live_gift_host_pct", "coin_price_paisa", "pk_enabled", "pk_duration_sec", "pk_winner_bonus_pct", "pk_bonus_cap_paisa", "party_enabled", "party_hosts_only", "party_max_seats", "party_gift_pct"]);
   const pks = (await rpc("admin_pk_recent").catch(() => [])) ?? [];
   const S2 = Object.fromEntries((st ?? []).map((x) => [x.key, x.value]));
   const cp = Number(S2.coin_price_paisa || 100);
@@ -1165,6 +1165,10 @@ routes.live = async () => {
       ${row("pk_duration_sec", "⚔️ PK কত সেকেন্ড চলবে (৩০০ = ৫ মিনিট)", "num")}
       ${row("pk_winner_bonus_pct", "⚔️ বিজয়ী বোনাস: PK-তে পাওয়া গিফটের মূল্যের কত %", "pct")}
       ${row("pk_bonus_cap_paisa", "⚔️ সর্বোচ্চ বোনাস (পয়সা, ১০০ = ৳১)", "num")}
+      ${row("party_enabled", "🎉 পার্টি (ভয়েস রুম) চালু", "bool")}
+      ${row("party_hosts_only", "🎉 শুধু অনুমোদিত হোস্টরা পার্টি খুলতে পারবে", "bool")}
+      ${row("party_max_seats", "🎉 পার্টিতে সর্বোচ্চ কতটি অতিথি সিট", "num")}
+      ${row("party_gift_pct", "🎉 পার্টিতে গিফটের কত % যে গিফট পাবে সে পাবে (০ = লাইভের নিয়ম)", "pct")}
     </div>
     <h2>⚔️ সর্বশেষ PK</h2>
     <div class="table-wrap">${pks.length ? `<table><tr><th>শুরু</th><th>হোস্ট ১</th><th class="num">স্কোর</th><th>হোস্ট ২</th><th>বিজয়ী</th><th class="num">বোনাস</th></tr>

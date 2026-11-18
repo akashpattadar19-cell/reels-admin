@@ -145,7 +145,11 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
 - Live cards (028): `liveCard()` = home-card style (snapshot `live_rooms.thumb_url` uploaded by the host 4 s after going live via
   `live_set_thumb`, else avatar), shown first in Home → ভিডিও and in the লাইভ tab; 📞 on a card opens `callChooser`. `user_live(uid)`:
   chat shows a floating muted live preview (`livePip`, Agora audience, video only) → tap opens `#live/<id>`; profile avatar gets a LIVE ring.
-- Middle ＋ tab button (`#plusBtn`) opens `plusSheet()`: লাইভ (→ `#golive`, hosts only) and পার্টি (placeholder "শীঘ্রই").
+- Middle ＋ tab button (`#plusBtn`) opens `plusSheet()`: লাইভ (→ `#golive`) and পার্টি (→ `#goparty`), hosts only by setting.
+- Party voice rooms (029): `live_rooms.kind='party'` + `seats` + `free_seats`; `party_start`, `party_settings`, `party_mute`; seats =
+  `live_cohosts` (accepted, `seat` number via `_seat_free`, `muted`); free seats auto-accept in `live_request_cohost`.
+  `live_gift(..., p_to)` sends to host or a seated guest (`party_gift_pct`, else live rule). App `#party/<id>`: audio-only Agora,
+  host seat + seat grid, green glow from volume-indicator, tap seat = request / gift / host mute+remove. Settings party_* on admin live page.
   Uploads (video/photo/story/text) moved to the Me page "＋ পোস্ট করুন" row.
 - Declined: real-money betting games in live (coins are bought with money and earnings withdraw → gambling, illegal in BD/KSA,
   banned by Play). Offer free point games instead. Call moderation must cover the whole call, not only the first minutes.

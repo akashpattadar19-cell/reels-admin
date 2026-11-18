@@ -894,3 +894,25 @@ a.mention, span.mention { color: #2563eb; font-weight: 600; }
 .me-create > div { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
 .me-create a { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 12.5px; color: #3b2a6e; }
 .me-create a i { font-style: normal; width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; font-size: 21px; background: linear-gradient(135deg, #f3ecff, #fde9f6); }
+/* 🎉 party */
+.pty { position: fixed; inset: 0; z-index: 300; color: #fff; overflow: hidden;
+  background: radial-gradient(circle at 20% 10%, #7c3aed 0, transparent 45%), radial-gradient(circle at 90% 40%, #db2777 0, transparent 40%), linear-gradient(180deg, #2a1259, #120826 70%); }
+.pty-title { position: absolute; top: calc(58px + var(--safe-t, 0px)); left: 0; right: 0; text-align: center; font-weight: 700; font-size: 14px; opacity: .95; }
+.pty-hostseat { position: absolute; top: calc(88px + var(--safe-t, 0px)); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.pty-hostseat .av { width: 76px; height: 76px; font-size: 28px; border: 3px solid #fbbf24; }
+.pty-hostseat b { font-size: 13px; max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .pty-hostseat small { font-size: 11px; color: #fde68a; }
+.pty-seats { position: absolute; top: calc(210px + var(--safe-t, 0px)); left: 12px; right: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px 6px; }
+.seat { display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; }
+.seat > i { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 22px; background: rgba(255,255,255,.12); border: 1.5px dashed rgba(255,255,255,.35); }
+.seat .av { width: 56px; height: 56px; font-size: 22px; border: 2px solid rgba(255,255,255,.8); }
+.seat small { font-size: 11px; max-width: 70px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .9; }
+.seat .mut { position: absolute; top: 38px; right: 8px; font-style: normal; font-size: 13px; background: #111; border-radius: 50%; width: 20px; height: 20px; display: grid; place-items: center; }
+.pty .talk .av { box-shadow: 0 0 0 3px #22c55e, 0 0 14px 4px rgba(34,197,94,.7); }
+.pty-msgs { right: 22%; max-height: 26vh; }
+.pty-prev { border-radius: 18px; padding: 16px 10px; margin-bottom: 10px; color: #fff; position: relative; min-height: 210px;
+  background: radial-gradient(circle at 20% 10%, #7c3aed 0, transparent 45%), radial-gradient(circle at 90% 40%, #db2777 0, transparent 40%), linear-gradient(180deg, #2a1259, #120826); }
+.pty-prev .pty-hostseat { position: static; transform: none; margin-bottom: 12px; }
+.pty-prev .pty-seats { position: static; }
+.dcard.party .ph { box-shadow: inset 0 0 0 2px #ec4899; }
+.lbadge.pb { background: linear-gradient(90deg, #ec4899, #8b5cf6); }
+.pseats { position: absolute; top: 32px; left: 6px; background: rgba(0,0,0,.45); color: #fff; font-size: 11px; border-radius: 6px; padding: 2px 6px; }
