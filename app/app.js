@@ -702,7 +702,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
       if (rows.length) sb.from("videos").select("id,music_id,music_start,fx,orig_muted,music:music_id(url,title,artist)").in("id", rows.map((r) => r.id)).then(({ data }) => {
         for (const x of data ?? []) {
           const el = newEls.find((e) => e._v.id === x.id); if (!el) continue;
-          el._x = x;
+          el._x = x; el._v._x = x;
           const vd = el.querySelector("video");
           if (x.fx) vd.style.filter = fxCss(x.fx);
           if (x.music?.url) {
@@ -1935,6 +1935,13 @@ async function downloadVideo(v) {
     }
   }
   if (!v.video_url) return;
+  if (v._x === undefined) {
+    const { data } = await sb.from("videos").select("music_start,fx,orig_muted,music:music_id(url)").eq("id", v.id).maybeSingle();
+    v._x = data ?? null;
+  }
+  const x = v._x;
+  const hasExtra = !!(x?.music?.url || (x?.fx && !fxEmpty(x.fx)));
+  if (hasExtra && !Native.downloadVideo2) { toast("গান ও ফিল্টারসহ ডাউনলোড করতে অ্যাপ আপডেট করুন", true); checkUpdate(); return; }
   let bar = $("#dlbar");
   if (!bar) {
     bar = document.createElement("div"); bar.id = "dlbar"; bar.className = "dlbar";
@@ -1949,11 +1956,13 @@ async function downloadVideo(v) {
     else {
       bar.classList.remove("show");
       if (st.state === "done") { toast("✅ গ্যালারিতে সেভ হয়েছে (Movies/ReelsEnjoy)"); rpc("record_download", { p_video: v.id }).catch(() => {}); }
-      else toast(st.msg === "permission" ? "স্টোরেজ অনুমতি দিন, তারপর আবার চেষ্টা করুন" : "ডাউনলোড হয়নি — ইন্টারনেট দেখে আবার চেষ্টা করুন", true);
+      else toast(st.msg === "permission" ? "স্টোরেজ অনুমতি দিন, তারপর আবার চেষ্টা করুন" : st.msg === "music" ? "এই ফোনে গানসহ ভিডিও তৈরি করা যায়নি — আবার চেষ্টা করুন" : "ডাউনলোড হয়নি — ইন্টারনেট দেখে আবার চেষ্টা করুন", true);
     }
   };
   show("⬇️ ডাউনলোড শুরু হচ্ছে…", 0);
-  Native.downloadVideo(v.video_url, String(setting("watermark_text", "Reels Enjoy") || "Reels Enjoy"), v.username || "", "");
+  const brand = String(setting("watermark_text", "Reels Enjoy") || "Reels Enjoy");
+  if (Native.downloadVideo2) Native.downloadVideo2(v.video_url, brand, v.username || "", "", JSON.stringify({ music: x?.music?.url || "", start: x?.music_start || 0, mute: !!x?.orig_muted, fx: x?.fx && !fxEmpty(x.fx) ? x.fx : null }));
+  else Native.downloadVideo(v.video_url, brand, v.username || "", "");
 }
 
 // ---------------- 📖 স্টোরি ----------------

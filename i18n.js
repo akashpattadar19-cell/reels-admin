@@ -1446,7 +1446,9 @@
 "এখনো কোনো গান নেই — উপর থেকে যোগ করুন": "No songs yet — add one above",
 "স্টোরি চালু": "Stories on",
 "একজন দিনে কয়টি স্টোরি দিতে পারবে": "Stories per user per day",
-"ভিডিও স্টোরির সর্বোচ্চ সেকেন্ড": "Max video story length (seconds)"
+"ভিডিও স্টোরির সর্বোচ্চ সেকেন্ড": "Max video story length (seconds)",
+"গান ও ফিল্টারসহ ডাউনলোড করতে অ্যাপ আপডেট করুন": "Update the app to download with song and filter",
+"এই ফোনে গানসহ ভিডিও তৈরি করা যায়নি — আবার চেষ্টা করুন": "Couldn't make the video with the song on this phone — try again"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });
