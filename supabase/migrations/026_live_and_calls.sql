@@ -1,0 +1,13 @@
+-- 026 (applied as "live_and_calls" + "gift_pct_numeric_fix"):
+-- settings: live_enabled, live_hosts_only, live_max_cohosts, calls_enabled, call_video_coins_per_min (60), call_audio_coins_per_min (30),
+--   call_host_pct (60), live_gift_host_pct (0 = gift's own %), agora_app_id (public). App Certificate in private_config.agora_app_certificate
+--   (private_config: RLS on, no policies, grants revoked from anon/authenticated).
+-- profiles: calls_on, call_video_rate, call_audio_rate, call_host_pct (per-host overrides).
+-- live_rooms (host_seen heartbeat, peak/total viewers, likes, gift_coins, host_earned_paisa, ended_reason), live_viewers (presence),
+--   live_messages (chat|gift|join|system|like), live_cohosts (pending|accepted|rejected|ended), calls (ringing|active|ended|missed|rejected|cancelled,
+--   rate_coins, host_pct, billed_minutes, coins_charged, host_paisa). gift_transactions.live_room_id. Realtime on live_rooms/messages/cohosts/calls.
+-- RPCs: live_start, live_join, live_heartbeat, live_leave, live_end, live_send, live_gift, live_request_cohost, live_answer_cohost, list_lives,
+--   call_start, call_answer, call_tick (bills each started minute via _call_bill: caller −rate coins, host +pct as pending), call_end,
+--   set_call_prefs, agora_grant(channel) → {role publisher|subscriber, uid=user_no}, admin_live_overview, admin_set_call_rates.
+-- cron 'live-call-cleanup' every minute: end lives without host heartbeat 90 s, ringing calls > 45 s → missed, active calls without tick 150 s → ended.
+-- _gift_pct(uuid, numeric) overload added (gifts.creator_share_pct is numeric; fixes send_gift/send_post_gift after migration 022).

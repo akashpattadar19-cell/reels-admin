@@ -201,6 +201,15 @@ const ERR = {
   BAD_AMOUNT: "সঠিক পরিমাণ দিন",
   TOO_MANY: "সর্বোচ্চ ৫টি নম্বর সেভ করা যায়",
   STORIES_OFF: "স্টোরি এখন বন্ধ আছে",
+  LIVE_OFF: "লাইভ এখন বন্ধ আছে",
+  HOST_ONLY: "শুধু অনুমোদিত হোস্টরা লাইভ করতে পারবে — সেটিংস থেকে হোস্ট হতে আবেদন করুন",
+  LIVE_ENDED: "লাইভ শেষ হয়ে গেছে",
+  COHOST_FULL: "লাইভে আর জায়গা নেই",
+  CALLS_OFF: "এই হোস্ট এখন কল নিচ্ছে না",
+  HOST_BUSY: "হোস্ট এখন অন্য কলে আছে — একটু পরে চেষ্টা করুন",
+  CALL_ENDED: "কল শেষ হয়ে গেছে",
+  NOT_ALLOWED: "অনুমতি নেই",
+  NOT_CONFIGURED: "লাইভ/কল এখনো চালু করা হয়নি",
   DOWNLOADS_OFF: "ডাউনলোড এখন বন্ধ আছে",
   INSUFFICIENT_BALANCE: "ব্যালেন্স যথেষ্ট নেই",
   INSUFFICIENT_POINTS: "পয়েন্ট যথেষ্ট নেই",
@@ -550,6 +559,9 @@ function realtime() {
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: `receiver_id=eq.${S.me.id}` }, (p) => {
       document.dispatchEvent(new CustomEvent("msgupd", { detail: p.new }));
     })
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "calls", filter: `callee_id=eq.${S.me.id}` }, (p) => incomingCall(p.new))
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "calls", filter: `callee_id=eq.${S.me.id}` }, (p) => document.dispatchEvent(new CustomEvent("callupd", { detail: p.new })))
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "calls", filter: `caller_id=eq.${S.me.id}` }, (p) => document.dispatchEvent(new CustomEvent("callupd", { detail: p.new })))
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "wallets", filter: `user_id=eq.${S.me.id}` }, (p) => {
       document.dispatchEvent(new CustomEvent("wallet", { detail: p.new }));
     })
@@ -582,7 +594,7 @@ function route() {
   let [name, a, b, c] = (location.hash.slice(1) || "home").split("/");
   if (!R[name]) name = "home";
   if (S.me.jailed && !["jail", "cashin", "history"].includes(name)) name = "jail";
-  const TABS = { home: ["home", "notifs", "post", "contest", "newphoto", "top", "tag", "tags", "at", "story", "newstory"], feed: ["feed", "following", "watch", "play"],
+  const TABS = { home: ["home", "golive", "live", "notifs", "post", "contest", "newphoto", "top", "tag", "tags", "at", "story", "newstory"], feed: ["feed", "following", "watch", "play"],
     me: ["me", "seller", "creator", "support", "policy", "delacct", "invite", "rules", "settings", "vault", "edit", "level", "wallet", "history", "withdraw", "cashin", "inbox", "chat"] };
   document.querySelectorAll(".tabbar a").forEach((x) => x.classList.toggle("on", x.dataset.t === name || (TABS[x.dataset.t] ?? []).includes(name)));
   screen.classList.remove("full");
@@ -917,7 +929,7 @@ async function openComments(el) {
   });
 }
 
-async function openGifts(el, isPost = false) {
+async function openGifts(el, isPost = false, liveRoom = null) {
   const v = el._v;
   if (!S.gifts) {
     const { data } = await sb.from("gifts").select("*").eq("is_active", true).order("sort_order");
@@ -947,7 +959,8 @@ async function openGifts(el, isPost = false) {
     if (total() > coins) { toast(ERR.INSUFFICIENT_COINS, true); return; }
     e.currentTarget.disabled = true;
     try {
-      const r = isPost ? await rpc("send_post_gift", { p_post: v.id, p_gift_id: sel.id, p_qty: qty, p_idem: uuid() })
+      const r = liveRoom ? await rpc("live_gift", { p_room: liveRoom, p_gift_id: sel.id, p_qty: qty, p_idem: uuid() })
+        : isPost ? await rpc("send_post_gift", { p_post: v.id, p_gift_id: sel.id, p_qty: qty, p_idem: uuid() })
         : await rpc("send_gift", { p_video_id: v.id, p_gift_id: sel.id, p_qty: qty, p_idem: uuid() });
       closeSheet();
       const f = document.createElement("div"); f.className = "gift-fly"; f.textContent = sel.icon; document.body.appendChild(f); setTimeout(() => f.remove(), 1700);
@@ -2163,6 +2176,337 @@ async function downloadVideo(v) {
   else Native.downloadVideo(v.video_url, brand, v.username || "", "");
 }
 
+// ---------------- 🔴 লাইভ ও 📞 কল (Agora Web SDK, WebView-এর ভেতরে) ----------------
+let AgoraRTC = null;
+async function loadAgora() {
+  if (AgoraRTC) return AgoraRTC;
+  if (!window.AgoraRTC) {
+    await new Promise((res, rej) => {
+      const sc = document.createElement("script");
+      sc.src = "https://cdn.jsdelivr.net/npm/agora-rtc-sdk-ng@4/AgoraRTC_N-production.js";
+      sc.onload = res; sc.onerror = () => rej(new Error("লাইভ চালু করা যায়নি — ইন্টারনেট দেখুন"));
+      document.head.appendChild(sc);
+    });
+  }
+  AgoraRTC = window.AgoraRTC;
+  try { AgoraRTC.setLogLevel(3); AgoraRTC.disableLogUpload?.(); } catch { /* */ }
+  return AgoraRTC;
+}
+const agoraToken = (channel) => fnCall("agora-token", { channel });
+const needMedia = () => { if (Native && !Native.appVersion) return; const b = Number(String(Native?.appVersion?.() || "").split(".")[2] || 0); if (Native && b && b < 17) throw new Error("লাইভ ও কলের জন্য অ্যাপ আপডেট করুন"); };
+const hms2 = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+const callRate = (p, kind) => Number((kind === "video" ? p.call_video_rate : p.call_audio_rate) ?? setting(kind === "video" ? "call_video_coins_per_min" : "call_audio_coins_per_min", kind === "video" ? 60 : 30));
+
+// লাইভ তালিকা (হোম → লাইভ ট্যাব)
+async function liveGrid(box) {
+  const rows = (await rpc("list_lives", { p_limit: 40 }).catch(() => [])) ?? [];
+  const canGo = S.me.account_type === "host" || S.me.role === "admin" || setting("live_hosts_only", true) === false;
+  box.innerHTML = `${canGo ? `<a class="golive-btn" href="#golive">🔴 লাইভে যান</a>` : ""}
+    ${rows.length ? `<div class="live-grid">${rows.map((r) => `<a class="lcard" href="#live/${r.id}">
+      <div class="lph" style="${r.cover_url ? `background-image:url('${esc(r.cover_url)}')` : ""}">${r.avatar_url ? `<img src="${esc(r.avatar_url)}" alt="">` : `<b>${esc((r.full_name || r.username || "?").charAt(0))}</b>`}
+        <span class="lbadge">● LIVE</span><span class="lview">👁 ${n(r.viewers)}</span></div>
+      <div class="lmeta"><b translate="no">${esc(r.full_name || r.username)}</b>${r.account_type === "host" ? " 👑" : ""}<small translate="no">${esc(r.title || "")}${r.country_code ? " · " + flagOf(r.country_code) : ""}</small></div></a>`).join("")}</div>`
+      : `<div class="empty">🔴 এখন কেউ লাইভে নেই।${canGo ? "<br>আপনিই প্রথম লাইভে যান!" : ""}</div>`}`;
+}
+
+// লাইভ শুরুর আগের পেজ
+R.golive = async () => {
+  if (setting("live_enabled", true) === false) { screen.innerHTML = `<div class="page">${header("🔴 লাইভ")}<div class="empty">লাইভ এখন বন্ধ আছে</div></div>`; return; }
+  screen.innerHTML = `<div class="page">${header("🔴 লাইভে যান")}
+    <div class="lv-prev" id="lvp"><div class="spinner"></div></div>
+    <input id="lvt" maxlength="80" placeholder="লাইভের শিরোনাম (যেমন: আড্ডা দিই 😊)">
+    <button class="btn primary" id="lvGo">🔴 লাইভ শুরু করুন</button>
+    <p class="notice tiny">⚠️ অশ্লীল, সহিংস বা নিয়মবিরোধী কিছু লাইভে দেখালে লাইভ বন্ধ করে অ্যাকাউন্ট ব্যান করা হবে।</p></div>`;
+  let cam = null;
+  try {
+    needMedia();
+    const A = await loadAgora();
+    cam = await A.createCameraVideoTrack({ encoderConfig: "720p_1" });
+    $("#lvp").innerHTML = ""; cam.play($("#lvp"), { mirror: true });
+  } catch (e) { $("#lvp").innerHTML = `<div class="empty">${esc(e.message || "ক্যামেরা চালু করা যায়নি — অনুমতি দিন")}</div>`; }
+  cleanup = () => { try { cam?.close(); } catch { /* */ } };
+  $("#lvGo").onclick = async (e) => {
+    e.currentTarget.disabled = true;
+    try { const r = await rpc("live_start", { p_title: $("#lvt").value }); try { cam?.close(); } catch { /* */ } cam = null; location.replace(`#live/${r.room_id}`); }
+    catch (er) { toast(errMsg(er), true); e.currentTarget.disabled = false; }
+  };
+};
+
+// লাইভ দেখা / চালানো: #live/<id>
+R.live = async (rid) => {
+  const id = Number(rid);
+  screen.classList.add("full");
+  document.body.classList.add("story-open");
+  try { Native?.setDarkBars?.(true); Native?.setSecure?.(true); } catch { /* */ }
+  screen.innerHTML = `<div class="lv"><div class="spinner" style="margin-top:40vh"></div></div>`;
+  let info;
+  try { needMedia(); info = await rpc("live_join", { p_room: id }); }
+  catch (e) { document.body.classList.remove("story-open"); toast(errMsg(e), true); location.replace("#home/live"); return; }
+  const host = info.host_id === S.me.id;
+  const { data: hp } = await sb.from("profiles").select("id,username,full_name,avatar_url,user_no,account_type").eq("id", info.host_id).single();
+  screen.innerHTML = `<div class="lv">
+    <div class="lv-main" id="lvMain"><div class="lv-wait">${avatar(hp)}<div>লাইভ লোড হচ্ছে…</div></div></div>
+    <div class="lv-guest hidden" id="lvGuest"></div>
+    <div class="lv-top"><a class="lv-host" href="#u/${hp.id}">${avatar(hp)}<span><b translate="no">${esc(hp.full_name || hp.username)}</b><small>👁 <span id="lvV">${n(info.viewers)}</span> · ❤️ <span id="lvL">${n(info.likes)}</span></small></span></a>
+      ${host ? "" : `<button class="lv-follow" id="lvF">＋ ফলো</button>`}<span class="lv-gc">🪙 <span id="lvG">${n(info.gift_coins)}</span></span><button class="lv-x" id="lvX">✕</button></div>
+    ${info.title ? `<div class="lv-title" translate="no">${esc(info.title)}</div>` : ""}
+    <div class="lv-msgs" id="lvM"></div>
+    <div class="lv-hearts" id="lvH"></div>
+    <div class="lv-bar"><form id="lvF2"><input id="lvI" maxlength="200" placeholder="কিছু বলুন…" autocomplete="off"></form>
+      ${host ? `<button class="lv-b" id="lvReq">🙋<b id="lvRc" class="hidden"></b></button><button class="lv-b" id="lvCam">🔄</button><button class="lv-b" id="lvMic">🎤</button><button class="lv-b end" id="lvEnd">⏹</button>`
+        : `<button class="lv-b" id="lvJoin">🙋</button><button class="lv-b" id="lvGift">🎁</button><button class="lv-b" id="lvLike">❤️</button>`}</div></div>`;
+  const msgs = $("#lvM");
+  const addMsg = (m) => {
+    const d = document.createElement("div");
+    d.className = "lm " + m.kind;
+    d.innerHTML = m.kind === "chat" ? `<b translate="no">${esc(m.username || "")}</b> <span translate="no">${esc(m.body)}</span>`
+      : m.kind === "gift" ? `🎁 <b translate="no">${esc(m.username || "")}</b> পাঠিয়েছে ${esc(m.body)}`
+      : m.kind === "like" ? `❤️ <b translate="no">${esc(m.username || "")}</b>` : `<b translate="no">${esc(m.username || "")}</b> ${esc(m.body || "")}`;
+    msgs.appendChild(d);
+    while (msgs.children.length > 60) msgs.firstChild.remove();
+    msgs.scrollTop = msgs.scrollHeight;
+    if (m.kind === "gift") { const f = document.createElement("div"); f.className = "gift-fly"; f.textContent = (m.body || "🎁").split(" ")[0]; document.body.appendChild(f); setTimeout(() => f.remove(), 1700); }
+    if (m.kind === "like") heart();
+  };
+  const heart = () => { const h = document.createElement("i"); h.textContent = ["❤️", "💖", "💜", "💛", "🧡"][Math.floor(Math.random() * 5)]; h.style.left = 20 + Math.random() * 40 + "px"; $("#lvH")?.appendChild(h); setTimeout(() => h.remove(), 2200); };
+  const { data: old } = await sb.from("live_messages").select("*").eq("room_id", id).order("id", { ascending: false }).limit(30);
+  (old ?? []).reverse().forEach(addMsg);
+
+  // Agora
+  let client = null, mic = null, cam = null, ended = false, myRole = "audience", facing = "user";
+  const mainUid = hp.user_no;
+  const showEnded = (why) => {
+    if (ended) return; ended = true;
+    $("#lvMain").innerHTML = `<div class="lv-wait">${avatar(hp)}<div><b>লাইভ শেষ হয়েছে</b></div><div class="tiny">${esc(why || "")}</div><a class="btn small" href="#home/live" style="margin-top:12px">অন্য লাইভ দেখুন</a></div>`;
+    $("#lvGuest").classList.add("hidden");
+    leaveRtc();
+  };
+  const leaveRtc = async () => { try { mic?.close(); cam?.close(); } catch { /* */ } mic = cam = null; try { await client?.leave(); } catch { /* */ } };
+  const publish = async () => {
+    const A = await loadAgora();
+    if (!mic) [mic, cam] = await A.createMicrophoneAndCameraTracks({}, { encoderConfig: "720p_1", facingMode: facing });
+    await client.setClientRole("host");
+    await client.publish([mic, cam]);
+    myRole = "host";
+    if (host) { $("#lvMain").innerHTML = ""; cam.play($("#lvMain"), { mirror: facing === "user" }); }
+    else { const g = $("#lvGuest"); g.classList.remove("hidden"); g.innerHTML = ""; cam.play(g, { mirror: true }); }
+  };
+  try {
+    const A = await loadAgora();
+    const tk = await agoraToken(`live_${id}`);
+    client = A.createClient({ mode: "live", codec: "vp8" });
+    client.on("user-published", async (user, type) => {
+      await client.subscribe(user, type);
+      if (type === "audio") user.audioTrack?.play();
+      if (type === "video") {
+        const box = user.uid === mainUid ? $("#lvMain") : $("#lvGuest");
+        if (!box) return;
+        box.classList.remove("hidden"); box.innerHTML = ""; user.videoTrack?.play(box);
+      }
+    });
+    client.on("user-unpublished", (user, type) => { if (type === "video" && user.uid !== mainUid) $("#lvGuest")?.classList.add("hidden"); });
+    client.on("user-left", (user) => { if (user.uid !== mainUid) $("#lvGuest")?.classList.add("hidden"); });
+    client.on("token-privilege-will-expire", async () => { try { const t = await agoraToken(`live_${id}`); await client.renewToken(t.token); } catch { /* */ } });
+    if (tk.role === "publisher") { await client.setClientRole("host"); } else await client.setClientRole("audience", { level: 1 });
+    await client.join(tk.appId, `live_${id}`, tk.token, tk.uid);
+    if (host || tk.role === "publisher") await publish();
+  } catch (e) { toast(errMsg(e), true); }
+
+  // রিয়েলটাইম
+  const ch = sb.channel("live-" + id)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "live_messages", filter: `room_id=eq.${id}` }, (p) => {
+      addMsg(p.new);
+      if (p.new.kind === "gift") rpc("live_heartbeat", { p_room: id }).then((h) => { if ($("#lvG")) $("#lvG").textContent = n(h.gift_coins); }).catch(() => {});
+    })
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "live_rooms", filter: `id=eq.${id}` }, (p) => {
+      if (p.new.status === "ended") showEnded(p.new.ended_reason === "admin" ? "অ্যাডমিন লাইভ বন্ধ করেছেন" : "");
+      if ($("#lvL")) $("#lvL").textContent = n(p.new.likes);
+      if ($("#lvG")) $("#lvG").textContent = n(p.new.gift_coins);
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "live_cohosts", filter: `room_id=eq.${id}` }, async (p) => {
+      const r = p.new;
+      if (host) { paintReq(); return; }
+      if (r.user_id !== S.me.id) return;
+      if (r.status === "accepted" && myRole !== "host") {
+        try { const t = await agoraToken(`live_${id}`); await client.renewToken(t.token); await publish(); toast("🎤 আপনি এখন লাইভে!"); }
+        catch (e) { toast(errMsg(e), true); }
+      } else if ((r.status === "ended" || r.status === "rejected") && myRole === "host") {
+        try { await client.unpublish(); mic?.close(); cam?.close(); mic = cam = null; await client.setClientRole("audience", { level: 1 }); } catch { /* */ }
+        myRole = "audience"; $("#lvGuest").classList.add("hidden");
+      } else if (r.status === "rejected") toast("হোস্ট এখন রাজি নয়");
+    })
+    .subscribe();
+  const hb = setInterval(() => rpc("live_heartbeat", { p_room: id }).then((h) => {
+    if (h.status === "ended") return showEnded();
+    if ($("#lvV")) $("#lvV").textContent = n(h.viewers);
+  }).catch(() => {}), 20000);
+
+  // হোস্টের অতিথি অনুরোধ
+  let reqs = [];
+  async function paintReq() {
+    const { data } = await sb.from("live_cohosts").select("user_id,status,profiles!live_cohosts_user_id_fkey(username,full_name,avatar_url)").eq("room_id", id).in("status", ["pending", "accepted"]);
+    reqs = data ?? [];
+    const pend = reqs.filter((r) => r.status === "pending").length;
+    const b = $("#lvRc"); if (b) { b.textContent = pend; b.classList.toggle("hidden", !pend); }
+  }
+  if (host) paintReq();
+  $("#lvReq")?.addEventListener("click", async () => {
+    await paintReq();
+    const body = sheet(`<h3>🙋 লাইভে যোগ দিতে চায়</h3><div class="list">${reqs.length ? reqs.map((r) => `<div class="li" style="display:flex;gap:10px;align-items:center">${avatar(r.profiles)}
+      <span style="flex:1"><b translate="no">${esc(r.profiles?.full_name || r.profiles?.username)}</b><div class="tiny muted">@${esc(r.profiles?.username)}${r.status === "accepted" ? " · 🎤 লাইভে আছে" : ""}</div></span>
+      ${r.status === "pending" ? `<button class="btn small primary" data-a="${r.user_id}" style="width:auto;margin:0">রাজি</button><button class="btn small" data-r="${r.user_id}" style="width:auto;margin:0">না</button>`
+        : `<button class="btn small" data-r="${r.user_id}" style="width:auto;margin:0">সরান</button>`}</div>`).join("") : `<div class="empty">এখনো কেউ অনুরোধ করেনি</div>`}</div>`);
+    body.onclick = async (e) => {
+      const a = e.target.closest("[data-a]"), r = e.target.closest("[data-r]"); if (!a && !r) return;
+      try { await rpc("live_answer_cohost", { p_room: id, p_user: (a || r).dataset.a || (a || r).dataset.r, p_accept: !!a }); closeSheet(); paintReq(); } catch (er) { toast(errMsg(er), true); }
+    };
+  });
+  $("#lvJoin")?.addEventListener("click", async () => {
+    if (myRole === "host") { if (confirm("লাইভ থেকে নেমে যাবেন?")) { await rpc("live_leave", { p_room: id }).catch(() => {}); } return; }
+    try { await rpc("live_request_cohost", { p_room: id }); toast("🙋 অনুরোধ পাঠানো হয়েছে — হোস্ট রাজি হলে আপনি লাইভে চলে আসবেন"); } catch (e) { toast(errMsg(e), true); }
+  });
+  $("#lvGift")?.addEventListener("click", () => openGifts({ _v: { username: hp.username, id: 0 } }, false, id));
+  let likeT = 0;
+  $("#lvLike")?.addEventListener("click", () => { heart(); if (Date.now() - likeT > 1500) { likeT = Date.now(); rpc("live_send", { p_room: id, p_body: "❤️", p_kind: "like" }).catch(() => {}); } });
+  $("#lvF")?.addEventListener("click", async (e) => { try { const on = await rpc("toggle_follow", { p_target: hp.id }); e.target.textContent = on ? "✓ ফলোয়িং" : "＋ ফলো"; } catch (er) { toast(errMsg(er), true); } });
+  $("#lvF2").addEventListener("submit", async (e) => { e.preventDefault(); const t = $("#lvI").value.trim(); if (!t) return; $("#lvI").value = ""; try { await rpc("live_send", { p_room: id, p_body: t, p_kind: "chat" }); } catch (er) { toast(errMsg(er), true); } });
+  attachSuggest($("#lvI"));
+  $("#lvCam")?.addEventListener("click", async () => { facing = facing === "user" ? "environment" : "user"; try { await cam?.setDevice({ facingMode: facing }); } catch { toast("ক্যামেরা বদলানো যায়নি", true); } });
+  $("#lvMic")?.addEventListener("click", async (e) => { if (!mic) return; const on = !mic.muted; await mic.setMuted(on); e.currentTarget.textContent = on ? "🔇" : "🎤"; });
+  const endLive = async () => { await rpc("live_end", { p_room: id }).catch(() => {}); showEnded(); };
+  $("#lvEnd")?.addEventListener("click", async () => { if (confirm("লাইভ শেষ করবেন?")) { await endLive(); location.replace("#home/live"); } });
+  $("#lvX").onclick = async () => { if (host && !ended) { if (!confirm("লাইভ শেষ করে বের হবেন?")) return; await endLive(); } history.back(); };
+  cleanup = () => {
+    clearInterval(hb); sb.removeChannel(ch);
+    if (host && !ended) rpc("live_end", { p_room: id }).catch(() => {}); else rpc("live_leave", { p_room: id }).catch(() => {});
+    leaveRtc();
+    document.body.classList.remove("story-open");
+    try { Native?.setSecure?.(false); Native?.setDarkBars?.(false); } catch { /* */ }
+  };
+};
+
+// 📞 কল
+let ringCtx = null, ringT = null;
+function ringStart(incoming) {
+  ringStop();
+  try {
+    ringCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const beep = () => { const o = ringCtx.createOscillator(), g = ringCtx.createGain(); o.frequency.value = incoming ? 660 : 440; g.gain.value = 0.12; o.connect(g); g.connect(ringCtx.destination); o.start(); o.stop(ringCtx.currentTime + (incoming ? 0.8 : 1.2)); };
+    beep(); ringT = setInterval(beep, incoming ? 1600 : 3000);
+  } catch { /* */ }
+  try { if (incoming) navigator.vibrate?.([600, 400, 600, 400, 600]); } catch { /* */ }
+}
+function ringStop() { clearInterval(ringT); ringT = null; try { ringCtx?.close(); } catch { /* */ } ringCtx = null; try { navigator.vibrate?.(0); } catch { /* */ } }
+
+async function incomingCall(c) {
+  if (c.status !== "ringing" || S.inCall) return;
+  const { data: p } = await sb.from("profiles").select("id,username,full_name,avatar_url").eq("id", c.caller_id).single();
+  if (document.hidden) { try { Native?.notify?.(c.kind === "video" ? "📹 ভিডিও কল আসছে" : "📞 কল আসছে", "@" + (p?.username ?? "")); } catch { /* */ } }
+  document.getElementById("incall")?.remove();
+  const d = document.createElement("div");
+  d.id = "incall"; d.className = "incall";
+  d.innerHTML = `<div class="ic-card">${avatar(p)}<b translate="no">${esc(p?.full_name || p?.username || "")}</b><small>${c.kind === "video" ? "📹 ভিডিও কল" : "📞 অডিও কল"} · 🪙${n(c.rate_coins)}/মিনিট</small>
+    <div class="ic-btns"><button class="ic-no" id="icNo">✕</button><button class="ic-yes" id="icYes">${c.kind === "video" ? "📹" : "📞"}</button></div></div>`;
+  document.body.appendChild(d);
+  ringStart(true);
+  const close = () => { ringStop(); d.remove(); document.removeEventListener("callupd", onUpd); };
+  const onUpd = (e) => { if (e.detail.id === c.id && e.detail.status !== "ringing") close(); };
+  document.addEventListener("callupd", onUpd);
+  $("#icNo").onclick = async () => { close(); rpc("call_answer", { p_call: c.id, p_accept: false }).catch(() => {}); };
+  $("#icYes").onclick = async () => {
+    close();
+    try { needMedia(); await rpc("call_answer", { p_call: c.id, p_accept: true }); location.hash = `#call/${c.id}`; }
+    catch (e) { toast(errMsg(e), true); }
+  };
+}
+
+async function startCall(host, kind) {
+  try {
+    needMedia();
+    if (!confirm(`${kind === "video" ? "📹 ভিডিও" : "📞 অডিও"} কল: প্রতি মিনিটে 🪙 ${n(callRate(host, kind))} কয়েন কাটবে। কল দেবেন?`)) return;
+    const r = await rpc("call_start", { p_callee: host.id, p_kind: kind });
+    location.hash = `#call/${r.call_id}`;
+  } catch (e) {
+    toast(errMsg(e), true);
+    if (String(e.message).includes("INSUFFICIENT_COINS")) setTimeout(() => (location.hash = "#cashin"), 900);
+  }
+}
+
+R.call = async (cid) => {
+  const id = Number(cid);
+  const { data: c } = await sb.from("calls").select("*").eq("id", id).maybeSingle();
+  if (!c) { toast("কল পাওয়া যায়নি", true); history.back(); return; }
+  const me = S.me.id, caller = c.caller_id === me, otherId = caller ? c.callee_id : c.caller_id;
+  const { data: o } = await sb.from("profiles").select("id,username,full_name,avatar_url,user_no").eq("id", otherId).single();
+  if (["ended", "missed", "rejected", "cancelled"].includes(c.status)) { toast("কল শেষ হয়ে গেছে"); history.back(); return; }
+  S.inCall = true;
+  screen.classList.add("full");
+  document.body.classList.add("story-open");
+  try { Native?.setDarkBars?.(true); Native?.setSecure?.(true); } catch { /* */ }
+  const video = c.kind === "video";
+  screen.innerHTML = `<div class="cl ${video ? "vid" : "aud"}">
+    <div class="cl-remote" id="clR"></div><div class="cl-local ${video ? "" : "hidden"}" id="clL"></div>
+    <div class="cl-info">${avatar(o)}<b translate="no">${esc(o.full_name || o.username)}</b><small id="clS">${c.status === "ringing" ? (caller ? "কল যাচ্ছে…" : "সংযোগ হচ্ছে…") : "সংযোগ হচ্ছে…"}</small>
+      <small id="clC">${caller ? `🪙 ${n(c.rate_coins)}/মিনিট` : `আপনার আয় চলছে 💰`}</small></div>
+    <div class="cl-bar">${video ? `<button id="clCam">🔄</button><button id="clVid">📷</button>` : ""}<button id="clMic">🎤</button><button class="end" id="clEnd">📞</button></div></div>`;
+  let client = null, mic = null, cam = null, joined = false, done = false, t0 = null, timer = null, tick = null, facing = "user";
+  if (caller && c.status === "ringing") ringStart(false);
+  const finish = async (msg) => {
+    if (done) return; done = true;
+    ringStop(); clearInterval(timer); clearInterval(tick);
+    try { mic?.close(); cam?.close(); } catch { /* */ }
+    try { await client?.leave(); } catch { /* */ }
+    const r = await rpc("call_end", { p_call: id }).catch(() => null);
+    if (msg) toast(msg); else if (r?.billed) toast(`কল শেষ · ${r.billed} মিনিট${caller ? ` · 🪙 ${n(r.coins)}` : ""}`);
+    setTimeout(() => { if (location.hash === `#call/${id}`) history.back(); }, 600);
+  };
+  const join = async () => {
+    if (joined) return; joined = true;
+    ringStop();
+    $("#clS").textContent = "সংযোগ হচ্ছে…";
+    try {
+      const A = await loadAgora();
+      const tk = await agoraToken(`call_${id}`);
+      client = A.createClient({ mode: "rtc", codec: "vp8" });
+      client.on("user-published", async (user, type) => {
+        await client.subscribe(user, type);
+        if (type === "audio") user.audioTrack?.play();
+        if (type === "video") { $("#clR").innerHTML = ""; user.videoTrack?.play($("#clR")); $("#clR").classList.add("on"); }
+      });
+      client.on("user-left", () => finish("অন্যজন কল কেটে দিয়েছে"));
+      await client.join(tk.appId, `call_${id}`, tk.token, tk.uid);
+      if (video) { [mic, cam] = await A.createMicrophoneAndCameraTracks({}, { encoderConfig: "480p_1", facingMode: "user" }); cam.play($("#clL"), { mirror: true }); await client.publish([mic, cam]); }
+      else { mic = await A.createMicrophoneAudioTrack(); await client.publish([mic]); }
+      t0 = Date.now();
+      timer = setInterval(() => { if ($("#clS")) $("#clS").textContent = "⏱ " + hms2((Date.now() - t0) / 1000); }, 1000);
+      const doTick = () => rpc("call_tick", { p_call: id }).then((r) => {
+        if (r.status !== "active") return finish(r.reason === "no_coins" ? "কয়েন শেষ — কল বন্ধ হয়েছে" : "কল শেষ");
+        if (caller && $("#clC")) { $("#clC").textContent = `🪙 বাকি ${n(r.coins_left)} · ${r.billed} মিনিট`; if (r.coins_left < r.rate) toast("⚠️ কয়েন প্রায় শেষ — পরের মিনিটে কল কেটে যাবে", true); }
+      }).catch(() => {});
+      doTick(); tick = setInterval(doTick, 30000);
+    } catch (e) { finish(errMsg(e)); }
+  };
+  const onUpd = (e) => {
+    const x = e.detail; if (x.id !== id) return;
+    if (x.status === "active") join();
+    else if (x.status !== "ringing") finish(x.status === "rejected" ? "কল ধরেনি" : x.status === "missed" ? "কেউ ধরেনি" : x.end_reason === "no_coins" ? "কয়েন শেষ — কল বন্ধ হয়েছে" : "কল শেষ");
+  };
+  document.addEventListener("callupd", onUpd);
+  if (c.status === "active") join();
+  const poll = setInterval(async () => { if (joined || done) return; const { data: x } = await sb.from("calls").select("*").eq("id", id).single(); if (x) onUpd({ detail: x }); }, 4000);
+  $("#clEnd").onclick = () => finish();
+  $("#clMic").onclick = async (e) => { if (!mic) return; const m = !mic.muted; await mic.setMuted(m); e.currentTarget.textContent = m ? "🔇" : "🎤"; };
+  $("#clVid")?.addEventListener("click", async (e) => { if (!cam) return; const m = !cam.muted; await cam.setMuted(m); e.currentTarget.textContent = m ? "🚫" : "📷"; });
+  $("#clCam")?.addEventListener("click", async () => { facing = facing === "user" ? "environment" : "user"; try { await cam?.setDevice({ facingMode: facing }); } catch { /* */ } });
+  cleanup = () => {
+    clearInterval(poll); document.removeEventListener("callupd", onUpd);
+    if (!done) finish();
+    S.inCall = false;
+    document.body.classList.remove("story-open");
+    try { Native?.setSecure?.(false); Native?.setDarkBars?.(false); } catch { /* */ }
+  };
+};
+
 // ---------------- 📖 স্টোরি ----------------
 // হোম পেজের স্টোরি সারি
 async function storyRow(box) {
@@ -2395,13 +2739,14 @@ S.disc = { lang: "", country: "" };
 try { Object.assign(S.disc, JSON.parse(localStorage.getItem("disc") || "{}")); } catch { /* */ }
 
 R.home = (tab = "video") => {
-  if (!["video", "premium", "photo", "contest"].includes(tab)) tab = "video";
+  if (!["video", "live", "premium", "photo", "contest"].includes(tab)) tab = "video";
   const f = S.disc;
   const countries = Object.keys(COUNTRY_NAMES);
   screen.innerHTML = `<div class="disc">
     <div class="disc-top">
       <div class="disc-tabs">
         <a href="#home" class="${tab === "video" ? "on" : ""}">ভিডিও</a>
+        ${setting("live_enabled", true) !== false ? `<a href="#home/live" class="${tab === "live" ? "on" : ""}"><i class="live-dot"></i>লাইভ</a>` : ""}
         <a href="#home/premium" class="${tab === "premium" ? "on" : ""}">প্রিমিয়াম</a>
         <a href="#home/photo" class="${tab === "photo" ? "on" : ""}">ফটো</a>
         <a href="#home/contest" class="${tab === "contest" ? "on" : ""}">কম্পিটিশন</a>
@@ -2456,6 +2801,7 @@ R.home = (tab = "video") => {
     $("#dmore").innerHTML = `<div class="spinner"></div>`;
     try {
       if (tab === "contest") { st.done = true; await contests(); return; }
+      if (tab === "live") { st.done = true; $(".disc-grid").outerHTML = `<div id="liveBox" style="padding:0 10px"></div>`; await liveGrid($("#liveBox")); $("#dmore").innerHTML = ""; return; }
       const rows = tab === "photo"
         ? await rpc("feed_posts", { p_kind: "photo", p_before: st.before, p_limit: 20, p_category: null, p_contest: null, p_user: null, p_sort: "new" })
         : await rpc("feed", { p_type: "foryou", p_before: st.before, p_limit: 20, p_user: null, p_category: tab === "premium" ? "premium" : null, p_lang: S.disc.lang || null, p_country: S.disc.country || null });
@@ -2608,6 +2954,7 @@ R.settings = async () => {
     ${tgUser ? `<a class="card list-1" href="https://t.me/${esc(tgUser)}" target="_blank" rel="noopener"><span>✈️ টেলিগ্রামে যোগাযোগ</span><span class="muted">@${esc(tgUser)} ›</span></a>` : ""}
     <div class="card list">
       <label class="li"><span>🔔 নোটিফিকেশন</span><input type="checkbox" id="nt" class="sw" ${notifOn() ? "checked" : ""}></label>
+      ${me.account_type === "host" ? `<label class="li"><span>📞 কল নিতে রাজি (ইউজাররা আপনাকে কল দিতে পারবে)</span><input type="checkbox" id="cOn" class="sw" ${me.calls_on !== false ? "checked" : ""}></label>` : ""}
     </div>
     <h3 class="sec">নীতিমালা</h3>
     <div class="card list">${POLICIES.map(([k, i, t]) => `<a class="li" href="#policy/${k}"><span>${i} ${t}</span><span>›</span></a>`).join("")}</div>
@@ -2615,6 +2962,7 @@ R.settings = async () => {
       <a class="li" href="#delacct"><span style="color:#e5484d">🗑️ অ্যাকাউন্ট ডিলিট</span><span class="muted">${delAt ? "⏳ অনুরোধ করা হয়েছে" : ""} ›</span></a>
       <div class="li"><span>📱 অ্যাপ ভার্সন</span><span class="muted">${esc(Native?.appVersion?.() ?? "web")}</span></div>
     </div></div>`;
+  $("#cOn")?.addEventListener("change", async (e) => { try { await rpc("set_call_prefs", { p_on: e.target.checked }); toast(e.target.checked ? "📞 কল চালু" : "📵 কল বন্ধ"); } catch (er) { toast(errMsg(er), true); } });
   $("#nt").onchange = (e) => { try { localStorage.setItem("notif", e.target.checked ? "on" : "off"); } catch { /* */ } toast(e.target.checked ? "🔔 নোটিফিকেশন চালু" : "🔕 নোটিফিকেশন বন্ধ"); };
 };
 
@@ -2784,6 +3132,7 @@ R.u = async (id) => {
            <a class="btn" href="#chat/${p.id}" style="min-width:110px">💬 মেসেজ</a></div>`}
     </div>
     ${mine ? `<div id="accBox" class="${S.openAcc ? "" : "hidden"}" style="margin-top:12px">${accountBlock(p)}</div>` : ""}
+    ${host && !mine && setting("calls_enabled", true) !== false && p.calls_on !== false ? `<div class="callbtns"><button class="cb vid" id="cbV">📹 ভিডিও কল<small>🪙${n(callRate(p, "video"))}/মিনিট</small></button><button class="cb aud" id="cbA">📞 অডিও কল<small>🪙${n(callRate(p, "audio"))}/মিনিট</small></button></div>` : ""}
     ${seller && !mine ? `<a class="sellcta" href="#chat/${p.id}"><span>🪙</span><div><b>এই হোস্টের কাছ থেকে কয়েন কিনুন</b><small>মেসেজ দিন → টাকা পাঠান → কয়েন সাথে সাথে পাবেন</small></div><em>›</em></a>` : ""}
     ${seller && mine ? `<a class="sellcta" href="#seller"><span>💰</span><div><b>কয়েন সেলার প্যানেল</b><small>ইউজারদের কাছে কয়েন বিক্রি করুন</small></div><em>›</em></a>` : ""}
     ${host ? `<div class="hoststrip"><span>✨ অফিসিয়াল হোস্ট</span><span>🎬 ${n(p.videos_count)} কন্টেন্ট</span><span>👑 ${n(vids.filter((v) => v.is_premium).length)} প্রিমিয়াম</span></div>` : ""}
@@ -2802,6 +3151,8 @@ R.u = async (id) => {
   }
   $("#lang")?.addEventListener("click", () => window.setLang?.(window.getLang?.() === "en" ? "bn" : "en"));
   $("#lo")?.addEventListener("click", async () => { if (!confirm("লগআউট করবেন?")) return; await sb.auth.signOut(); S.me = null; location.hash = ""; showAuth(); });
+  $("#cbV")?.addEventListener("click", () => startCall(p, "video"));
+  $("#cbA")?.addEventListener("click", () => startCall(p, "audio"));
   $("#fb")?.addEventListener("click", async (e) => {
     try {
       following = await rpc("toggle_follow", { p_target: id });

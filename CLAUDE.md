@@ -131,7 +131,13 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
 - Premium download: `premium_download(video)` charges `premium_download_coins` once (creator gets premium %); feed shows 🪙N on the save button.
 - TODO (owner postponed): move video storage to Cloudflare R2 (account opened; needs bucket + API keys) and allow 1 s – 59 min videos.
 - Adult/18+ content: owner asked for a paid 18+ folder; declined (illegal in BD/KSA, breaks AdMob policy, CSAM risk). Don't build it.
-- Live streaming: not built yet (owner postponed; needs ZEGOCLOUD/Agora + FLAG_SECURE in the APK for no screenshots).
+- Live & calls (Agora, APK ≥ v1.0.17 grants WebView camera/mic): Agora Web SDK (`agora-rtc-sdk-ng@4` from jsDelivr, lazy) runs in
+  the WebView. Tokens from edge function `agora-token` (AccessToken2; verify_jwt off — it calls `agora_grant(channel)` with the
+  user's JWT; App Certificate in `private_config`). App: Home → লাইভ tab (`list_lives`), `#golive`, `#live/<id>` (host/viewer,
+  chat, hearts, gifts via `live_gift`, co-host request/accept → renewToken + publish), host profile call buttons → `#call/<id>`;
+  incoming call overlay from realtime on `calls`; both sides call `call_tick` every 30 s (per-minute billing). FLAG_SECURE during
+  live/calls. Admin "🔴 লাইভ ও কল" (live monitor + end, rules, call/live history); per-host call rates on the lookup page.
+  No push yet: incoming calls ring only while the app is open (local notification if backgrounded).
 
 ## App updates (APK)
 Public APK for in-app updates: `download/Reels-Enjoy.apk` in this repo (GitHub Pages). After a new reels-app release:

@@ -563,6 +563,9 @@ routes.lookup = async (no) => {
         <span>অ্যাকাউন্ট: <b>${p.account_type === "host" ? "🎤 হোস্ট" : "👤 ইউজার"}</b></span>
         ${p.account_type === "host" ? `<button class="btn sm warn" data-c="unhost">ইউজার বানান</button>` : `<button class="btn sm good" data-c="host">হোস্ট বানান</button>`}
       </div>
+      ${p.account_type === "host" ? `<div style="margin-bottom:12px"><b>📞 এই হোস্টের কলের রেট</b> <span class="muted small">(খালি = সবার জন্য নির্ধারিত) · কল ${p.calls_on === false ? "❌ বন্ধ রেখেছে" : "✅ চালু"}</span>
+        <div class="row" style="flex-wrap:nowrap;gap:6px"><input id="crv" type="number" min="1" placeholder="ভিডিও 🪙/মিনিট" value="${p.call_video_rate ?? ""}"><input id="cra" type="number" min="1" placeholder="অডিও 🪙/মিনিট" value="${p.call_audio_rate ?? ""}">
+        <input id="crp" type="number" min="0" max="100" placeholder="হোস্ট %" value="${p.call_host_pct ?? ""}"><button class="btn sm good" data-c="crate">সেভ</button></div></div>` : ""}
       <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:12px">
         <span>💰 কয়েন সেলার: <b>${p.coin_seller ? `✅ হ্যাঁ${p.seller_commission_pct != null ? ` (কমিশন ${p.seller_commission_pct}%)` : ""}` : "❌ না"}</b></span>
         ${p.coin_seller ? `<button class="btn sm warn" data-c="sell_off">বাদ দিন</button>` : `<button class="btn sm good" data-c="sell_on" ${p.account_type === "host" ? "" : "disabled title='আগে হোস্ট বানান'"}>সেলার বানান</button>`}
@@ -611,6 +614,7 @@ routes.lookup = async (no) => {
     const b = e.target.closest("[data-c]"); if (!b) return;
     const c = b.dataset.c;
     if (c === "host" || c === "unhost") await act(() => rpc("admin_set_host", { p_user: p.id, p_host: c === "host" }), "হয়েছে");
+    else if (c === "crate") { const nv = (q) => { const v = $(q).value.trim(); return v === "" ? null : Number(v); }; await act(() => rpc("admin_set_call_rates", { p_user: p.id, p_video: nv("#crv"), p_audio: nv("#cra"), p_pct: nv("#crp") }), "সেভ হয়েছে"); }
     else if (c === "sell_on" || c === "sell_off") await act(() => rpc("admin_set_coin_seller", { p_user: p.id, p_on: c === "sell_on", p_pct: c === "sell_on" ? p.seller_commission_pct ?? null : null }), "হয়েছে");
     else if (c === "pa_on" || c === "pa_off") await act(() => rpc("admin_set_premium_access", { p_user: p.id, p_on: c === "pa_on" }), "হয়েছে");
     else if (c === "limit") { const v = $("#ul").value.trim(); await act(() => rpc("admin_set_upload_limit", { p_user: p.id, p_limit: v === "" ? null : Number(v) }), "সেভ হয়েছে"); }
@@ -1119,6 +1123,60 @@ routes.hostRules = async () => {
     const b = e.target.closest("[data-save]"); if (!b) return;
     const it = b.closest(".item"), raw = it.querySelector("[name=v]").value, kind = it.dataset.kind;
     const value = kind === "bool" ? raw === "true" : kind === "taka" ? Math.round(Number(raw) * 100) : Math.round(Number(raw));
+    if (kind !== "bool" && (isNaN(value) || value < 0 || (kind === "pct" && value > 100))) return toast("সঠিক সংখ্যা দিন", true);
+    await act(() => rpc("admin_set_setting", { p_key: it.dataset.key, p_value: value }), "সেভ হয়েছে");
+  };
+};
+
+// ---------- 🔴 লাইভ ও 📞 কল ----------
+routes.live = async () => {
+  view.innerHTML = `<h1>🔴 লাইভ ও 📞 কল</h1><div class="empty">লোড হচ্ছে…</div>`;
+  let d;
+  try { d = await rpc("admin_live_overview"); } catch (e) { view.innerHTML = `<h1>🔴 লাইভ ও 📞 কল</h1><div class="empty err">${esc(errMsg(e))}</div>`; return; }
+  const { data: st } = await sb.from("settings").select("key,value").in("key", ["live_enabled", "live_hosts_only", "live_max_cohosts", "calls_enabled", "call_video_coins_per_min", "call_audio_coins_per_min", "call_host_pct", "live_gift_host_pct", "coin_price_paisa"]);
+  const S2 = Object.fromEntries((st ?? []).map((x) => [x.key, x.value]));
+  const cp = Number(S2.coin_price_paisa || 100);
+  const row = (key, label, kind) => `<div class="item" data-key="${key}" data-kind="${kind}"><div class="top"><b>${label}</b></div><div class="row" style="flex-wrap:nowrap">${kind === "bool"
+    ? `<select name="v"><option value="true" ${S2[key] === true ? "selected" : ""}>চালু</option><option value="false" ${S2[key] === false ? "selected" : ""}>বন্ধ</option></select>`
+    : `<input name="v" type="number" min="0" value="${esc(S2[key] ?? 0)}">${kind === "pct" ? '<span class="muted">%</span>' : kind === "coin" ? '<span class="muted">🪙</span>' : ""}`}<button class="btn sm good" data-save>সেভ</button></div></div>`;
+  const t = d.today;
+  view.innerHTML = `<h1>🔴 লাইভ ও 📞 কল</h1>
+    <div class="grid"><div class="card stat"><div class="k">২৪ ঘণ্টায় লাইভ</div><div class="v">${num(t.lives)}</div></div>
+      <div class="card stat"><div class="k">লাইভে গিফট</div><div class="v">🪙 ${num(t.live_gift_coins)}</div></div>
+      <div class="card stat"><div class="k">কলের মিনিট</div><div class="v">${num(t.call_minutes)}</div></div>
+      <div class="card stat"><div class="k">কল থেকে কয়েন</div><div class="v">🪙 ${num(t.call_coins)}</div></div></div>
+    <h2>🔴 এখন লাইভে (${d.live.length})</h2>
+    <div class="table-wrap">${d.live.length ? `<table><tr><th>হোস্ট</th><th>শিরোনাম</th><th class="num">দর্শক</th><th class="num">সর্বোচ্চ</th><th class="num">গিফট</th><th>শুরু</th><th></th></tr>
+      ${d.live.map((r) => `<tr><td><a href="#lookup/${r.user_no}">@${esc(r.username)}</a></td><td translate="no">${esc(r.title ?? "")}</td><td class="num">${num(r.viewers)}</td><td class="num">${num(r.peak_viewers)}</td>
+        <td class="num">🪙 ${num(r.gift_coins)}</td><td>${dt(r.started_at)}</td><td><button class="btn sm bad" data-end="${r.id}">⏹ বন্ধ করুন</button></td></tr>`).join("")}</table>` : `<div class="empty">এখন কেউ লাইভে নেই</div>`}</div>
+    <h2>⚙️ নিয়ম</h2>
+    <p class="muted small">১ কয়েন = ৳${(cp / 100).toFixed(2)}। যেমন ভিডিও কল ${num(S2.call_video_coins_per_min)} 🪙/মিনিট = ৳${((S2.call_video_coins_per_min * cp) / 100).toFixed(2)}/মিনিট, যার ${num(S2.call_host_pct)}% হোস্ট পাবে, বাকিটা আপনার। কোনো হোস্টের জন্য আলাদা রেট দিতে "ইউজার খুঁজুন" পেজে যান।</p>
+    <div class="list" id="lrules">
+      ${row("live_enabled", "লাইভ চালু", "bool")}
+      ${row("live_hosts_only", "শুধু অনুমোদিত হোস্টরা লাইভ করতে পারবে", "bool")}
+      ${row("live_max_cohosts", "লাইভে একসাথে কতজন অতিথি যোগ দিতে পারবে", "num")}
+      ${row("live_gift_host_pct", "লাইভে গিফটের কত % হোস্ট পাবে (০ = গিফটের নিজস্ব %)", "pct")}
+      ${row("calls_enabled", "হোস্টকে প্রাইভেট কল চালু", "bool")}
+      ${row("call_video_coins_per_min", "ভিডিও কলে প্রতি মিনিটে কয়েন", "coin")}
+      ${row("call_audio_coins_per_min", "অডিও কলে প্রতি মিনিটে কয়েন", "coin")}
+      ${row("call_host_pct", "কল থেকে হোস্ট কত % পাবে", "pct")}
+    </div>
+    <h2>📞 সর্বশেষ কল</h2>
+    <div class="table-wrap">${d.calls.length ? `<table><tr><th>সময়</th><th>কলার</th><th>হোস্ট</th><th>ধরন</th><th>অবস্থা</th><th class="num">মিনিট</th><th class="num">কয়েন</th><th class="num">হোস্ট পেল</th></tr>
+      ${d.calls.map((c) => `<tr><td>${dt(c.created_at)}</td><td><a href="#lookup/${c.caller_no}">@${esc(c.caller)}</a></td><td><a href="#lookup/${c.host_no}">@${esc(c.host)}</a></td><td>${c.kind === "video" ? "📹" : "📞"}</td>
+        <td>${{ ringing: "🔔 বাজছে", active: "🟢 চলছে", ended: "শেষ", missed: "ধরেনি", rejected: "কেটেছে", cancelled: "বাতিল" }[c.status] ?? c.status}${c.end_reason === "no_coins" ? " (কয়েন শেষ)" : ""}</td>
+        <td class="num">${num(c.billed_minutes)}</td><td class="num">🪙 ${num(c.coins_charged)}</td><td class="num">${taka(c.host_paisa)}</td></tr>`).join("")}</table>` : `<div class="empty">এখনো কোনো কল হয়নি</div>`}</div>
+    <h2>🔴 সর্বশেষ লাইভ</h2>
+    <div class="table-wrap">${d.recent.length ? `<table><tr><th>হোস্ট</th><th>শুরু</th><th>সময়</th><th class="num">সর্বোচ্চ দর্শক</th><th class="num">মোট দর্শক</th><th class="num">গিফট</th><th class="num">হোস্ট পেল</th><th>বন্ধ</th></tr>
+      ${d.recent.map((r) => `<tr><td><a href="#lookup/${r.user_no}">@${esc(r.username)}</a></td><td>${dt(r.started_at)}</td><td>${r.ended_at ? Math.round((new Date(r.ended_at) - new Date(r.started_at)) / 60000) + " মিনিট" : ""}</td>
+        <td class="num">${num(r.peak_viewers)}</td><td class="num">${num(r.total_viewers)}</td><td class="num">🪙 ${num(r.gift_coins)}</td><td class="num">${taka(r.host_earned_paisa)}</td>
+        <td>${{ host: "হোস্ট", admin: "অ্যাডমিন", timeout: "সংযোগ বিচ্ছিন্ন", restart: "আবার শুরু" }[r.ended_reason] ?? esc(r.ended_reason ?? "")}</td></tr>`).join("")}</table>` : `<div class="empty">এখনো কোনো লাইভ হয়নি</div>`}</div>`;
+  view.onclick = async (e) => {
+    const eb = e.target.closest("[data-end]");
+    if (eb) { if (!confirm("এই লাইভ বন্ধ করবেন?")) return; try { await act(() => rpc("live_end", { p_room: Number(eb.dataset.end), p_reason: "admin" }), "লাইভ বন্ধ করা হয়েছে"); routes.live(); } catch { /* */ } return; }
+    const b = e.target.closest("[data-save]"); if (!b) return;
+    const it = b.closest(".item"), raw = it.querySelector("[name=v]").value, kind = it.dataset.kind;
+    const value = kind === "bool" ? raw === "true" : Math.round(Number(raw));
     if (kind !== "bool" && (isNaN(value) || value < 0 || (kind === "pct" && value > 100))) return toast("সঠিক সংখ্যা দিন", true);
     await act(() => rpc("admin_set_setting", { p_key: it.dataset.key, p_value: value }), "সেভ হয়েছে");
   };
