@@ -307,6 +307,7 @@ function route() {
   document.querySelectorAll(".tabbar a").forEach((x) => x.classList.toggle("on", x.dataset.t === name || (TABS[x.dataset.t] ?? []).includes(name)));
   screen.classList.remove("full");
   $(".tabbar").classList.toggle("dark", TABS.feed.includes(name));
+  try { Native?.setDarkBars?.(TABS.feed.includes(name)); } catch { /* old APK */ }
   screen.scrollTop = 0;
   R[name](a, b);
 }
@@ -382,11 +383,11 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
       <button class="mute">${S.muted ? "🔇" : "🔊"}</button>
       <div class="actions">
         <a href="#u/${v.user_id}">${avatar(v)}</a>
-        <button class="act like ${v.liked_by_me ? "liked" : ""}"><span class="ic">${v.liked_by_me ? "❤️" : "🤍"}</span><span class="c">${n(v.likes_count)}</span></button>
-        <button class="act cm"><span class="ic">💬</span><span class="c">${n(v.comments_count)}</span></button>
-        ${v.allow_gifts && v.user_id !== S.me.id ? `<button class="act gf"><span class="ic">🎁</span><span>গিফট</span></button>` : ""}
-        <button class="act sh"><span class="ic">↗️</span><span class="c">${n(v.shares_count)}</span></button>
-        ${v.user_id !== S.me.id ? `<button class="act rp"><span class="ic" style="font-size:20px">⚑</span></button>` : ""}
+        <button class="act like ${v.liked_by_me ? "liked" : ""}"><span class="ic svg"><svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-9.2-9.3C1.6 7.8 3.8 4.5 7.2 4.5c2 0 3.6 1.1 4.8 2.8 1.2-1.7 2.8-2.8 4.8-2.8 3.4 0 5.6 3.3 4.4 6.7-1.7 4.7-9.2 9.3-9.2 9.3z"/></svg></span><span class="c">${n(v.likes_count)}</span></button>
+        <button class="act cm"><span class="ic svg"><svg viewBox="0 0 24 24"><path d="M12 3.5c5 0 9 3.4 9 7.7s-4 7.7-9 7.7c-1 0-2-.1-2.9-.4L4.5 20.5l1.2-3.9C4 15.2 3 13.3 3 11.2 3 6.9 7 3.5 12 3.5z"/></svg></span><span class="c">${n(v.comments_count)}</span></button>
+        ${v.allow_gifts && v.user_id !== S.me.id ? `<button class="act gf"><span class="ic svg gft"><svg viewBox="0 0 24 24"><rect x="3.5" y="9" width="17" height="4" rx="1"/><path d="M5 13v7.5h14V13M12 9v11.5M12 9S10.5 4.3 8 4.9C6 5.4 7 9 12 9zM12 9s1.5-4.7 4-4.1c2 .5 1 4.1-4 4.1z"/></svg></span><span>গিফট</span></button>` : ""}
+        <button class="act sh"><span class="ic svg"><svg viewBox="0 0 24 24"><path d="M13.5 4.5 21 11.5l-7.5 7v-4c-5 0-8.3 1.4-10.5 5 .8-5.5 3.6-10 10.5-10.8z"/></svg></span><span class="c">${n(v.shares_count)}</span></button>
+        ${v.user_id !== S.me.id ? `<button class="act rp"><span class="ic svg sm"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4.5h12l-2.5 4 2.5 4H5"/></svg></span></button>` : ""}
       </div>
       <div class="info">
         <div class="uname"><a href="#u/${v.user_id}">@${esc(v.username)}</a>${v.is_verified ? " ✔️" : ""}${v.is_premium ? `<span class="premtag">👑 ${n(v.premium_coins)}</span>` : ""}
@@ -518,7 +519,7 @@ async function doLike(el, fromDoubleTap, ev) {
   const btn = el.querySelector(".like");
   v.liked_by_me = !v.liked_by_me;
   v.likes_count += v.liked_by_me ? 1 : -1;
-  const paint = () => { btn.classList.toggle("liked", v.liked_by_me); btn.querySelector(".ic").textContent = v.liked_by_me ? "❤️" : "🤍"; btn.querySelector(".c").textContent = n(v.likes_count); };
+  const paint = () => { btn.classList.toggle("liked", v.liked_by_me); /* svg heart: colour comes from .liked */ btn.querySelector(".c").textContent = n(v.likes_count); };
   paint();
   try {
     const r = await rpc("toggle_like", { p_video_id: v.id });
@@ -1293,17 +1294,17 @@ R.me = async () => {
       <div class="me-counts"><a href="#u/${p.id}"><b>${n(p.videos_count)}</b><span>ভিডিও</span></a><div><b>${n(p.following_count)}</b><span>ফলোয়িং</span></div><div><b>${n(p.followers_count)}</b><span>ফলোয়ার</span></div></div>
     </div>
     <div class="me-cards">
-      <a href="#cashin" class="mc coins"><span>আমার কয়েন</span><b>${n(w?.coin_balance)}</b><i class="deco">💎</i></a>
-      <a href="#wallet" class="mc money"><span>আমার ব্যালেন্স</span><b>${tk(w?.earning_paisa)}</b><i class="deco">💰</i></a>
+      <a href="#cashin" class="mc coins"><span>আমার কয়েন</span><b>${n(w?.coin_balance)}</b><svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="gm1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9f0ff"/><stop offset="1" stop-color="#5aa9ff"/></linearGradient><linearGradient id="gm2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd3ff"/><stop offset="1" stop-color="#3b82f6"/></linearGradient></defs><path d="M14 22 24 10h16l10 12-18 30z" fill="url(#gm1)"/><path d="M14 22h36L32 52z" fill="url(#gm2)" opacity=".9"/><path d="M24 10l-4 12 12 30 12-30-4-12" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.5"/><path d="M14 22h36" stroke="#fff" stroke-opacity=".8" stroke-width="1.5"/></svg></a>
+      <a href="#wallet" class="mc money"><span>আমার ব্যালেন্স</span><b>${tk(w?.earning_paisa)}</b><svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="cn1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset="1" stop-color="#f5a524"/></linearGradient></defs><ellipse cx="34" cy="46" rx="20" ry="7" fill="#e08c14"/><rect x="14" y="36" width="40" height="10" fill="#f0a020"/><ellipse cx="34" cy="36" rx="20" ry="7" fill="url(#cn1)"/><circle cx="26" cy="24" r="15" fill="url(#cn1)" stroke="#e8961a" stroke-width="2"/><text x="26" y="30" text-anchor="middle" font-size="16" font-weight="700" fill="#c06a00" font-family="sans-serif">৳</text></svg></a>
     </div>
     <a href="#invite" class="me-banner"><span>রেফার করে আয় করুন</span><b>${tk(refs?.earned_paisa ?? 0)} ›</b></a>
     <div class="me-menu">
-      <a href="#inbox"><i class="mi" style="background:#ffe1e4">💬</i>মেসেজ<em>${(S.unread || 0) + (S.msgUnread || 0) ? `${(S.unread || 0) + (S.msgUnread || 0)} <b class="red"></b>` : ""}›</em></a>
-      <a href="#level"><i class="mi" style="background:#fff3d6">👑</i>আমার লেভেল<em>Lv${levelOf(p.followers_count)} ›</em></a>
-      <a href="#invite"><i class="mi" style="background:#ece6ff">🎁</i>আমার রেফার<em>পুরস্কার নিন <b class="red"></b> ›</em></a>
-      <a href="#rules"><i class="mi" style="background:#e4ecff">📋</i>আমার টাস্ক<em>›</em></a>
-      <a href="#u/${p.id}"><i class="mi" style="background:#efe7ff">📁</i>আমার প্রোফাইল<em>›</em></a>
-      <a href="#settings"><i class="mi" style="background:#e9e6ff">⚙️</i>সেটিংস<em>›</em></a>
+      <a href="#inbox"><i class="mi c1"><svg viewBox="0 0 24 24"><path d="M4 6.5h16a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5v-3.5H4A1.5 1.5 0 0 1 2.5 17V8A1.5 1.5 0 0 1 4 6.5z"/><path d="M7.5 12.5h.01M12 12.5h.01M16.5 12.5h.01" stroke-width="2.6"/></svg></i>মেসেজ<em>${(S.unread || 0) + (S.msgUnread || 0) ? `${(S.unread || 0) + (S.msgUnread || 0)} <b class="red"></b>` : ""}›</em></a>
+      <a href="#level"><i class="mi c2"><svg viewBox="0 0 24 24"><path d="M3.5 8l4.2 3.6L12 5l4.3 6.6L20.5 8l-1.8 10.5H5.3z"/><path d="M6 21h12"/></svg></i>আমার লেভেল<em>Lv${levelOf(p.followers_count)} ›</em></a>
+      <a href="#invite"><i class="mi c3"><svg viewBox="0 0 24 24"><rect x="3.5" y="8.5" width="17" height="4" rx="1"/><path d="M5 12.5v8h14v-8M12 8.5v12M12 8.5S10.5 4 8 4.6C6 5.1 7 8.5 12 8.5zM12 8.5s1.5-4.5 4-3.9c2 .5 1 3.9-4 3.9z"/></svg></i>আমার রেফার<em>পুরস্কার নিন <b class="red"></b> ›</em></a>
+      <a href="#rules"><i class="mi c4"><svg viewBox="0 0 24 24"><rect x="5" y="4.5" width="14" height="16.5" rx="2"/><path d="M9 3.5h6v3H9zM8.5 11.5l2 2 4-4M8.5 17h7"/></svg></i>আমার টাস্ক<em>›</em></a>
+      <a href="#u/${p.id}"><i class="mi c5"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.2-4 4.2-5.5 7.5-5.5s6.3 1.5 7.5 5.5"/></svg></i>আমার প্রোফাইল<em>›</em></a>
+      <a href="#settings"><i class="mi c6"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></i>সেটিংস<em>›</em></a>
     </div></div>`;
 };
 
