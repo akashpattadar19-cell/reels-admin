@@ -1546,7 +1546,13 @@
 "PK চ্যালেঞ্জের সময় শেষ": "The PK challenge expired",
 "PK ব্যাটল শুরু! গিফট দিয়ে আপনার হোস্টকে জেতান 🔥": "PK battle started! Send gifts to make your host win 🔥",
 "PK ড্র হয়েছে 🤝": "The PK is a draw 🤝",
-"এখন লাইভে — দেখুন": "Live now — watch"
+"এখন লাইভে — দেখুন": "Live now — watch",
+"＋ পোস্ট করুন": "＋ Create post",
+"লেখা": "Text",
+"পার্টি": "Party",
+"শীঘ্রই": "Soon",
+"🎉 পার্টি রুম শীঘ্রই আসছে": "🎉 Party rooms are coming soon",
+"শুধু অনুমোদিত হোস্টরা লাইভ করতে পারবে — নিচে \"হোস্ট\" বেছে আবেদন করুন": "Only approved hosts can go live — choose \"Host\" below to apply"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });

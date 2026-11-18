@@ -145,6 +145,8 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
 - Live cards (028): `liveCard()` = home-card style (snapshot `live_rooms.thumb_url` uploaded by the host 4 s after going live via
   `live_set_thumb`, else avatar), shown first in Home → ভিডিও and in the লাইভ tab; 📞 on a card opens `callChooser`. `user_live(uid)`:
   chat shows a floating muted live preview (`livePip`, Agora audience, video only) → tap opens `#live/<id>`; profile avatar gets a LIVE ring.
+- Middle ＋ tab button (`#plusBtn`) opens `plusSheet()`: লাইভ (→ `#golive`, hosts only) and পার্টি (placeholder "শীঘ্রই").
+  Uploads (video/photo/story/text) moved to the Me page "＋ পোস্ট করুন" row.
 - Declined: real-money betting games in live (coins are bought with money and earnings withdraw → gambling, illegal in BD/KSA,
   banned by Play). Offer free point games instead. Call moderation must cover the whole call, not only the first minutes.
 

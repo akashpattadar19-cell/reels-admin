@@ -2269,6 +2269,23 @@ async function livePip(uid, o) {
   return stop;
 }
 
+// মাঝের ＋ বাটন: লাইভ / পার্টি
+function plusSheet() {
+  const canGo = S.me?.account_type === "host" || S.me?.role === "admin" || setting("live_hosts_only", true) === false;
+  const body = sheet(`<div class="plus-opts">
+    <button data-o="live"><i class="po live"><svg viewBox="0 0 32 32"><rect x="3" y="8" width="19" height="16" rx="4"/><path d="M22 14l7-4v12l-7-4z"/><path class="h" d="M12.5 20.5l-3.6-3.4a2.1 2.1 0 0 1 3-3l.6.6.6-.6a2.1 2.1 0 0 1 3 3z"/></svg></i><span>লাইভ</span></button>
+    <button data-o="party"><i class="po party"><svg viewBox="0 0 32 32"><path d="M4 14L16 5l12 9v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path class="h" d="M11 23v-5M16 23v-8M21 23v-4"/></svg></i><span>পার্টি<small>শীঘ্রই</small></span></button></div>`);
+  body.onclick = (e) => {
+    const b = e.target.closest("[data-o]"); if (!b) return;
+    if (b.dataset.o === "party") return toast("🎉 পার্টি রুম শীঘ্রই আসছে");
+    closeSheet();
+    if (setting("live_enabled", true) === false) return toast("লাইভ এখন বন্ধ আছে", true);
+    if (!canGo) { toast("শুধু অনুমোদিত হোস্টরা লাইভ করতে পারবে — নিচে \"হোস্ট\" বেছে আবেদন করুন", true); location.hash = "#me"; return; }
+    location.hash = "#golive";
+  };
+}
+document.getElementById("plusBtn")?.addEventListener("click", (e) => { e.preventDefault(); plusSheet(); });
+
 // লাইভ শুরুর আগের পেজ
 R.golive = async () => {
   if (setting("live_enabled", true) === false) { screen.innerHTML = `<div class="page">${header("🔴 লাইভ")}<div class="empty">লাইভ এখন বন্ধ আছে</div></div>`; return; }
@@ -3056,6 +3073,8 @@ R.me = async () => {
       <a href="#wallet" class="mc money"><span>আমার ব্যালেন্স</span><b>${tk(w?.earning_paisa)}</b><svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="cn1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset="1" stop-color="#f5a524"/></linearGradient></defs><ellipse cx="34" cy="46" rx="20" ry="7" fill="#e08c14"/><rect x="14" y="36" width="40" height="10" fill="#f0a020"/><ellipse cx="34" cy="36" rx="20" ry="7" fill="url(#cn1)"/><circle cx="26" cy="24" r="15" fill="url(#cn1)" stroke="#e8961a" stroke-width="2"/><text x="26" y="30" text-anchor="middle" font-size="16" font-weight="700" fill="#c06a00" font-family="sans-serif">৳</text></svg></a>
     </div>
     <div class="me-quick"><a href="#withdraw">💸 উইথড্র</a><a href="#cashin">🪙 কয়েন কিনুন</a><a href="#history">📜 লেনদেন</a></div>
+    <div class="me-create"><b>＋ পোস্ট করুন</b><div><a href="#upload"><i>🎬</i>ভিডিও</a><a href="#newphoto"><i>📷</i>ফটো</a><a href="#newstory"><i>📖</i>স্টোরি</a>
+      <a href="#texts" onclick="setTimeout(()=>document.getElementById('newT')?.click(),300)"><i>✍️</i>লেখা</a></div></div>
     ${p.coin_seller ? `<a href="#seller" class="me-banner seller"><span>💰 কয়েন সেলার প্যানেল</span><b>বিক্রি করুন ›</b></a>` : ""}
     <a href="#invite" class="me-banner"><span>রেফার করে আয় করুন</span><b>${tk(refs?.earned_paisa ?? 0)} ›</b></a>
     <div class="me-menu">
