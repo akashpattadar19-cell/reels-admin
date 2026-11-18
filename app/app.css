@@ -458,3 +458,5 @@ input.sw { width: 40px; height: 22px; margin: 0; accent-color: var(--purple); }
 .crop-info { margin-top: 6px; }
 .slide.wide video { object-fit: contain; }
 .pick.pick-sm { padding: 9px; } .pick.pick-sm .ic { display: none; }
+.slide.framed video { inset: auto; top: 50%; left: 0; width: 100%; height: auto; max-height: 100%; transform: translateY(-50%); object-fit: cover; }
+#pv { margin-left: auto; margin-right: auto; display: block; }

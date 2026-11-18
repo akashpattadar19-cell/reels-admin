@@ -421,7 +421,9 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
       }
     });
     const video = el.querySelector("video");
-    video.addEventListener("loadedmetadata", () => { if (video.videoWidth && video.videoHeight < video.videoWidth * 1.2) el.classList.add("wide"); });
+    const vfr = FRAMES.find((f) => f[0] === v.frame && f[0] !== "9:16");
+    if (vfr) { el.classList.add("framed"); video.style.aspectRatio = String(vfr[2]); }
+    else video.addEventListener("loadedmetadata", () => { if (video.videoWidth && video.videoHeight < video.videoWidth * 1.2) el.classList.add("wide"); });
     let tapT = null;
     video.addEventListener("click", (e) => {
       if (tapT) { clearTimeout(tapT); tapT = null; doLike(el, true, e); return; }
@@ -652,7 +654,7 @@ R.upload = () => {
     <p class="muted tiny">আপলোডের পর ভিডিও অল্প সময় পর্যালোচনায় থাকবে, তারপর সবাই দেখতে পাবে।</p>
     <p class="muted tiny">অশ্লীল, সহিংস বা অন্যের কপিরাইট করা ভিডিও আপলোড করলে অ্যাকাউন্ট ব্লক ও ইনকাম বাতিল হবে।</p></div>`;
   const vf = $("#vf"), pv = $("#pv");
-  let file = null, duration = 0;
+  let file = null, duration = 0, vFrame = "orig";
   $("#prem").onchange = (e) => $("#premBox").classList.toggle("hidden", !e.target.checked);
   rpc("my_upload_quota").then((q) => {
     const left = Math.max(0, q.limit - q.used);
@@ -672,8 +674,24 @@ R.upload = () => {
       const vw = pv.videoWidth, vh = pv.videoHeight;
       $("#msg").textContent = `${duration} সেকেন্ড · ${(file.size / 1048576).toFixed(1)}MB`;
       const fr = nearestFrame(vw, vh);
-      $("#vframe").innerHTML = vw ? `<div class="frames ro">${FRAMES.slice(1).map(([k, l, r]) => `<span class="${l === fr ? "on" : ""}">${FRAME_ICON(r)}${l}</span>`).join("")}</div>
-        <div class="tiny muted">📐 ভিডিওর ফ্রেম: <b>${fr}</b> · ${vw}×${vh} — ${vh > vw * 1.2 ? "✅ খাড়া ভিডিও, পুরো স্ক্রিনে দেখাবে" : "পুরো ভিডিও দেখা যাবে, উপরে-নিচে কালো অংশ থাকবে। খাড়া (9:16) ভিডিও সবচেয়ে ভালো দেখায়"}</div>` : "";
+      vFrame = FRAMES.some((f) => f[0] === fr) ? fr : "orig";
+      $("#vframe").innerHTML = vw ? `<div class="tiny muted" style="margin-top:8px">📐 ভিডিওর আসল ফ্রেম: <b>${fr}</b> · ${vw}×${vh}</div>
+        ${frameChips("vfr", vFrame)}
+        <div class="tiny muted" id="vfrHint"></div>` : "";
+      const applyFrame = () => {
+        const f = FRAMES.find((x) => x[0] === vFrame);
+        pv.style.aspectRatio = vFrame === "orig" ? "" : String(f[2]);
+        pv.style.objectFit = vFrame === "orig" ? "" : "cover";
+        pv.style.width = vFrame === "orig" ? "" : `min(100%, ${(50 * f[2]).toFixed(2)}vh)`;
+        $("#vfrHint").textContent = vFrame === "orig" ? "মূল সাইজে পুরো ভিডিও দেখাবে" : vFrame === "9:16" ? "পুরো স্ক্রিন জুড়ে দেখাবে (দরকার হলে পাশ কেটে)" : `${f[1]} ফ্রেমে দেখাবে — ফ্রেমের বাইরের অংশ কাটা পড়বে`;
+      };
+      $("#vfr").onclick = (ev) => {
+        const b = ev.target.closest("button[data-f]"); if (!b) return;
+        vFrame = b.dataset.f;
+        $("#vfr").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+        applyFrame();
+      };
+      applyFrame();
     };
   };
   $("#up").onclick = async () => {
@@ -694,6 +712,7 @@ R.upload = () => {
       const vUrl = sb.storage.from("videos").getPublicUrl(vPath).data.publicUrl;
       const id = await rpc("create_video", { p_video_path: vPath, p_video_url: vUrl, p_thumb_url: tUrl, p_caption: $("#cap").value, p_duration: duration });
       await rpc("set_video_category", { p_id: id, p_category: $("#cat").value }).catch(() => {});
+      if (vFrame !== "orig") await rpc("set_video_frame", { p_video: id, p_frame: vFrame }).catch(() => {});
       const prem = $("#prem").checked;
       if (prem) await rpc("set_video_premium", { p_video: id, p_premium: true, p_coins: Number($("#premC").value) || null });
       setP(100, "✅ আপলোড সম্পন্ন!");
@@ -1158,10 +1177,11 @@ function photoFramer(box, img) {
     box.querySelector(".crop-info").textContent = `📐 ${st.ratio ? FRAMES.find((f) => f[2] === st.ratio)[1] : "মূল সাইজ " + nearestFrame(img.naturalWidth, img.naturalHeight)} · ${img.naturalWidth}×${img.naturalHeight}${st.ratio ? " · টেনে জায়গা ঠিক করুন" : ""}`;
     view.classList.toggle("movable", !!st.ratio);
   };
-  box.querySelectorAll(".frames button").forEach((b) => (b.onclick = () => {
+  box.querySelector(".frames").onclick = (e) => {
+    const b = e.target.closest("button[data-f]"); if (!b) return;
     box.querySelectorAll(".frames button").forEach((x) => x.classList.toggle("on", x === b));
     st.ratio = FRAMES.find((f) => f[0] === b.dataset.f)[2]; st.x = st.y = 0.5; layout();
-  }));
+  };
   let drag = null;
   view.onpointerdown = (e) => { if (!st.ratio) return; drag = { x: e.clientX, y: e.clientY, sx: st.x, sy: st.y }; view.setPointerCapture(e.pointerId); };
   view.onpointermove = (e) => {

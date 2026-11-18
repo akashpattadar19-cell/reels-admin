@@ -1166,7 +1166,11 @@
 "📷 অন্য ছবি বেছে নিন": "📷 Pick another photo",
 "📐 ভিডিওর ফ্রেম:": "📐 Video frame:",
 "✅ খাড়া ভিডিও, পুরো স্ক্রিনে দেখাবে": "✅ Vertical video, shows full screen",
-"পুরো ভিডিও দেখা যাবে, উপরে-নিচে কালো অংশ থাকবে। খাড়া (9:16) ভিডিও সবচেয়ে ভালো দেখায়": "The whole video will show with black bars above and below. Vertical (9:16) videos look best"
+"পুরো ভিডিও দেখা যাবে, উপরে-নিচে কালো অংশ থাকবে। খাড়া (9:16) ভিডিও সবচেয়ে ভালো দেখায়": "The whole video will show with black bars above and below. Vertical (9:16) videos look best",
+"📐 ভিডিওর আসল ফ্রেম:": "📐 Original video frame:",
+"মূল সাইজে পুরো ভিডিও দেখাবে": "Shows the whole video in its original size",
+"পুরো স্ক্রিন জুড়ে দেখাবে (দরকার হলে পাশ কেটে)": "Fills the whole screen (sides cut if needed)",
+"ফ্রেমে দেখাবে — ফ্রেমের বাইরের অংশ কাটা পড়বে": "frame — parts outside the frame are cut"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });
