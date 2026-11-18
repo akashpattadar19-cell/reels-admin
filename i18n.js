@@ -1213,7 +1213,22 @@
 "পুরনো ভার্সনের সবাইকে আপডেট করতে বাধ্য করবেন?": "Force everyone on old versions to update?",
 "বাধ্যতামূলক করা হয়েছে": "Now required",
 "ঐচ্ছিক করা হয়েছে": "Now optional",
-"নতুন APK বের হলে ইউজার অ্যাপ খুললেই আপডেটের স্ক্রিন দেখবে। \"বাধ্যতামূলক\" হলে আপডেট না করে অ্যাপ খুলতে পারবে না। \"আপডেট করুন\" চাপলে অ্যাপের ভেতরেই নতুন APK ডাউনলোড হয়ে ইনস্টল স্ক্রিন খোলে।": "When a new APK is out, users see the update screen when they open the app. If \"required\", they can't use the app without updating. \"Update now\" downloads the new APK inside the app and opens the install screen."
+"নতুন APK বের হলে ইউজার অ্যাপ খুললেই আপডেটের স্ক্রিন দেখবে। \"বাধ্যতামূলক\" হলে আপডেট না করে অ্যাপ খুলতে পারবে না। \"আপডেট করুন\" চাপলে অ্যাপের ভেতরেই নতুন APK ডাউনলোড হয়ে ইনস্টল স্ক্রিন খোলে।": "When a new APK is out, users see the update screen when they open the app. If \"required\", they can't use the app without updating. \"Update now\" downloads the new APK inside the app and opens the install screen.",
+"📲 অ্যাপ ডাউনলোড করুন:": "📲 Download the app:",
+"📲 ডাউনলোড:": "📲 Download:",
+"🎟️ রেজিস্টার করার সময় আমার রেফার কোড দিন:": "🎟️ Use my referral code when you sign up:",
+"নতুন ইউজাররা পাবেন": "New users get",
+"স্বাগতম Reels Enjoy-তে!": "Welcome to Reels Enjoy!",
+"আপনি পেয়েছেন": "You got",
+"টাকাটি আপনার ব্যালেন্সে যোগ হয়েছে। ভিডিও দেখে, বানিয়ে ও বন্ধুদের রেফার করে আরও আয় করুন।": "The money was added to your balance. Earn more by watching, creating and inviting friends.",
+"দারুণ! শুরু করি 🚀": "Great! Let's start 🚀",
+"নতুন ইউজার বোনাস": "New user bonus",
+"🎁 নতুন ইউজার বোনাস ও শেয়ার": "🎁 New user bonus & sharing",
+"নতুন ইউজার প্রথমবার অ্যাপ খুললে বোনাস পাবে (একটি মোবাইলে একবারই)": "New users get a bonus on first app open (once per phone)",
+"নতুন ইউজারের বোনাস": "New user bonus amount",
+"শেয়ারের সাথে যাওয়া অ্যাপ ডাউনলোড লিংক": "App download link sent with shares",
+"🎁 স্বাগতম! আপনি ৳": "🎁 Welcome! You got ৳",
+"ব্যালেন্সে যোগ হয়েছে": "Added to your balance"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });

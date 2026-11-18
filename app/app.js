@@ -227,9 +227,21 @@ async function start() {
   rpc("touch_last_seen").catch(() => {});
   try {
     const di = JSON.parse(Native?.deviceInfo?.() || "{}");
-    if (di.id) rpc("register_device", { p_device_id: di.id, p_brand: di.brand, p_model: di.model, p_os: di.os, p_app: di.app }).catch(() => {});
+    if (di.id) rpc("register_device", { p_device_id: di.id, p_brand: di.brand, p_model: di.model, p_os: di.os, p_app: di.app })
+      .then((r) => { if (r?.welcome_paisa > 0) showWelcome(r.welcome_paisa); }).catch(() => {});
   } catch { /* old APK */ }
   if (!checkUpdate()) requireLocation();
+}
+
+function showWelcome(paisa) {
+  const d = document.createElement("div");
+  d.className = "upd-gate soft";
+  d.innerHTML = `<div class="upd-card"><div class="upd-ic">🎁</div><h2>স্বাগতম Reels Enjoy-তে!</h2>
+    <p>আপনি পেয়েছেন <b style="color:#6d3df0;font-size:22px">${tk(paisa)}</b> বোনাস</p>
+    <p class="tiny muted">টাকাটি আপনার ব্যালেন্সে যোগ হয়েছে। ভিডিও দেখে, বানিয়ে ও বন্ধুদের রেফার করে আরও আয় করুন।</p>
+    <button class="btn primary">দারুণ! শুরু করি 🚀</button></div>`;
+  d.querySelector("button").onclick = () => d.remove();
+  document.body.appendChild(d);
 }
 
 // ---------------- অ্যাপ আপডেট (পুরনো APK হলে অ্যাপ খুলবে না) ----------------
@@ -648,9 +660,14 @@ async function openGifts(el, isPost = false) {
   };
 }
 
+// শেয়ার লিংক: অ্যাপ ডাউনলোড পেজ + আমার রেফার কোড
+function shareLink() {
+  const base = String(setting("share_link", "") || "https://akashpattadar19-cell.github.io/reels-admin/get/");
+  return `${base}?ref=${S.me?.user_no ?? ""}`;
+}
 async function doShare(el) {
   const v = el._v;
-  const text = `${v.caption ? v.caption + "\n\n" : ""}🎬 @${v.username}-এর ভিডিও দেখুন Reels Enjoy অ্যাপে — দেখুন আর আয় করুন!`;
+  const text = `${v.caption ? v.caption + "\n\n" : ""}🎬 @${v.username}-এর ভিডিও দেখুন Reels Enjoy অ্যাপে — দেখুন আর আয় করুন!\n\n📲 অ্যাপ ডাউনলোড করুন: ${shareLink()}`;
   try {
     if (Native?.share) Native.share(text);
     else if (navigator.share) await navigator.share({ text });
@@ -807,7 +824,7 @@ const TX = {
   view_earning: "ভিউ থেকে আয়", like_earning: "লাইক থেকে আয়", comment_earning: "কমেন্ট থেকে আয়", gift_received: "গিফট পেয়েছেন",
   gift_sent: "গিফট পাঠিয়েছেন", watch_reward: "ভিডিও দেখে পয়েন্ট", ad_reward_viewer: "অ্যাড দেখে পয়েন্ট", ad_reward_creator: "আপনার ভিডিওতে অ্যাড",
   points_convert: "পয়েন্ট → টাকা", pending_release: "পেন্ডিং থেকে ব্যালেন্সে", cash_in: "ক্যাশ-ইন (কয়েন)", withdraw_hold: "উইথড্র রিকোয়েস্ট",
-  withdraw_refund: "উইথড্র ফেরত", admin_adjust: "অ্যাডমিন অ্যাডজাস্টমেন্ট", premium_unlock: "প্রিমিয়াম ভিডিও আনলক", jail_release: "জেল থেকে মুক্তি",
+  withdraw_refund: "উইথড্র ফেরত", admin_adjust: "অ্যাডমিন অ্যাডজাস্টমেন্ট", premium_unlock: "প্রিমিয়াম ভিডিও আনলক", welcome_bonus: "নতুন ইউজার বোনাস", jail_release: "জেল থেকে মুক্তি",
 };
 R.wallet = async () => {
   screen.innerHTML = `<div class="page">${header("ওয়ালেট")}<div class="spinner"></div></div>`;
@@ -1072,7 +1089,7 @@ function bindPost(el, v) {
   el.querySelector(".cm").onclick = () => openPostComments(el);
   el.querySelector(".sh").onclick = async () => {
     const first = (v.body || "").split("\n")[0].slice(0, 60);
-    const text = `${first ? first + "…\n\n" : ""}✨ @${v.username}-এর ${v.kind === "text" ? "লেখা" : "ছবি"} দেখুন Reels Enjoy অ্যাপে!`;
+    const text = `${first ? first + "…\n\n" : ""}✨ @${v.username}-এর ${v.kind === "text" ? "লেখা" : "ছবি"} দেখুন Reels Enjoy অ্যাপে!\n\n📲 অ্যাপ ডাউনলোড করুন: ${shareLink()}`;
     try {
       if (Native?.share) Native.share(text); else if (navigator.share) await navigator.share({ text }); else { await navigator.clipboard.writeText(text); toast("কপি হয়েছে"); }
       await rpc("record_post_share", { p_post: v.id }); v.shares_count++; el.querySelector(".sh span").textContent = n(v.shares_count);
@@ -1639,7 +1656,7 @@ R.invite = async () => {
   screen.innerHTML = `<div class="page">${header("🎁 আমার রেফার")}<div class="spinner"></div></div>`;
   const r = await rpc("my_referrals").catch((e) => ({ error: e }));
   if (r.error) { screen.innerHTML = `<div class="page">${header("🎁 আমার রেফার")}<div class="empty">${esc(errMsg(r.error))}</div></div>`; return; }
-  const shareText = `Reels Enjoy অ্যাপে ভিডিও দেখে ও বানিয়ে আয় করুন! রেজিস্টার করার সময় আমার রেফার কোড দিন: ${r.code}`;
+  const shareText = `Reels Enjoy অ্যাপে ভিডিও দেখে ও বানিয়ে আয় করুন!${Number(setting("welcome_bonus_paisa", 0)) > 0 && setting("welcome_bonus_enabled", true) !== false ? ` নতুন ইউজাররা পাবেন ৳${Math.round(Number(setting("welcome_bonus_paisa")) / 100)} বোনাস 🎁` : ""}\n\n📲 ডাউনলোড: ${shareLink()}\n🎟️ রেজিস্টার করার সময় আমার রেফার কোড দিন: ${r.code}`;
   screen.innerHTML = `<div class="page">${header("🎁 আমার রেফার")}
     <div class="card hero" style="text-align:center"><div class="k">আপনার রেফার কোড</div>
       <div class="v" data-copy="${r.code}" style="letter-spacing:2px">${r.code} ⧉</div>

@@ -82,6 +82,10 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
   one semi-transparent moving watermark (app icon + `settings.watermark_text` + @username; BitmapOverlay whose
   position follows a slow sine path over time, media3 OverlayEffect) and saves
   to Movies/ReelsEnjoy; progress via `window.onDownloadState`. Premium videos can't be downloaded. `downloads_enabled` toggle.
+- Share: every share text ends with `settings.share_link` + `?ref=<user_no>` → landing page `get/` (OG preview image
+  `get/og.png`, shows the referral code, auto-starts the APK download from `download/Reels-Enjoy.apk`).
+- Welcome bonus: `register_device` → `_grant_welcome` pays `welcome_bonus_paisa` (৳20) to `earning` once, only for accounts
+  created after `welcome_bonus_since` and only if no other account used that phone; app shows a 🎁 popup.
 - TODO (owner postponed): move video storage to Cloudflare R2 (account opened; needs bucket + API keys) and allow 1 s – 59 min videos.
 - Adult/18+ content: owner asked for a paid 18+ folder; declined (illegal in BD/KSA, breaks AdMob policy, CSAM risk). Don't build it.
 - Live streaming: not built yet (owner postponed; needs ZEGOCLOUD/Agora + FLAG_SECURE in the APK for no screenshots).

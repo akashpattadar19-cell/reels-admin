@@ -970,6 +970,11 @@ routes.rules = async () => {
       ${row("premium_notice", "প্রিমিয়াম আপলোডের নোটিশ (হোস্টরা আপলোডের সময় দেখবে)", "text")}
       ${row("cashin_notice", "কয়েন কেনার পেজের নোটিশ (সব ইউজার নম্বরের নিচে দেখবে)", "text")}
     </div>
+    <h2>🎁 নতুন ইউজার বোনাস ও শেয়ার</h2><div class="list">
+      ${row("welcome_bonus_enabled", "নতুন ইউজার প্রথমবার অ্যাপ খুললে বোনাস পাবে (একটি মোবাইলে একবারই)", "bool")}
+      ${row("welcome_bonus_paisa", "নতুন ইউজারের বোনাস", "taka")}
+      ${row("share_link", "শেয়ারের সাথে যাওয়া অ্যাপ ডাউনলোড লিংক", "text")}
+    </div>
     <h2>⬇️ ভিডিও ডাউনলোড</h2><div class="list">
       ${row("downloads_enabled", "ইউজাররা ভিডিও ডাউনলোড করতে পারবে (লোগো + @username ওয়াটারমার্কসহ, প্রিমিয়াম ছাড়া)", "bool")}
       ${row("watermark_text", "ওয়াটারমার্কের লেখা (যেমন Reels Enjoy)", "text")}
