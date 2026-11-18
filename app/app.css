@@ -1039,3 +1039,22 @@ html, body, .auth, .auth-card { overflow-x: clip; }
 .plus-opts button { font-size: 13.5px; gap: 6px; }
 .po { width: 54px; height: 54px; }
 .po svg { width: 28px; height: 28px; }
+/* 📞 my call price */
+.cp-page { background: linear-gradient(180deg, #fff8e6, #fffdf7 40%); min-height: 100%; }
+.cp-hero { display: flex; align-items: baseline; justify-content: center; gap: 6px; margin: 4px 0 14px; color: #fff; background: linear-gradient(90deg, #e94a6b, #f0617f); border-radius: 14px; padding: 10px; box-shadow: 0 8px 20px rgba(233,74,107,.25); }
+.cp-hero b { font-size: 30px; } .cp-hero .cp-coin { font-size: 22px; } .cp-hero small { font-size: 14px; opacity: .9; }
+.cp-card { background: #fffaf0; border: 1px solid #f1dfa6; border-radius: 16px; padding: 12px 14px; margin-bottom: 12px; color: #8a6d1c; }
+.cp-card h3 { margin: 0 0 10px; text-align: center; font-size: 16px; }
+.cp-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f1dfa6; }
+.cp-row span { flex: 1; font-size: 14px; } .cp-row b { font-size: 15px; color: #6b520f; }
+.cp-edit { width: auto; margin: 0; padding: 5px 10px; border: 0; border-radius: 8px; background: #a07c18; color: #fff; font: inherit; font-size: 12.5px; }
+.cp-notes { margin: 10px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; }
+.cp-table { width: 100%; border-collapse: separate; border-spacing: 0; border: 1.5px solid #e8c766; border-radius: 14px; overflow: hidden; }
+.cp-table td { width: 50%; text-align: center; padding: 9px; border-bottom: 1px solid #e8c766; font-size: 14.5px; }
+.cp-table td:first-child { border-right: 1px solid #e8c766; }
+.cp-table tr:last-child td { border-bottom: 0; }
+.cp-table tr.me td { background: #fdeebf; font-weight: 700; }
+.cp-lv { text-align: center; margin: 10px 0 0; font-size: 13.5px; }
+.cp-quick { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 12px; }
+.cp-quick button { width: auto; margin: 0; padding: 5px 12px; border-radius: 99px; border: 1px solid var(--line); background: #fff; font: inherit; font-size: 13px; }
+.cp-page label.li.card { display: flex; align-items: center; justify-content: space-between; width: 100%; box-sizing: border-box; padding: 12px 14px; }

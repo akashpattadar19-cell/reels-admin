@@ -563,9 +563,8 @@ routes.lookup = async (no) => {
         <span>অ্যাকাউন্ট: <b>${p.account_type === "host" ? "🎤 হোস্ট" : "👤 ইউজার"}</b></span>
         ${p.account_type === "host" ? `<button class="btn sm warn" data-c="unhost">ইউজার বানান</button>` : `<button class="btn sm good" data-c="host">হোস্ট বানান</button>`}
       </div>
-      ${p.account_type === "host" ? `<div style="margin-bottom:12px"><b>📞 এই হোস্টের কলের রেট</b> <span class="muted small">(খালি = সবার জন্য নির্ধারিত) · কল ${p.calls_on === false ? "❌ বন্ধ রেখেছে" : "✅ চালু"}</span>
-        <div class="row" style="flex-wrap:nowrap;gap:6px"><input id="crv" type="number" min="1" placeholder="ভিডিও 🪙/মিনিট" value="${p.call_video_rate ?? ""}"><input id="cra" type="number" min="1" placeholder="অডিও 🪙/মিনিট" value="${p.call_audio_rate ?? ""}">
-        <input id="crp" type="number" min="0" max="100" placeholder="হোস্ট %" value="${p.call_host_pct ?? ""}"><button class="btn sm good" data-c="crate">সেভ</button></div></div>` : ""}
+      ${p.account_type === "host" ? `<div style="margin-bottom:12px"><b>📞 কল</b> <span class="muted small">হোস্টের নিজের রেট: ভিডিও 🪙${p.call_video_rate ?? "ডিফল্ট"} · অডিও 🪙${p.call_audio_rate ?? "ডিফল্ট"} /মিনিট · কল ${p.calls_on === false ? "❌ বন্ধ" : "✅ চালু"}</span>
+        <div class="row" style="flex-wrap:nowrap;gap:6px;margin-top:6px"><input id="crc" type="number" min="0" max="100" placeholder="এই হোস্টের জন্য আপনার কমিশন % (খালি = সবার মতো)" value="${p.call_host_pct != null ? 100 - p.call_host_pct : ""}"><button class="btn sm good" data-c="crate">সেভ</button></div></div>` : ""}
       <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:12px">
         <span>💰 কয়েন সেলার: <b>${p.coin_seller ? `✅ হ্যাঁ${p.seller_commission_pct != null ? ` (কমিশন ${p.seller_commission_pct}%)` : ""}` : "❌ না"}</b></span>
         ${p.coin_seller ? `<button class="btn sm warn" data-c="sell_off">বাদ দিন</button>` : `<button class="btn sm good" data-c="sell_on" ${p.account_type === "host" ? "" : "disabled title='আগে হোস্ট বানান'"}>সেলার বানান</button>`}
@@ -614,7 +613,7 @@ routes.lookup = async (no) => {
     const b = e.target.closest("[data-c]"); if (!b) return;
     const c = b.dataset.c;
     if (c === "host" || c === "unhost") await act(() => rpc("admin_set_host", { p_user: p.id, p_host: c === "host" }), "হয়েছে");
-    else if (c === "crate") { const nv = (q) => { const v = $(q).value.trim(); return v === "" ? null : Number(v); }; await act(() => rpc("admin_set_call_rates", { p_user: p.id, p_video: nv("#crv"), p_audio: nv("#cra"), p_pct: nv("#crp") }), "সেভ হয়েছে"); }
+    else if (c === "crate") { const v = $("#crc").value.trim(); await act(() => rpc("admin_set_call_commission", { p_user: p.id, p_commission: v === "" ? null : Number(v) }), "সেভ হয়েছে"); }
     else if (c === "sell_on" || c === "sell_off") await act(() => rpc("admin_set_coin_seller", { p_user: p.id, p_on: c === "sell_on", p_pct: c === "sell_on" ? p.seller_commission_pct ?? null : null }), "হয়েছে");
     else if (c === "pa_on" || c === "pa_off") await act(() => rpc("admin_set_premium_access", { p_user: p.id, p_on: c === "pa_on" }), "হয়েছে");
     else if (c === "limit") { const v = $("#ul").value.trim(); await act(() => rpc("admin_set_upload_limit", { p_user: p.id, p_limit: v === "" ? null : Number(v) }), "সেভ হয়েছে"); }
@@ -1143,6 +1142,7 @@ routes.live = async () => {
   const cp = Number(S2.coin_price_paisa || 100);
   const row = (key, label, kind) => `<div class="item" data-key="${key}" data-kind="${kind}"><div class="top"><b>${label}</b></div><div class="row" style="flex-wrap:nowrap">${kind === "bool"
     ? `<select name="v"><option value="true" ${S2[key] === true ? "selected" : ""}>চালু</option><option value="false" ${S2[key] === false ? "selected" : ""}>বন্ধ</option></select>`
+    : kind === "comm" ? `<input name="v" type="number" min="0" max="100" value="${esc(100 - Number(S2[key] ?? 0))}"><span class="muted">%</span>`
     : kind === "text" ? `<textarea name="v" rows="3" style="flex:1">${esc(S2[key] ?? "")}</textarea>`
     : `<input name="v" type="number" min="0" value="${esc(S2[key] ?? 0)}">${kind === "pct" ? '<span class="muted">%</span>' : kind === "coin" ? '<span class="muted">🪙</span>' : ""}`}<button class="btn sm good" data-save>সেভ</button></div></div>`;
   const t = d.today;
@@ -1156,7 +1156,7 @@ routes.live = async () => {
       ${d.live.map((r) => `<tr><td><a href="#lookup/${r.user_no}">@${esc(r.username)}</a></td><td translate="no">${esc(r.title ?? "")}</td><td class="num">${num(r.viewers)}</td><td class="num">${num(r.peak_viewers)}</td>
         <td class="num">🪙 ${num(r.gift_coins)}</td><td>${dt(r.started_at)}</td><td><button class="btn sm bad" data-end="${r.id}">⏹ বন্ধ করুন</button></td></tr>`).join("")}</table>` : `<div class="empty">এখন কেউ লাইভে নেই</div>`}</div>
     <h2>⚙️ নিয়ম</h2>
-    <p class="muted small">১ কয়েন = ৳${(cp / 100).toFixed(2)}। যেমন ভিডিও কল ${num(S2.call_video_coins_per_min)} 🪙/মিনিট = ৳${((S2.call_video_coins_per_min * cp) / 100).toFixed(2)}/মিনিট, যার ${num(S2.call_host_pct)}% হোস্ট পাবে, বাকিটা আপনার। কোনো হোস্টের জন্য আলাদা রেট দিতে "ইউজার খুঁজুন" পেজে যান।</p>
+    <p class="muted small">কলের রেট প্রতিটি হোস্ট নিজে ঠিক করে (অ্যাপ → আমি → "আমার কলের রেট"), লেভেল অনুযায়ী সর্বোচ্চ সীমার মধ্যে। আপনি শুধু কমিশন ঠিক করবেন। কোনো হোস্টের জন্য আলাদা কমিশন দিতে "ইউজার খুঁজুন" পেজে যান। ১ কয়েন = ৳${(cp / 100).toFixed(2)}।</p>
     <div class="list" id="lrules">
       ${row("live_rules_notice", "📢 লাইভ ও পার্টিতে সবার আগে দেখানো নিয়মের নোটিশ", "text")}
       ${row("live_rules_notice_en", "📢 নিয়মের নোটিশ — English", "text")}
@@ -1165,9 +1165,7 @@ routes.live = async () => {
       ${row("live_max_cohosts", "লাইভে একসাথে কতজন অতিথি যোগ দিতে পারবে", "num")}
       ${row("live_gift_host_pct", "লাইভে গিফটের কত % হোস্ট পাবে (০ = গিফটের নিজস্ব %)", "pct")}
       ${row("calls_enabled", "হোস্টকে প্রাইভেট কল চালু", "bool")}
-      ${row("call_video_coins_per_min", "ভিডিও কলে প্রতি মিনিটে কয়েন", "coin")}
-      ${row("call_audio_coins_per_min", "অডিও কলে প্রতি মিনিটে কয়েন", "coin")}
-      ${row("call_host_pct", "কল থেকে হোস্ট কত % পাবে", "pct")}
+      ${row("call_host_pct", "📞 কল থেকে আপনার কমিশন % (বাকিটা হোস্ট পাবে)", "comm")}
       ${row("pk_enabled", "⚔️ PK ব্যাটল চালু", "bool")}
       ${row("pk_duration_sec", "⚔️ PK কত সেকেন্ড চলবে (৩০০ = ৫ মিনিট)", "num")}
       ${row("pk_winner_bonus_pct", "⚔️ বিজয়ী বোনাস: PK-তে পাওয়া গিফটের মূল্যের কত %", "pct")}
@@ -1196,8 +1194,8 @@ routes.live = async () => {
     if (eb) { if (!confirm("এই লাইভ বন্ধ করবেন?")) return; try { await act(() => rpc("live_end", { p_room: Number(eb.dataset.end), p_reason: "admin" }), "লাইভ বন্ধ করা হয়েছে"); routes.live(); } catch { /* */ } return; }
     const b = e.target.closest("[data-save]"); if (!b) return;
     const it = b.closest(".item"), raw = it.querySelector("[name=v]").value, kind = it.dataset.kind;
-    const value = kind === "bool" ? raw === "true" : kind === "text" ? raw.trim() : Math.round(Number(raw));
-    if (kind !== "bool" && kind !== "text" && (isNaN(value) || value < 0 || (kind === "pct" && value > 100))) return toast("সঠিক সংখ্যা দিন", true);
+    const value = kind === "bool" ? raw === "true" : kind === "text" ? raw.trim() : kind === "comm" ? 100 - Math.round(Number(raw)) : Math.round(Number(raw));
+    if (kind !== "bool" && kind !== "text" && (isNaN(value) || value < 0 || ((kind === "pct" || kind === "comm") && value > 100))) return toast("সঠিক সংখ্যা দিন", true);
     await act(() => rpc("admin_set_setting", { p_key: it.dataset.key, p_value: value }), "সেভ হয়েছে");
   };
 };

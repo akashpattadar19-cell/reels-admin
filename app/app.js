@@ -210,6 +210,7 @@ const ERR = {
   CALL_ENDED: "কল শেষ হয়ে গেছে",
   PK_OFF: "PK এখন বন্ধ আছে",
   PARTY_OFF: "পার্টি এখন বন্ধ আছে",
+  PRICE_RANGE: "এই রেট আপনার লেভেলের সীমার বাইরে",
   PK_BUSY: "এই হোস্ট এখন অন্য PK-তে আছে",
   PK_EXPIRED: "PK চ্যালেঞ্জের সময় শেষ",
   NOT_ALLOWED: "অনুমতি নেই",
@@ -663,7 +664,7 @@ function route() {
   if (!R[name]) name = "home";
   if (S.me.jailed && !["jail", "cashin", "history"].includes(name)) name = "jail";
   const TABS = { home: ["home", "golive", "live", "goparty", "party", "notifs", "post", "contest", "newphoto", "top", "tag", "tags", "at", "story", "newstory"], feed: ["feed", "following", "watch", "play"],
-    me: ["me", "myprofile", "seller", "creator", "support", "policy", "delacct", "invite", "rules", "settings", "vault", "edit", "level", "wallet", "history", "withdraw", "cashin", "inbox", "chat"] };
+    me: ["me", "myprofile", "callprice", "seller", "creator", "support", "policy", "delacct", "invite", "rules", "settings", "vault", "edit", "level", "wallet", "history", "withdraw", "cashin", "inbox", "chat"] };
   document.querySelectorAll(".tabbar a").forEach((x) => x.classList.toggle("on", x.dataset.t === name || (TABS[x.dataset.t] ?? []).includes(name)));
   screen.classList.remove("full");
   $(".tabbar").classList.toggle("dark", TABS.feed.includes(name));
@@ -3440,6 +3441,7 @@ R.me = async () => {
     ${p.coin_seller ? `<a href="#seller" class="me-banner seller"><span>💰 কয়েন সেলার প্যানেল</span><b>বিক্রি করুন ›</b></a>` : ""}
     <a href="#invite" class="me-banner"><span>রেফার করে আয় করুন</span><b>${tk(refs?.earned_paisa ?? 0)} ›</b></a>
     <div class="me-menu">
+      ${p.account_type === "host" ? `<a href="#callprice"><i class="mi c1"><svg viewBox="0 0 24 24"><path d="M6.5 3.5l3 3.5-2 2.5a12 12 0 0 0 7 7l2.5-2 3.5 3-1.6 2.6c-.4.6-1.1.9-1.8.8C10 20 4 14 3.1 7.4c-.1-.7.2-1.4.8-1.8z"/></svg></i>আমার কলের রেট<em>🪙 ${n(p.call_video_rate ?? setting("call_video_coins_per_min", 60))}/মিনিট ›</em></a>` : ""}
       <a href="#myprofile"><i class="mi c3"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 19.5c1.2-3.6 4-5.4 7.2-5.4s6 1.8 7.2 5.4"/></svg></i>আমার প্রোফাইল<em>›</em></a>
       <a href="#inbox"><i class="mi c1"><svg viewBox="0 0 24 24"><path d="M4 6.5h16a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5v-3.5H4A1.5 1.5 0 0 1 2.5 17V8A1.5 1.5 0 0 1 4 6.5z"/><path d="M7.5 12.5h.01M12 12.5h.01M16.5 12.5h.01" stroke-width="2.6"/></svg></i>মেসেজ<em>${S.msgUnread ? `${S.msgUnread} <b class="red"></b>` : ""}›</em></a>
       <a href="#history"><i class="mi c2"><svg viewBox="0 0 24 24"><path d="M7 3.5h10a1.5 1.5 0 0 1 1.5 1.5v15l-3-2-3 2-3-2-3 2V5A1.5 1.5 0 0 1 7 3.5z"/><path d="M9 8.5h6M9 12h6"/></svg></i>লেনদেনের হিসাব<em>›</em></a>
@@ -3739,6 +3741,51 @@ R.u = async (id) => {
     last = more[more.length - 1]?.id ?? last;
     if (more.length < 30) e.target.remove();
   });
+};
+
+// 📞 আমার কলের রেট (হোস্ট নিজে ঠিক করে, লেভেল অনুযায়ী সর্বোচ্চ সীমা)
+R.callprice = async () => {
+  screen.innerHTML = `<div class="page">${header("আমার কলের রেট")}<div class="spinner"></div></div>`;
+  let c = await rpc("my_call_price").catch((e) => { toast(errMsg(e), true); return null; });
+  if (!c) return;
+  const taka = (coins) => tk(coins * (c.coin_paisa || 10));
+  const EN_ = window.getLang?.() === "en";
+  const paint = () => {
+    const LV = Object.keys(c.caps || {}).map(Number).sort((a, b) => a - b);
+    screen.innerHTML = `<div class="page cp-page">${header("আমার কলের রেট")}
+      <div class="cp-hero"><span class="cp-coin">🪙</span><b>${n(c.video)}</b><small>/মিনিট</small></div>
+      <div class="cp-card">
+        <div class="cp-row"><span>📹 ভিডিও কলের রেট</span><b>🪙 ${n(c.video)} /মিনিট</b><button class="cp-edit" data-k="video">✏️ বদলান</button></div>
+        <div class="cp-row"><span>📞 অডিও কলের রেট</span><b>🪙 ${n(c.audio)} /মিনিট</b><button class="cp-edit" data-k="audio">✏️ বদলান</button></div>
+        <ol class="cp-notes">
+          <li translate="no">${EN_ ? `For every call minute you get ${n(c.host_pct)}% of your price (🪙100 = ${taka(100)}).` : `প্রতি মিনিট কলে আপনি রেটের ${n(c.host_pct)}% পাবেন (🪙১০০ = ${taka(100)})।`}</li>
+          <li>লেভেল বাড়লে আরও বেশি রেট রাখতে পারবেন।</li>
+          <li>রেট বেশি হলে কল কম আসতে পারে — নিজের মতো ঠিক করুন।</li>
+        </ol>
+      </div>
+      <div class="cp-card"><h3>লেভেল অনুযায়ী সর্বোচ্চ রেট</h3>
+        <table class="cp-table">${LV.map((l, i) => `<tr class="${l === c.level ? "me" : ""}"><td>${i === 0 && l > 0 ? "≤" : i === LV.length - 1 ? "≥" : ""}Lv${l}</td><td>🪙 ${n(c.caps[l])}</td></tr>`).join("")}</table>
+        <p class="cp-lv">আমার লেভেল <b>Lv${c.level}</b> · ${EN_ ? "max" : "সর্বোচ্চ"} 🪙 ${n(c.cap)} <a href="#level">›</a></p></div>
+      <label class="li card"><span>📞 কল নিতে রাজি</span><input type="checkbox" id="cpOn" class="sw" ${c.calls_on ? "checked" : ""}></label></div>`;
+    screen.querySelectorAll(".cp-edit").forEach((b) => (b.onclick = () => {
+      const k = b.dataset.k;
+      const body = sheet(`<h3>${k === "video" ? "📹 ভিডিও" : "📞 অডিও"} কলের রেট</h3>
+        <p class="tiny muted" translate="no">${EN_ ? `1 to ${n(c.cap)} coins / minute (your level Lv${c.level})` : `১ থেকে ${n(c.cap)} কয়েন / মিনিট (আপনার লেভেল Lv${c.level})`}</p>
+        <input id="cpV" type="number" inputmode="numeric" min="1" max="${c.cap}" value="${c[k]}">
+        <div class="cp-quick">${[30, 60, 100, 200, 300].filter((x) => x <= c.cap).map((x) => `<button type="button" data-v="${x}">${x}</button>`).join("")}</div>
+        <button class="btn primary" id="cpOk">সেভ করুন</button>`);
+      body.querySelector(".cp-quick").onclick = (e) => { const q = e.target.closest("[data-v]"); if (q) body.querySelector("#cpV").value = q.dataset.v; };
+      body.querySelector("#cpOk").onclick = async (e) => {
+        const v = Math.round(Number(body.querySelector("#cpV").value));
+        if (!(v >= 1 && v <= c.cap)) return toast(EN_ ? `Enter 1 to ${n(c.cap)}` : `১ থেকে ${n(c.cap)} এর মধ্যে দিন`, true);
+        e.target.disabled = true;
+        try { c = await rpc("set_my_call_price", { p_video: k === "video" ? v : null, p_audio: k === "audio" ? v : null }); S.me.call_video_rate = c.video; S.me.call_audio_rate = c.audio; closeSheet(); toast("সেভ হয়েছে"); paint(); }
+        catch (er) { toast(errMsg(er), true); e.target.disabled = false; }
+      };
+    }));
+    $("#cpOn").onchange = async (e) => { try { await rpc("set_call_prefs", { p_on: e.target.checked }); c.calls_on = e.target.checked; toast(e.target.checked ? "📞 কল চালু" : "📵 কল বন্ধ"); } catch (er) { toast(errMsg(er), true); } };
+  };
+  paint();
 };
 
 // 👤 আমার প্রোফাইল (তালিকা আকারে, প্রতিটি সারিতে চাপলে বদলানো যায়)

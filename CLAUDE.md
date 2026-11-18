@@ -139,7 +139,9 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
   user's JWT; App Certificate in `private_config`). App: live hosts shown first in Home → ভিডিও (`list_lives`; separate লাইভ tab removed), `#golive`, `#live/<id>` (host/viewer,
   chat, hearts, gifts via `live_gift`, co-host request/accept → renewToken + publish), host profile call buttons → `#call/<id>`;
   incoming call overlay from realtime on `calls`; both sides call `call_tick` every 30 s (per-minute billing). FLAG_SECURE during
-  live/calls. Admin "🔴 লাইভ ও কল" (live monitor + end, rules, call/live history); per-host call rates on the lookup page.
+  live/calls. Admin "🔴 লাইভ ও কল" (live monitor + end, rules, call/live history). Call prices: hosts set their own (`#callprice`,
+  `my_call_price`/`set_my_call_price`, 1..`_call_cap` = `settings.call_price_caps[level]`); admin sets only commission
+  (`call_host_pct` shown as commission = 100 − pct; per-host via `admin_set_call_commission` on the lookup page).
   No push yet: incoming calls ring only while the app is open (local notification if backgrounded).
 - PK battles (027): live host ⚔️ → `pk_candidates`/`pk_invite`; other host gets a sheet (realtime INSERT on `pk_battles`) → `pk_answer`.
   `live_rooms.pk_id` set on both rooms; `live_gift` adds coins to score_a/score_b; split screen (2nd Agora client joins the other

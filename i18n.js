@@ -344,7 +344,6 @@
 "সেভ করুন": "Save",
 "অন্যান্য": "Other",
 "পর্তুগাল": "Portugal",
-"সর্বোচ্চ": "max",
 "সব হিসাব": "All records",
 "মালদ্বীপ": "Maldives",
 "আইসক্রিম": "Ice cream",
@@ -712,7 +711,7 @@
 "📍 লোকেশন চালু হলে আপনার দেশের ভিডিও এখানে দেখা যাবে": "📍 Turn on location to see videos from your country here",
 "🏆 টপ ক্রিয়েটর": "🏆 Top creators",
 "👑 আমার লেভেল": "👑 My Level",
-"আমার লেভেল": "My Level",
+"আমার লেভেল": "My level",
 "আপনার লেভেল": "Your level",
 "জন ফলোয়ার লাগবে": "more followers",
 "হতে আরও": "needs",
@@ -1737,7 +1736,16 @@
 "অক্টোবর": "October",
 "নভেম্বর": "November",
 "ডিসেম্বর": "December",
-"সাল": "Year"
+"সাল": "Year",
+"আমার কলের রেট": "My call price",
+"📹 ভিডিও কলের রেট": "📹 Video call price",
+"📞 অডিও কলের রেট": "📞 Audio call price",
+"✏️ বদলান": "✏️ Edit",
+"লেভেল বাড়লে আরও বেশি রেট রাখতে পারবেন।": "You can set a higher price when you level up.",
+"রেট বেশি হলে কল কম আসতে পারে — নিজের মতো ঠিক করুন।": "A higher price may bring fewer calls — set it as you like.",
+"লেভেল অনুযায়ী সর্বোচ্চ রেট": "Highest call price by level",
+"📞 কল নিতে রাজি": "📞 Accept calls",
+"এই রেট আপনার লেভেলের সীমার বাইরে": "This price is above your level's limit"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });

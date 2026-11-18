@@ -1,0 +1,2 @@
+-- 032 (applied as host_own_call_price): settings.call_price_caps {level: max coins/min}; _call_cap(user);
+-- my_call_price(), set_my_call_price(video, audio) for hosts; admin_set_call_commission(user, commission%) → profiles.call_host_pct = 100 − commission.
