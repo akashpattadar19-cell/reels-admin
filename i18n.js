@@ -1479,7 +1479,8 @@
 "গান লোড করা যায়নি": "Couldn't load the song",
 "আপলোড হয়নি — ইন্টারনেট দেখুন": "Upload failed — check your internet",
 "ভিডিওটি আবার বেছে নিন": "Pick the video again",
-"এই ভিডিও এডিট করা যায়নি — অন্য ভিডিও চেষ্টা করুন": "Couldn't edit this video — try another one"
+"এই ভিডিও এডিট করা যায়নি — অন্য ভিডিও চেষ্টা করুন": "Couldn't edit this video — try another one",
+"💬 মেসেজ": "💬 Messages"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });

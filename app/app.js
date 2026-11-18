@@ -564,8 +564,9 @@ async function refreshUnread() {
   paintUnread();
 }
 function paintUnread() {
-  const t = (S.unread || 0) + (S.msgUnread || 0);
+  const t = S.msgUnread || 0, nb = S.unread || 0;
   $("#unread").textContent = t ? (t > 99 ? "99+" : t) : "";
+  document.querySelectorAll(".bell-n").forEach((b) => { b.textContent = nb ? (nb > 99 ? "99+" : nb) : ""; b.classList.toggle("hidden", !nb); });
 }
 // অ্যাপে কত সময় কাটছে (অ্যাডমিন অ্যানালিটিক্সের জন্য)
 setInterval(() => { if (S.me && !document.hidden) rpc("track_time", { p_sec: 60 }).catch(() => {}); }, 60000);
@@ -581,7 +582,7 @@ function route() {
   let [name, a, b, c] = (location.hash.slice(1) || "home").split("/");
   if (!R[name]) name = "home";
   if (S.me.jailed && !["jail", "cashin", "history"].includes(name)) name = "jail";
-  const TABS = { home: ["home", "post", "contest", "newphoto", "top", "tag", "tags", "at", "story", "newstory"], feed: ["feed", "following", "watch", "play"],
+  const TABS = { home: ["home", "notifs", "post", "contest", "newphoto", "top", "tag", "tags", "at", "story", "newstory"], feed: ["feed", "following", "watch", "play"],
     me: ["me", "seller", "creator", "support", "policy", "delacct", "invite", "rules", "settings", "vault", "edit", "level", "wallet", "history", "withdraw", "cashin", "inbox", "chat"] };
   document.querySelectorAll(".tabbar a").forEach((x) => x.classList.toggle("on", x.dataset.t === name || (TABS[x.dataset.t] ?? []).includes(name)));
   screen.classList.remove("full");
@@ -1630,11 +1631,10 @@ R.seller = async () => {
 
 // ---------------- INBOX ----------------
 R.inbox = async (tab = "chat") => {
-  screen.innerHTML = `<div class="page">${header("মেসেজ")}
-    <div class="seg" style="margin-top:0"><button data-t="chat" class="${tab === "chat" ? "on" : ""}">💬 চ্যাট${S.msgUnread ? ` (${S.msgUnread})` : ""}</button><button data-t="notif" class="${tab === "notif" ? "on" : ""}">🔔 নোটিফিকেশন${S.unread ? ` (${S.unread})` : ""}</button></div>
+  if (tab === "notif") return location.replace("#notifs");
+  screen.innerHTML = `<div class="page">${header("💬 মেসেজ")}
     <div class="card list" id="nl"><div class="spinner"></div></div></div>`;
-  document.querySelectorAll(".seg button").forEach((b) => (b.onclick = () => location.replace("#inbox/" + b.dataset.t)));
-  if (tab === "chat") {
+  {
     const rows = await rpc("my_chats").catch(() => []);
     $("#nl").innerHTML = rows.length ? rows.map((c) => `<a class="li chat-li" href="#chat/${c.other_id}">${avatar(c)}
         <span style="flex:1;min-width:0"><b translate="no">${esc(c.full_name || c.username)}</b><div class="tiny muted ell" translate="no">${c.last_from_me ? (c.last_status === "seen" ? '<b class="tk seen">✓✓</b> ' : c.last_status === "delivered" ? '<b class="tk">✓✓</b> ' : '<b class="tk">✓</b> ') + "আপনি: " : ""}${esc(c.last_body)}</div></span>
@@ -1642,7 +1642,12 @@ R.inbox = async (tab = "chat") => {
       : `<div class="empty">এখনো কোনো চ্যাট নেই।<br>কারো প্রোফাইলে গিয়ে "💬 মেসেজ" চাপুন।</div>`;
     return;
   }
-  const { data } = await sb.from("notifications").select("*").eq("user_id", S.me.id).order("id", { ascending: false }).limit(60);
+};
+
+// ---------------- 🔔 নোটিফিকেশন (হোম পেজের ঘণ্টা আইকন) ----------------
+R.notifs = async () => {
+  screen.innerHTML = `<div class="page">${header("🔔 নোটিফিকেশন")}<div class="card list" id="nl"><div class="spinner"></div></div></div>`;
+  const { data } = await sb.from("notifications").select("*").eq("user_id", S.me.id).order("id", { ascending: false }).limit(80);
   const icon = { like: "❤️", comment: "💬", gift: "🎁", follow: "👤", withdraw: "💸", cash_in: "🪙", system: "📢", mention: "📣" };
   const href = (x) => x.data?.video_id ? `#v/${x.data.video_id}` : x.data?.post_id ? `#post/${x.data.post_id}` : x.data?.contest_id ? `#contest/${x.data.contest_id}`
     : x.data?.user_id ? `#u/${x.data.user_id}` : x.type === "withdraw" ? "#withdraw" : x.type === "cash_in" ? "#cashin" : "";
@@ -2162,7 +2167,7 @@ async function downloadVideo(v) {
 // হোম পেজের স্টোরি সারি
 async function storyRow(box) {
   if (!box || setting("stories_enabled", true) === false) return;
-  const rows = await rpc("story_feed", { p_limit: 40 }).catch(() => []);
+  const rows = (await rpc("story_feed", { p_limit: 40 }).catch(() => [])) ?? [];
   S.storyQueue = rows.map((r) => r.user_id);
   const mine = rows.find((r) => r.is_me);
   box.innerHTML = `<a class="st-it me" href="${mine ? `#story/${S.me.id}` : "#newstory"}"><span class="st-ring ${mine ? (mine.unseen ? "new" : "seen") : "none"}">${avatar(S.me)}</span>
@@ -2400,6 +2405,7 @@ R.home = (tab = "video") => {
         <a href="#home/premium" class="${tab === "premium" ? "on" : ""}">প্রিমিয়াম</a>
         <a href="#home/photo" class="${tab === "photo" ? "on" : ""}">ফটো</a>
         <a href="#home/contest" class="${tab === "contest" ? "on" : ""}">কম্পিটিশন</a>
+        <a href="#notifs" class="bell" aria-label="নোটিফিকেশন"><svg viewBox="0 0 32 32"><path d="M16 4.5c-4.6 0-8 3.6-8 8.3v5.6l-2.5 4.1h21l-2.5-4.1v-5.6c0-4.7-3.4-8.3-8-8.3z"/><path d="M12.8 25.5c.6 1.4 1.8 2.2 3.2 2.2s2.6-.8 3.2-2.2"/></svg><b class="bell-n hidden"></b></a>
         <a href="#top" class="rank" aria-label="র‍্যাংকিং"><svg viewBox="0 0 32 32"><path d="M4 27h24M7 27V17h5v10M13.5 27V7h5v20M20 27V12h5v15" /></svg></a>
       </div>
       <div class="disc-filters ${tab === "video" || tab === "premium" ? "" : "hidden"}">
@@ -2413,6 +2419,7 @@ R.home = (tab = "video") => {
     <div class="disc-grid"><div class="disc-col" id="c0"></div><div class="disc-col" id="c1"></div></div>
     <div id="dmore" style="padding:10px"></div>
     ${tab === "photo" ? `<a class="fab" href="#newphoto">📷 ফটো দিন</a>` : ""}</div>`;
+  paintUnread();
   const save = () => { try { localStorage.setItem("disc", JSON.stringify(S.disc)); } catch { /* */ } };
   $("#fLang").onchange = (e) => { S.disc.lang = e.target.value; save(); R.home(tab); };
   $("#fCountry").onchange = (e) => { S.disc.country = e.target.value; save(); R.home(tab); };
@@ -2539,7 +2546,7 @@ R.me = async () => {
     ${p.coin_seller ? `<a href="#seller" class="me-banner seller"><span>💰 কয়েন সেলার প্যানেল</span><b>বিক্রি করুন ›</b></a>` : ""}
     <a href="#invite" class="me-banner"><span>রেফার করে আয় করুন</span><b>${tk(refs?.earned_paisa ?? 0)} ›</b></a>
     <div class="me-menu">
-      <a href="#inbox"><i class="mi c1"><svg viewBox="0 0 24 24"><path d="M4 6.5h16a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5v-3.5H4A1.5 1.5 0 0 1 2.5 17V8A1.5 1.5 0 0 1 4 6.5z"/><path d="M7.5 12.5h.01M12 12.5h.01M16.5 12.5h.01" stroke-width="2.6"/></svg></i>মেসেজ<em>${(S.unread || 0) + (S.msgUnread || 0) ? `${(S.unread || 0) + (S.msgUnread || 0)} <b class="red"></b>` : ""}›</em></a>
+      <a href="#inbox"><i class="mi c1"><svg viewBox="0 0 24 24"><path d="M4 6.5h16a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5v-3.5H4A1.5 1.5 0 0 1 2.5 17V8A1.5 1.5 0 0 1 4 6.5z"/><path d="M7.5 12.5h.01M12 12.5h.01M16.5 12.5h.01" stroke-width="2.6"/></svg></i>মেসেজ<em>${S.msgUnread ? `${S.msgUnread} <b class="red"></b>` : ""}›</em></a>
       <a href="#creator"><i class="mi c4"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></i>ক্রিয়েটর ড্যাশবোর্ড<em>›</em></a>
       <a href="#level"><i class="mi c2"><svg viewBox="0 0 24 24"><path d="M3.5 8l4.2 3.6L12 5l4.3 6.6L20.5 8l-1.8 10.5H5.3z"/><path d="M6 21h12"/></svg></i>আমার লেভেল<em>Lv${levelOf(p.followers_count)} ›</em></a>
       <a href="#invite"><i class="mi c3"><svg viewBox="0 0 24 24"><rect x="3.5" y="8.5" width="17" height="4" rx="1"/><path d="M5 12.5v8h14v-8M12 8.5v12M12 8.5S10.5 4 8 4.6C6 5.1 7 8.5 12 8.5zM12 8.5s1.5-4.5 4-3.9c2 .5 1 3.9-4 3.9z"/></svg></i>আমার রেফার<em>পুরস্কার নিন <b class="red"></b> ›</em></a>

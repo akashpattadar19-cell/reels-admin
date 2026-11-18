@@ -53,7 +53,7 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
   and user pays `pay_jail_release()` (fee default `jail_release_coins`).
 - Level: `_level(followers)` thresholds 10/50/200/1000/5000/20000.
 - Home tabs: ভিডিও (video grid) · ফটো (photo posts) · কম্পিটিশন (photo contests). Bottom tab 4 = ✍️ Text Earning (`#texts`,
-  copy blocked + `ReelsAndroid.setSecure(true)` → FLAG_SECURE). Messages/notifications moved to Me → মেসেজ (`#inbox`, `#chat/<uid>`).
+  copy blocked + `ReelsAndroid.setSecure(true)` → FLAG_SECURE). Messages in Me → মেসেজ (`#inbox` = chats only, `#chat/<uid>`); notifications on Home's 🔔 bell (`#notifs`, red badge = unread).
 - `posts` (kind photo|text, `photos` bucket) with `post_likes/comments/shares`; owner earns via `_post_earn` (post_*_rate_paisa,
   daily cap). Gifts on posts: `send_post_gift`. Contests: `contests`, admin creates/announces winner (prize → winner balance).
 - DMs: `messages`, `send_message`, `my_chats`, `chat_messages` (setting `dm_enabled`). Cover photo: `profiles.cover_url` via `set_cover`.
