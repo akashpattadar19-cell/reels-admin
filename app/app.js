@@ -244,6 +244,18 @@ function showWelcome(paisa) {
   document.body.appendChild(d);
 }
 
+// কিবোর্ড খুললে যে ঘরে লিখছেন সেটি দেখা যাবে
+window.onKeyboard = (open) => {
+  if (!open) return;
+  setTimeout(() => {
+    const el = document.activeElement;
+    if (el && /INPUT|TEXTAREA/.test(el.tagName)) el.scrollIntoView({ block: "nearest" });
+  }, 120);
+};
+document.addEventListener("focusin", (e) => {
+  if (/INPUT|TEXTAREA/.test(e.target.tagName)) setTimeout(() => e.target.scrollIntoView({ block: "nearest" }), 350);
+});
+
 // ---------------- অ্যাপ আপডেট (পুরনো APK হলে অ্যাপ খুলবে না) ----------------
 function appBuild() {
   const v = String(Native?.appVersion?.() ?? "");

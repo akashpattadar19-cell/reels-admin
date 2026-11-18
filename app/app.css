@@ -477,3 +477,8 @@ input.sw { width: 40px; height: 22px; margin: 0; accent-color: var(--purple); }
 .upd-ic { font-size: 50px; }
 .upd-card h2 { margin: 6px 0; font-size: 19px; }
 .upd-card .progress { margin: 12px 0 4px; }
+
+/* keyboard open (APK ≥ 1.0.13): more room, input stays visible */
+.kb .tabbar { display: none; }
+.kb .screen.full, .kb .screen { bottom: 0; }
+.kb .sheet { max-height: 88%; }
