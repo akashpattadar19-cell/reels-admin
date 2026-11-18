@@ -82,6 +82,10 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
 - Adult/18+ content: owner asked for a paid 18+ folder; declined (illegal in BD/KSA, breaks AdMob policy, CSAM risk). Don't build it.
 - Live streaming: not built yet (owner postponed; needs ZEGOCLOUD/Agora + FLAG_SECURE in the APK for no screenshots).
 
+## Deploy
+Before every push of web changes run `python3 tools/stamp.py` (adds `?v=<time>` to script/css links in both index.html files)
+so phones load the new files immediately. APK ≥ v1.0.7 also opens the app URL with `?v=<now>` on each start.
+
 ## Security
 RLS on every table; clients can only SELECT. All writes go through SECURITY DEFINER RPCs that check `auth.uid()`;
 admin RPCs call `_require_admin()`. `anon` cannot execute any function.
