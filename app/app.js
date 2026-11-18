@@ -350,7 +350,7 @@ async function loginWith(identifier, password) {
 }
 
 // লগইন পেজ: প্রথমে Google / মোবাইল / আরও অপশন (Chamet-এর মতো)
-const GOOGLE_WEB_CLIENT_ID = ""; // Google Cloud → Credentials → "Web application" OAuth client ID
+const GOOGLE_WEB_CLIENT_ID = "851306897519-0dn72ho0853o6kfiogpbi26p98uduoo3.apps.googleusercontent.com"; // Google Cloud → Credentials → "Web application" OAuth client ID
 const authShow = (which) => {
   ["authHome", "loginForm", "regForm", "onbForm"].forEach((x) => $("#" + x).classList.toggle("hidden", x !== which));
   $("#authErr").textContent = "";

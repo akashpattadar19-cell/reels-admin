@@ -162,7 +162,7 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
 - Login screen (Chamet-style): purple landing with Google / 📱 phone / আরও অপশন (email, new account) + 18+/terms tick.
   Google (APK ≥ v1.0.18): `ReelsAndroid.googleSignIn(webClientId)` (Credential Manager, GetSignInWithGoogleOption) →
   `window.onGoogleSignIn(idToken, err)` → `sb.auth.signInWithIdToken({provider:'google'})`. `GOOGLE_WEB_CLIENT_ID` constant in app.js
-  (empty = button shows "coming soon"). Needs Supabase Auth → Google provider enabled with the Web client ID/secret, and an Android
+  (set to the Web client of Google Cloud project "Default Gemini Project"; Android client there too). Needs Supabase Auth → Google provider enabled with the Web client ID/secret, and an Android
   OAuth client (package com.reelsenjoy.app + SHA-1 of reels-release.jks; add Play App Signing SHA-1 for the Play build).
   `handle_new_user` (google provider) fills name/avatar, user_private phone `google:<uid>`, `needs_onboarding` → app shows
   `#onbForm` (gender, language, birth date 18+, ref code) → `finish_onboarding`.
