@@ -30,7 +30,7 @@ client calls `signInWithPassword`.
 Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role = 'admin'`.
 
 ## Other features
-- `profiles.user_no`: public numeric ID (from 100001) shown in the app; admin "Coin Sent" page mints coins to a user_no via `admin_send_coins` (ledger type `admin_coin_grant`).
+- `profiles.user_no`: public numeric ID (from 100001) shown in the app; admin "Coin Sent" page mints coins to a user_no via `admin_send_coins` (admin types taka → coins from `coin_price_paisa`) (ledger type `admin_coin_grant`).
 - Uploads start as `pending`; cron `auto_approve_videos` publishes them after `auto_approve_minutes` (0 = manual only). Admin approves/rejects in Videos → Pending.
 - Locked folder (`vault` private bucket + `vault_files`): per-user quota `vault_quota_mb` (enforced in `vault_add` and the storage insert policy); only the owner and admins can read.
 - Language: `i18n.js` (shared by admin and app) translates Bengali UI text to English at runtime from a phrase map when `localStorage.lang = 'en'`.

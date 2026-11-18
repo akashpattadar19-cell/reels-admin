@@ -1040,8 +1040,10 @@ routes.coins = async (preNo) => {
     <div class="card" style="max-width:520px">
       <label>ইউজারের ID নম্বর<input id="cn" type="number" inputmode="numeric" placeholder="যেমন 100001" value="${esc(preNo ?? "")}"></label>
       <div id="who2" class="muted small" style="min-height:1.4em;margin-top:6px"></div>
-      <label>কত কয়েন<input id="cc" type="number" inputmode="numeric" min="1" placeholder="যেমন 1000"></label>
-      <div class="row" style="margin-top:8px">${[100, 500, 1000, 5000, 10000].map((x) => `<button class="btn sm" data-q="${x}">${num(x)}</button>`).join("")}</div>
+      <label>কত টাকার কয়েন<input id="ctk" type="number" inputmode="decimal" min="0" step="0.01" placeholder="যেমন 100"></label>
+      <div class="row" style="margin-top:8px">${[50, 100, 500, 1000, 5000].map((x) => `<button class="btn sm" data-q="${x}">৳${num(x)}</button>`).join("")}</div>
+      <label>কত কয়েন যাবে (রেট অনুযায়ী নিজে বসবে, চাইলে বদলাতে পারেন)<input id="cc" type="number" inputmode="numeric" min="1" placeholder="যেমন 1000"></label>
+      <div id="crate" class="muted small"></div>
       <label>নোট (ইউজার দেখবে, ঐচ্ছিক)<input id="cnote" maxlength="120" placeholder="যেমন: বোনাস কয়েন"></label>
       <button class="btn primary" id="csend">কয়েন পাঠান</button>
       <p class="muted small">মনে রাখবেন: এই কয়েন দিয়ে ইউজার গিফট পাঠালে ক্রিয়েটর আসল টাকা আয় করবে, যা উইথড্র করা যায়।</p>
@@ -1082,7 +1084,7 @@ routes.coins = async (preNo) => {
     if (!(pp >= 1)) return toast("সঠিক দাম দিন (কমপক্ষে ৳0.01)", true);
     if (!(mn >= 1)) return toast("সর্বনিম্ন টাকা দিন", true);
     if (pp !== pricePaisa && !confirm(`১ কয়েনের দাম ৳${(pp / 100).toFixed(2)} করবেন? গিফট ও প্রিমিয়ামের আয়ের হিসাবও এই দামে হবে।`)) return;
-    await act(async () => { await rpc("admin_set_setting", { p_key: "coin_price_paisa", p_value: pp }); await rpc("admin_set_setting", { p_key: "min_cash_in_taka", p_value: mn }); pricePaisa = pp; ofInfo(); }, "সেভ হয়েছে");
+    await act(async () => { await rpc("admin_set_setting", { p_key: "coin_price_paisa", p_value: pp }); await rpc("admin_set_setting", { p_key: "min_cash_in_taka", p_value: mn }); pricePaisa = pp; ofInfo(); rateLine(); fromTaka(); }, "সেভ হয়েছে");
   };
   // ---- অফার ----
   const ofInfo = () => {
@@ -1098,7 +1100,7 @@ routes.coins = async (preNo) => {
   const localDT = (iso) => { const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
   let offers = [];
   const loadOf = async () => {
-    offers = await rpc("admin_coin_offers").catch(() => []);
+    offers = (await rpc("admin_coin_offers").catch(() => [])) ?? [];
     const now = Date.now();
     $("#ofList").innerHTML = offers.length ? `<table><tr><th>অফার</th><th class="num">দাম</th><th class="num">কয়েন</th><th>শেষ</th><th>অবস্থা</th><th class="num">বিক্রি</th><th></th></tr>
       ${offers.map((o) => { const ended = o.ends_at && new Date(o.ends_at) < now;
@@ -1150,7 +1152,11 @@ routes.coins = async (preNo) => {
   };
   let tm; $("#cn").oninput = () => { clearTimeout(tm); tm = setTimeout(look, 350); };
   if (preNo) look();
-  view.querySelectorAll("[data-q]").forEach((b) => (b.onclick = () => ($("#cc").value = b.dataset.q)));
+  const rateLine = () => { $("#crate").textContent = `বর্তমান রেট: ১ কয়েন = ৳${(pricePaisa / 100).toFixed(2)} · ৳১০০ = ${num(Math.floor(10000 / pricePaisa))} কয়েন`; };
+  const fromTaka = () => { const t = Number($("#ctk").value); $("#cc").value = t > 0 ? Math.floor(Math.round(t * 100) / pricePaisa) : ""; rateLine(); };
+  const fromCoins = () => { const c = Number($("#cc").value); $("#ctk").value = c > 0 ? +(c * pricePaisa / 100).toFixed(2) : ""; };
+  $("#ctk").oninput = fromTaka; $("#cc").oninput = fromCoins; rateLine();
+  view.querySelectorAll("[data-q]").forEach((b) => (b.onclick = () => { $("#ctk").value = b.dataset.q; fromTaka(); }));
   const loadHist = async () => {
     const { data } = await sb.from("transactions").select("amount,note,created_at,balance_after,profiles!transactions_user_id_fkey(username,user_no)")
       .eq("type", "admin_coin_grant").order("id", { ascending: false }).limit(100);
@@ -1164,12 +1170,12 @@ routes.coins = async (preNo) => {
     if (!target) return toast("সঠিক ID নম্বর দিন", true);
     const coins = Math.floor(Number($("#cc").value));
     if (!coins || coins < 1) return toast("কয়েনের সংখ্যা দিন", true);
-    if (!confirm(`@${target.username}-কে 🪙 ${num(coins)} কয়েন পাঠাবেন?`)) return;
+    if (!confirm(`@${target.username}-কে 🪙 ${num(coins)} কয়েন (৳${(coins * pricePaisa / 100).toFixed(2)}) পাঠাবেন?`)) return;
     e.target.disabled = true;
     try {
       const r = await rpc("admin_send_coins", { p_user_no: Number($("#cn").value), p_coins: coins, p_note: $("#cnote").value });
       toast(`পাঠানো হয়েছে ✅ এখন আছে 🪙 ${num(r.coin_balance)}`);
-      $("#cc").value = ""; $("#cnote").value = "";
+      $("#cc").value = ""; $("#ctk").value = ""; $("#cnote").value = "";
       look(); loadHist();
     } catch (er) { toast(errMsg(er), true); }
     e.target.disabled = false;

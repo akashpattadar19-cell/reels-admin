@@ -1309,7 +1309,9 @@
 "সঠিক দাম দিন (কমপক্ষে ৳0.01)": "Enter a valid price (min ৳0.01)",
 "সর্বনিম্ন টাকা দিন": "Enter the minimum amount",
 "এখানে অফার যোগ করলে ইউজাররা অ্যাপে \"কয়েন কিনুন\" পেজে ও হোম পেজে অফার দেখবে। শেষ সময় পার হলে অফার নিজে থেকেই লুকিয়ে যাবে।": "Offers added here appear in the app on the Buy coins page and as a popup. They hide automatically after the end time.",
-"⚠️ এই দামেই গিফট ও প্রিমিয়ামের টাকার হিসাব হয় (ক্রিয়েটর কত পাবে)। দাম কমালে ক্রিয়েটরের আয়ও কমবে।": "⚠️ Gift and premium payouts to creators are calculated at this price. Lowering it lowers creator income too."
+"⚠️ এই দামেই গিফট ও প্রিমিয়ামের টাকার হিসাব হয় (ক্রিয়েটর কত পাবে)। দাম কমালে ক্রিয়েটরের আয়ও কমবে।": "⚠️ Gift and premium payouts to creators are calculated at this price. Lowering it lowers creator income too.",
+"কত টাকার কয়েন": "Amount in taka",
+"কত কয়েন যাবে (রেট অনুযায়ী নিজে বসবে, চাইলে বদলাতে পারেন)": "Coins to send (filled from the rate; you can change it)"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });
