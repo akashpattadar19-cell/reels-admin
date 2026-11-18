@@ -111,7 +111,7 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
   (`seller_commission_pct` or per-seller %). `coin_sales` ledger; seller profiles get a purple-gold design + "buy coins" chat CTA;
   Buy coins page lists sellers.
 - Withdraw numbers: `payout_accounts` (max 5) via `add_payout_account/delete_payout_account`; withdraw page picks a saved number.
-  Me page has quick buttons (উইথড্র / কয়েন কিনুন / লেনদেন).
+  Me page: coins card → #cashin, balance card → #wallet (withdraw inside), লেনদেনের হিসাব in the menu; compact "＋ পোস্ট করুন" row.
 - Hashtags & mentions: triggers keep `video_hashtags`/`post_hashtags` and `mentions` in sync (notification type `mention`).
   App: `rich()` turns #tag → `#tag/<tag>` and @user → `#at/<username>`; `attachSuggest(el)` shows @user/#tag suggestions while
   typing (captions, text posts, comments); Home shows a trending chips row; `#tags/<1|7|30>` trending list; `#tag/<tag>/<v|p>/<top|new>`.

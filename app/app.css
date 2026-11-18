@@ -1028,3 +1028,14 @@ html, body, .auth, .auth-card { overflow-x: clip; }
 /* hidden radio buttons stay inside their label (focusing them used to scroll the page sideways) */
 .pick2 label { position: relative; }
 .pick2 input { left: 0; top: 0; width: 1px; height: 1px; margin: 0; }
+/* compact create-post card */
+.me-create { margin: 10px 14px 0; padding: 8px 10px 9px; border-width: .5px; border-radius: 12px; }
+.me-create > b { font-size: 12.5px; font-weight: 600; }
+.me-create > div { gap: 4px; margin-top: 6px; }
+.me-create a { font-size: 11.5px; gap: 2px; }
+.me-create a i { width: 34px; height: 34px; border-radius: 10px; font-size: 16px; }
+/* compact Live / Party sheet */
+.plus-opts { padding: 6px 0 12px; }
+.plus-opts button { font-size: 13.5px; gap: 6px; }
+.po { width: 54px; height: 54px; }
+.po svg { width: 28px; height: 28px; }
