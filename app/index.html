@@ -7,16 +7,33 @@
   <title>Reels Enjoy</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="app.css?v=202611182246">
+  <link rel="stylesheet" href="app.css?v=202611182255">
 </head>
 <body>
   <!-- লগইন / রেজিস্টার -->
   <section id="auth" class="auth hidden">
+    <div class="auth-bg" aria-hidden="true"><i>🎬</i><i>🎵</i><i>🔴</i><i>🎁</i><i>💬</i><i>📸</i><i>🎉</i><i>💰</i></div>
     <div class="auth-card">
-      <div class="logo-big">▶</div>
+      <img class="logo-img" src="../get/icon.png" alt="">
       <h1>Reels Enjoy</h1>
-      <p class="muted">ভিডিও দেখুন, বানান, আয় করুন</p>
-      <form id="loginForm">
+      <p class="muted tag">ভিডিও দেখুন, লাইভে আড্ডা দিন, আয় করুন</p>
+      <div id="authHome" class="auth-home">
+        <button type="button" class="ab google" id="authGoogle"><svg viewBox="0 0 24 24"><path fill="#fff" d="M21.6 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.3z"/><path fill="#fff" opacity=".85" d="M12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22z"/><path fill="#fff" opacity=".7" d="M6.4 14a6 6 0 0 1 0-3.9V7.5H3.1a10 10 0 0 0 0 9z"/><path fill="#fff" opacity=".9" d="M12 6c1.5 0 2.8.5 3.8 1.5l2.9-2.9A10 10 0 0 0 3.1 7.5l3.3 2.6C7.2 7.8 9.4 6 12 6z"/></svg>Google দিয়ে চালিয়ে যান</button>
+        <button type="button" class="ab phone" id="authPhone">📱 মোবাইল নম্বর দিয়ে লগইন</button>
+        <button type="button" class="ab more" id="authMore">আরও অপশন</button>
+        <div class="more-opts hidden" id="moreOpts"><button type="button" id="authEmail">✉️ ইমেইল দিয়ে লগইন</button><button type="button" id="authNew">✨ নতুন অ্যাকাউন্ট খুলুন</button></div>
+        <label class="agree home"><input type="checkbox" id="agreeHome" checked> <span>আমার বয়স ১৮+ এবং আমি <a href="../policy/terms.html" target="_blank">ইউজার এগ্রিমেন্ট</a> ও <a href="../policy/privacy.html" target="_blank">প্রাইভেসি পলিসি</a> মেনে নিচ্ছি</span></label>
+      </div>
+      <form id="onbForm" class="hidden">
+        <h3 style="margin:6px 0 2px">স্বাগতম! 🎉</h3><p class="muted tiny" style="margin:0 0 10px">শুরু করার আগে কয়েকটি তথ্য দিন</p>
+        <div class="pick2"><span>আপনি</span><label><input type="radio" name="obG" value="male" required><b>👨 ছেলে</b></label><label><input type="radio" name="obG" value="female"><b>👩 মেয়ে</b></label></div>
+        <div class="pick2" translate="no"><span>ভাষা / Language</span><label><input type="radio" name="obL" value="bn" checked><b>বাংলা</b></label><label><input type="radio" name="obL" value="en"><b>English</b></label></div>
+        <label class="lbl" style="text-align:left">জন্মতারিখ</label><input id="obB" type="date" required>
+        <input id="obRef" inputmode="numeric" placeholder="রেফার কোড — বন্ধুর ID নম্বর (ঐচ্ছিক)">
+        <button class="btn primary" type="submit">শুরু করুন</button>
+      </form>
+      <form id="loginForm" class="hidden">
+        <p class="switch" style="margin:0 0 8px;text-align:left"><a href="#" class="toHome">← ফিরে যান</a></p>
         <div class="seg"><button type="button" data-m="phone" class="on">মোবাইল নম্বর</button><button type="button" data-m="email">ইমেইল</button></div>
         <div class="phone-row" id="liPhoneRow"><select class="cc" id="liCC"></select><input id="liPhone" inputmode="tel" placeholder="মোবাইল নম্বর" autocomplete="tel"></div>
         <input id="liEmail" class="hidden" type="email" placeholder="ইমেইল" autocomplete="email">
@@ -25,6 +42,7 @@
         <p class="switch">অ্যাকাউন্ট নেই? <a href="#" id="toReg">রেজিস্টার করুন</a></p>
       </form>
       <form id="regForm" class="hidden">
+        <p class="switch" style="margin:0 0 8px;text-align:left"><a href="#" class="toHome">← ফিরে যান</a></p>
         <input id="rgName" placeholder="আপনার নাম" required>
         <input id="rgUser" placeholder="ইউজারনেম (ইংরেজি, যেমন rahim_01)" autocapitalize="off" required>
         <div class="pick2"><span>আপনি</span><label><input type="radio" name="rgG" value="male" required><b>👨 ছেলে</b></label><label><input type="radio" name="rgG" value="female"><b>👩 মেয়ে</b></label></div>
@@ -58,8 +76,8 @@
   <div id="sheet" class="sheet-wrap hidden"><div class="sheet"><div class="grab"></div><div id="sheetBody"></div></div></div>
   <div id="toast" class="toast"></div>
 
-  <script src="../i18n.js?v=202611182246"></script>
-  <script src="../config.js?v=202611182246"></script>
-  <script type="module" src="app.js?v=202611182246"></script>
+  <script src="../i18n.js?v=202611182255"></script>
+  <script src="../config.js?v=202611182255"></script>
+  <script type="module" src="app.js?v=202611182255"></script>
 </body>
 </html>

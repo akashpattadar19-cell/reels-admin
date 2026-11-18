@@ -223,6 +223,7 @@ const ERR = {
   WALLET_FROZEN: "আপনার ওয়ালেট সাময়িক বন্ধ আছে — সাপোর্টে যোগাযোগ করুন",
   BAD_NUMBER: "সঠিক মোবাইল নম্বর দিন (01XXXXXXXXX)",
   BAD_PHONE: "দেশ বেছে নিয়ে সঠিক মোবাইল নম্বর দিন",
+  UNDER_18: "অ্যাপ ব্যবহার করতে বয়স ১৮+ হতে হবে — সঠিক জন্মতারিখ দিন",
   BAD_EMAIL: "সঠিক ইমেইল দিন",
   EMAIL_TAKEN: "এই ইমেইলে আগেই অ্যাকাউন্ট আছে — লগইন করুন",
   NO_ACCOUNT: "এই নম্বর/ইমেইলে কোনো অ্যাকাউন্ট নেই — আগে রেজিস্টার করুন",
@@ -348,14 +349,61 @@ async function loginWith(identifier, password) {
   if (error) throw error;
 }
 
+// লগইন পেজ: প্রথমে Google / মোবাইল / আরও অপশন (Chamet-এর মতো)
+const GOOGLE_WEB_CLIENT_ID = ""; // Google Cloud → Credentials → "Web application" OAuth client ID
+const authShow = (which) => {
+  ["authHome", "loginForm", "regForm", "onbForm"].forEach((x) => $("#" + x).classList.toggle("hidden", x !== which));
+  $("#authErr").textContent = "";
+};
 function showAuth(msg = "") {
   $("#main").classList.add("hidden");
   $("#auth").classList.remove("hidden");
+  authShow("authHome");
   restoreRegDraft();
   $("#authErr").textContent = msg;
 }
+document.querySelectorAll(".toHome").forEach((a) => (a.onclick = (e) => { e.preventDefault(); authShow("authHome"); }));
+const setLoginMode = (m) => document.querySelector(`#loginForm [data-m="${m}"]`)?.click();
+$("#authPhone").onclick = () => { authShow("loginForm"); setLoginMode("phone"); };
+$("#authMore").onclick = () => $("#moreOpts").classList.toggle("hidden");
+$("#authEmail").onclick = () => { authShow("loginForm"); setLoginMode("email"); };
+$("#authNew").onclick = () => authShow("regForm");
+$("#authGoogle").onclick = () => {
+  if (!$("#agreeHome").checked) { $("#authErr").textContent = "আগে নিচের শর্তে টিক দিন"; return; }
+  if (!GOOGLE_WEB_CLIENT_ID) { $("#authErr").textContent = "Google লগইন খুব শিগগিরই চালু হবে — এখন মোবাইল নম্বর দিয়ে লগইন করুন"; return; }
+  if (!Native?.googleSignIn) { $("#authErr").textContent = "Google লগইনের জন্য অ্যাপ আপডেট করুন"; return; }
+  $("#authGoogle").disabled = true; $("#authErr").textContent = "";
+  Native.googleSignIn(GOOGLE_WEB_CLIENT_ID);
+};
+window.onGoogleSignIn = async (token, err) => {
+  $("#authGoogle").disabled = false;
+  if (!token) { if (err !== "cancel") $("#authErr").textContent = "Google লগইন হয়নি — আবার চেষ্টা করুন" + (err ? ` (${String(err).slice(0, 80)})` : ""); return; }
+  const { error } = await sb.auth.signInWithIdToken({ provider: "google", token });
+  if (error) { $("#authErr").textContent = errMsg(error); return; }
+  start();
+};
+// Google দিয়ে নতুন অ্যাকাউন্ট: লিঙ্গ, ভাষা, জন্মতারিখ, রেফার কোড
+function showOnboard() {
+  $("#main").classList.add("hidden");
+  $("#auth").classList.remove("hidden");
+  authShow("onbForm");
+  $("input[name=obL][value=" + (window.getLang?.() === "en" ? "en" : "bn") + "]").checked = true;
+}
+document.querySelectorAll("input[name=obL]").forEach((r) => (r.onchange = () => window.setLang?.(r.value)));
+$("#onbForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const b = e.submitter; b.disabled = true;
+  try {
+    const lg = $("input[name=obL]:checked")?.value ?? "bn";
+    await rpc("finish_onboarding", { p_gender: $("input[name=obG]:checked")?.value, p_lang: lg === "en" ? "English" : "Bengali", p_birth: $("#obB").value, p_ref_no: $("#obRef").value.trim() });
+    try { localStorage.setItem("lang", lg); } catch { /* */ }
+    toast("স্বাগতম! 🎉");
+    start();
+  } catch (er) { $("#authErr").textContent = errMsg(er); }
+  b.disabled = false;
+});
 $("#authLang").onclick = (e) => { e.preventDefault(); window.setLang?.(window.getLang?.() === "en" ? "bn" : "en"); };
-$("#toReg").onclick = (e) => { e.preventDefault(); $("#loginForm").classList.add("hidden"); $("#regForm").classList.remove("hidden"); $("#authErr").textContent = ""; };
+$("#toReg").onclick = (e) => { e.preventDefault(); authShow("regForm"); };
 // সাইন-আপ: ভাষা বাছাই করলে সাথে সাথে পুরো স্ক্রিন সেই ভাষায় (ফর্মের লেখা থেকে যায়)
 const REG_FIELDS = ["rgName", "rgUser", "rgPhone", "rgEmail", "rgRef"];
 document.querySelectorAll("input[name=rgL]").forEach((r) => {
@@ -373,12 +421,12 @@ document.querySelectorAll("input[name=rgL]").forEach((r) => {
 function restoreRegDraft() {
   let d; try { d = JSON.parse(sessionStorage.getItem("regDraft") || "null"); sessionStorage.removeItem("regDraft"); } catch { d = null; }
   if (!d) return;
-  $("#loginForm").classList.add("hidden"); $("#regForm").classList.remove("hidden");
+  authShow("regForm");
   REG_FIELDS.forEach((k) => { if (d[k]) $("#" + k).value = d[k]; });
   if (d.rgCC) setTimeout(() => ($("#rgCC").value = d.rgCC), 0);
   if (d.g) { const g = document.querySelector(`input[name=rgG][value=${d.g}]`); if (g) g.checked = true; }
 }
-$("#toLogin").onclick = (e) => { e.preventDefault(); $("#regForm").classList.add("hidden"); $("#loginForm").classList.remove("hidden"); $("#authErr").textContent = ""; };
+$("#toLogin").onclick = (e) => { e.preventDefault(); authShow("loginForm"); };
 
 $("#loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -423,6 +471,7 @@ async function start() {
   ]);
   if (!me) { await sb.auth.signOut(); return showAuth("অ্যাকাউন্ট পাওয়া যায়নি"); }
   if (me.status === "banned") { await sb.auth.signOut(); return showAuth(ERR.ACCOUNT_BANNED + (me.ban_reason ? ": " + me.ban_reason : "")); }
+  if (me.needs_onboarding) return showOnboard();
   S.me = me;
   S.settings = Object.fromEntries((settings ?? []).map((s) => [s.key, s.value]));
   S.ads = Object.fromEntries((ads ?? []).map((a) => [a.key, a]));

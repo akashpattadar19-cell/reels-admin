@@ -1,0 +1,3 @@
+-- 031 (applied as google_login): profiles.needs_onboarding; handle_new_user handles provider 'google'
+-- (name/avatar from Google, user_private.phone = 'google:<uid>', needs_onboarding = true);
+-- finish_onboarding(gender, lang, birth date ≥ 18 y, ref_no) — referral only within 1 day of account creation.

@@ -156,6 +156,13 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
   admin live page) + "Follow me" bubble, bottom bar 💬 (opens input) · 📞 call pill (`callPill`) · actions · ✕. Party = 3×3 tiles
   (🏠 host, coins received per seat from `room_state.recv`, flag, mic). `#myprofile` list page (ID copy, name, gender, age from birth date,
   region/location read-only, language, `language2`, `interests` chips via `set_profile_extra`, bio); interests show on profiles.
+- Login screen (Chamet-style): purple landing with Google / 📱 phone / আরও অপশন (email, new account) + 18+/terms tick.
+  Google (APK ≥ v1.0.18): `ReelsAndroid.googleSignIn(webClientId)` (Credential Manager, GetSignInWithGoogleOption) →
+  `window.onGoogleSignIn(idToken, err)` → `sb.auth.signInWithIdToken({provider:'google'})`. `GOOGLE_WEB_CLIENT_ID` constant in app.js
+  (empty = button shows "coming soon"). Needs Supabase Auth → Google provider enabled with the Web client ID/secret, and an Android
+  OAuth client (package com.reelsenjoy.app + SHA-1 of reels-release.jks; add Play App Signing SHA-1 for the Play build).
+  `handle_new_user` (google provider) fills name/avatar, user_private phone `google:<uid>`, `needs_onboarding` → app shows
+  `#onbForm` (gender, language, birth date 18+, ref code) → `finish_onboarding`.
 - Not built on purpose: Chamet "BIG WIN"/"City PK" coin games (betting).
 - Declined: real-money betting games in live (coins are bought with money and earnings withdraw → gambling, illegal in BD/KSA,
   banned by Play). Offer free point games instead. Call moderation must cover the whole call, not only the first minutes.

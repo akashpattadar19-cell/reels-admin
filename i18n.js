@@ -1120,7 +1120,6 @@
 "উত্তরের সময়ের লেখা (সাপোর্ট পেজে দেখাবে)": "Reply-time text (shown on the support page)",
 "সাপোর্ট ইমেইল": "Support email",
 "ইউজারদের জন্য সাপোর্ট টেলিগ্রাম ইউজারনেম (যেমন @ReelsEnjoySupport, খালি রাখলে দেখাবে না)": "Support Telegram username for users (e.g. @ReelsEnjoySupport; leave empty to hide)",
-"মেনে নিচ্ছি": ".",
 "👑প্রিমিয়াম": "👑Premium",
 "👑 এখনো কোনো প্রিমিয়াম ভিডিও নেই।": "👑 No premium videos yet.",
 "হোস্টরা ＋ চেপে ভিডিও দেওয়ার সময় \"প্রিমিয়াম ভিডিও\" চালু করলে, অ্যাডমিন অনুমোদনের পর এখানে দেখা যাবে।": "When hosts upload with ＋ and turn on \"Premium video\", it appears here after admin approval.",
@@ -1604,7 +1603,23 @@
 "তারিখ দিন": "Enter a date",
 "(সর্বোচ্চ ৮টি)": "(max 8)",
 "সর্বোচ্চ ৮টি বেছে নিন": "Pick at most 8",
-"নিজের সম্পর্কে কিছু লিখুন…": "Write something about yourself…"
+"নিজের সম্পর্কে কিছু লিখুন…": "Write something about yourself…",
+"ভিডিও দেখুন, লাইভে আড্ডা দিন, আয় করুন": "Watch videos, chat live, earn",
+"Google দিয়ে চালিয়ে যান": "Continue with Google",
+"📱 মোবাইল নম্বর দিয়ে লগইন": "📱 Log in with phone number",
+"আরও অপশন": "More options",
+"✉️ ইমেইল দিয়ে লগইন": "✉️ Log in with email",
+"✨ নতুন অ্যাকাউন্ট খুলুন": "✨ Create a new account",
+"ইউজার এগ্রিমেন্ট": "User Agreement",
+"প্রাইভেসি পলিসি": "Privacy Policy",
+"← ফিরে যান": "← Back",
+"শুরু করার আগে কয়েকটি তথ্য দিন": "A few details before you start",
+"শুরু করুন": "Get started",
+"আগে নিচের শর্তে টিক দিন": "Please tick the agreement below first",
+"Google লগইন খুব শিগগিরই চালু হবে — এখন মোবাইল নম্বর দিয়ে লগইন করুন": "Google login is coming very soon — log in with your phone number for now",
+"Google লগইনের জন্য অ্যাপ আপডেট করুন": "Update the app to use Google login",
+"Google লগইন হয়নি — আবার চেষ্টা করুন": "Google login failed — try again",
+"অ্যাপ ব্যবহার করতে বয়স ১৮+ হতে হবে — সঠিক জন্মতারিখ দিন": "You must be 18+ to use the app — enter your correct birth date"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });
