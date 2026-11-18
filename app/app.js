@@ -294,8 +294,10 @@ function appBuild() {
 }
 function checkUpdate() {
   if (!Native?.appVersion) return false;               // ব্রাউজারে চেক নেই
-  const b = appBuild(), min = Number(setting("min_app_build", 0)), latest = Number(setting("latest_app_build", 0));
-  const url = String(setting("apk_url", "") || "");
+  // Play Store থেকে ইনস্টল করা অ্যাপের জন্য আলাদা নম্বর (Play-এ রিভিউ শেষ হওয়ার পরেই এডমিন বাড়াবেন)
+  const play = (() => { try { return Native.store?.() === "play"; } catch { return false; } })();
+  const b = appBuild(), min = Number(setting(play ? "play_min_build" : "min_app_build", 0)), latest = Number(setting(play ? "play_latest_build" : "latest_app_build", 0));
+  const url = play ? "play" : String(setting("apk_url", "") || "");
   if (!url || !latest || b >= latest) return false;
   const forced = b < min;
   if (!forced && sessionStorage.getItem("updSkip") === String(latest)) return false;

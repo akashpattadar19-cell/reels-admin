@@ -110,6 +110,10 @@ copy the APK there, push, then set `latest_app_build` (X of 1.0.X) and `min_app_
 "📲 অ্যাপ আপডেট" page or SQL. App shows `#updGate` when its build < latest (blocking when < min); APK ≥ v1.0.11
 `ReelsAndroid.installUpdate(url)` downloads and opens the installer, older APKs open the link in the browser.
 
+Google Play: reels-app has flavors `direct` (website APK, self-update) and `play` (AAB, no REQUEST_INSTALL_PACKAGES;
+`installUpdate` opens the Play Store; `ReelsAndroid.store()` = "play"). CI attaches `Reels-Enjoy-play.aab` to each release.
+Play users are gated by `play_latest_build` / `play_min_build` (raise only after Google approves that version).
+
 ## Deploy
 Before every push of web changes run `python3 tools/stamp.py` (adds `?v=<time>` to script/css links in both index.html files)
 so phones load the new files immediately. APK ≥ v1.0.7 also opens the app URL with `?v=<now>` on each start.

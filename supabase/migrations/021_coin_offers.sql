@@ -98,3 +98,9 @@ revoke all on function public.admin_delete_coin_offer(bigint) from public, anon;
 grant execute on function public.admin_coin_offers() to authenticated;
 grant execute on function public.admin_save_coin_offer(bigint, text, bigint, int, text, boolean, timestamptz, int) to authenticated;
 grant execute on function public.admin_delete_coin_offer(bigint) to authenticated;
+
+-- (applied separately) Google Play build numbers
+insert into settings (key, value, description, is_public) values
+ ('play_latest_build','0','Google Play ভার্সনের সর্বশেষ বিল্ড (০ = আপডেট স্ক্রিন নয়)', true),
+ ('play_min_build','0','এর নিচের Play ভার্সন খুলবে না', true)
+on conflict (key) do nothing;
