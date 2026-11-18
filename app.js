@@ -1133,7 +1133,8 @@ routes.live = async () => {
   view.innerHTML = `<h1>🔴 লাইভ ও 📞 কল</h1><div class="empty">লোড হচ্ছে…</div>`;
   let d;
   try { d = await rpc("admin_live_overview"); } catch (e) { view.innerHTML = `<h1>🔴 লাইভ ও 📞 কল</h1><div class="empty err">${esc(errMsg(e))}</div>`; return; }
-  const { data: st } = await sb.from("settings").select("key,value").in("key", ["live_enabled", "live_hosts_only", "live_max_cohosts", "calls_enabled", "call_video_coins_per_min", "call_audio_coins_per_min", "call_host_pct", "live_gift_host_pct", "coin_price_paisa"]);
+  const { data: st } = await sb.from("settings").select("key,value").in("key", ["live_enabled", "live_hosts_only", "live_max_cohosts", "calls_enabled", "call_video_coins_per_min", "call_audio_coins_per_min", "call_host_pct", "live_gift_host_pct", "coin_price_paisa", "pk_enabled", "pk_duration_sec", "pk_winner_bonus_pct", "pk_bonus_cap_paisa"]);
+  const pks = (await rpc("admin_pk_recent").catch(() => [])) ?? [];
   const S2 = Object.fromEntries((st ?? []).map((x) => [x.key, x.value]));
   const cp = Number(S2.coin_price_paisa || 100);
   const row = (key, label, kind) => `<div class="item" data-key="${key}" data-kind="${kind}"><div class="top"><b>${label}</b></div><div class="row" style="flex-wrap:nowrap">${kind === "bool"
@@ -1160,7 +1161,15 @@ routes.live = async () => {
       ${row("call_video_coins_per_min", "ভিডিও কলে প্রতি মিনিটে কয়েন", "coin")}
       ${row("call_audio_coins_per_min", "অডিও কলে প্রতি মিনিটে কয়েন", "coin")}
       ${row("call_host_pct", "কল থেকে হোস্ট কত % পাবে", "pct")}
+      ${row("pk_enabled", "⚔️ PK ব্যাটল চালু", "bool")}
+      ${row("pk_duration_sec", "⚔️ PK কত সেকেন্ড চলবে (৩০০ = ৫ মিনিট)", "num")}
+      ${row("pk_winner_bonus_pct", "⚔️ বিজয়ী বোনাস: PK-তে পাওয়া গিফটের মূল্যের কত %", "pct")}
+      ${row("pk_bonus_cap_paisa", "⚔️ সর্বোচ্চ বোনাস (পয়সা, ১০০ = ৳১)", "num")}
     </div>
+    <h2>⚔️ সর্বশেষ PK</h2>
+    <div class="table-wrap">${pks.length ? `<table><tr><th>শুরু</th><th>হোস্ট ১</th><th class="num">স্কোর</th><th>হোস্ট ২</th><th>বিজয়ী</th><th class="num">বোনাস</th></tr>
+      ${pks.map((b) => `<tr><td>${dt(b.started_at)}</td><td><a href="#lookup/${b.a_no}">@${esc(b.a)}</a></td><td class="num">🪙 ${num(b.score_a)} : ${num(b.score_b)}</td><td><a href="#lookup/${b.b_no}">@${esc(b.b)}</a></td>
+        <td>${b.status === "active" ? "🟢 চলছে" : b.winner ? "🏆 @" + esc(b.winner) : "🤝 ড্র"}</td><td class="num">${taka(b.bonus_paisa)}</td></tr>`).join("")}</table>` : `<div class="empty">এখনো কোনো PK হয়নি</div>`}</div>
     <h2>📞 সর্বশেষ কল</h2>
     <div class="table-wrap">${d.calls.length ? `<table><tr><th>সময়</th><th>কলার</th><th>হোস্ট</th><th>ধরন</th><th>অবস্থা</th><th class="num">মিনিট</th><th class="num">কয়েন</th><th class="num">হোস্ট পেল</th></tr>
       ${d.calls.map((c) => `<tr><td>${dt(c.created_at)}</td><td><a href="#lookup/${c.caller_no}">@${esc(c.caller)}</a></td><td><a href="#lookup/${c.host_no}">@${esc(c.host)}</a></td><td>${c.kind === "video" ? "📹" : "📞"}</td>

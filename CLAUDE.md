@@ -138,6 +138,12 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
   incoming call overlay from realtime on `calls`; both sides call `call_tick` every 30 s (per-minute billing). FLAG_SECURE during
   live/calls. Admin "🔴 লাইভ ও কল" (live monitor + end, rules, call/live history); per-host call rates on the lookup page.
   No push yet: incoming calls ring only while the app is open (local notification if backgrounded).
+- PK battles (027): live host ⚔️ → `pk_candidates`/`pk_invite`; other host gets a sheet (realtime INSERT on `pk_battles`) → `pk_answer`.
+  `live_rooms.pk_id` set on both rooms; `live_gift` adds coins to score_a/score_b; split screen (2nd Agora client joins the other
+  room as audience); `pk_finish` at time-out or host ends early; `_pk_settle` pays winner `pk_winner_bonus_pct` % of its PK gift value
+  (cap `pk_bonus_cap_paisa`) as pending; cron `pk-cron`. Settings pk_enabled/pk_duration_sec on admin "🔴 লাইভ ও কল" page.
+- Declined: real-money betting games in live (coins are bought with money and earnings withdraw → gambling, illegal in BD/KSA,
+  banned by Play). Offer free point games instead. Call moderation must cover the whole call, not only the first minutes.
 
 ## App updates (APK)
 Public APK for in-app updates: `download/Reels-Enjoy.apk` in this repo (GitHub Pages). After a new reels-app release:

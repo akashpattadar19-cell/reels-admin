@@ -838,3 +838,26 @@ a.mention, span.mention { color: #2563eb; font-weight: 600; }
 .cl-bar button { width: 56px; height: 56px; margin: 0; padding: 0; border-radius: 50%; border: 0; background: rgba(255,255,255,.18); color: #fff; font-size: 22px; }
 .cl-bar .end { background: #ef4444; transform: rotate(135deg); }
 .lm { flex-shrink: 0; }
+/* ⚔️ PK */
+.lv.pk .lv-main, .lv-pk2 { top: calc(118px + var(--safe-t, 0px)); bottom: auto; height: 46vh; width: 50%; }
+.lv.pk .lv-main { left: 0; right: auto; }
+.lv-pk2 { position: absolute; right: 0; overflow: hidden; background: #1a1030; border-left: 2px solid #000; }
+.lv.pk .lv-guest { top: calc(118px + 46vh + 8px + var(--safe-t, 0px)); width: 24%; }
+.lv.pk .lv-msgs { max-height: 22vh; }
+.lv.pk .lv-wait .av { width: 64px; height: 64px; }
+.pkbar { position: absolute; top: calc(62px + var(--safe-t, 0px)); left: 8px; right: 8px; z-index: 6; }
+.pk-names { display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-bottom: 3px; }
+.pk-names span { background: rgba(0,0,0,.55); border-radius: 99px; padding: 2px 10px; font-weight: 700; }
+.pk-track { position: relative; display: flex; height: 22px; border-radius: 11px; overflow: hidden; }
+.pk-track i { display: block; height: 100%; transition: width .5s; }
+#pkA { width: 50%; background: linear-gradient(90deg, #ef4444, #f97316); } #pkB { flex: 1; background: linear-gradient(90deg, #6366f1, #3b82f6); }
+.pk-track span { position: absolute; top: 2px; font-size: 12.5px; font-weight: 800; }
+.pk-track .sa { left: 8px; } .pk-track .sb { right: 8px; }
+.pk-vs { position: absolute; top: calc(118px + 23vh - 30px + var(--safe-t, 0px)); left: 50%; transform: translateX(-50%); z-index: 7; font-size: 44px; font-weight: 900; color: #fde047;
+  text-shadow: 0 0 12px #f97316, 0 2px 0 #b91c1c; animation: vsin 2.5s ease forwards; }
+@keyframes vsin { 0% { transform: translateX(-50%) scale(3); opacity: 0; } 20% { transform: translateX(-50%) scale(1); opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+.pk-res { position: absolute; top: 34vh; left: 50%; transform: translateX(-50%); z-index: 8; font-size: 40px; font-weight: 900; text-align: center; padding: 14px 26px; border-radius: 20px; background: rgba(0,0,0,.6); animation: vsin 5s ease forwards; }
+.pk-res small { display: block; font-size: 15px; font-weight: 600; }
+.pk-res.win { color: #fde047; } .pk-res.lose { color: #cbd5e1; } .pk-res.draw { color: #a5f3fc; }
+.lv-b.pkb { background: linear-gradient(135deg, #f97316, #ef4444); }
+.lv.pk .lv-title { display: none; }

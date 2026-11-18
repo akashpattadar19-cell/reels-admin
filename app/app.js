@@ -208,6 +208,9 @@ const ERR = {
   CALLS_OFF: "এই হোস্ট এখন কল নিচ্ছে না",
   HOST_BUSY: "হোস্ট এখন অন্য কলে আছে — একটু পরে চেষ্টা করুন",
   CALL_ENDED: "কল শেষ হয়ে গেছে",
+  PK_OFF: "PK এখন বন্ধ আছে",
+  PK_BUSY: "এই হোস্ট এখন অন্য PK-তে আছে",
+  PK_EXPIRED: "PK চ্যালেঞ্জের সময় শেষ",
   NOT_ALLOWED: "অনুমতি নেই",
   NOT_CONFIGURED: "লাইভ/কল এখনো চালু করা হয়নি",
   DOWNLOADS_OFF: "ডাউনলোড এখন বন্ধ আছে",
@@ -2246,14 +2249,17 @@ R.live = async (rid) => {
   const { data: hp } = await sb.from("profiles").select("id,username,full_name,avatar_url,user_no,account_type").eq("id", info.host_id).single();
   screen.innerHTML = `<div class="lv">
     <div class="lv-main" id="lvMain"><div class="lv-wait">${avatar(hp)}<div>লাইভ লোড হচ্ছে…</div></div></div>
-    <div class="lv-guest hidden" id="lvGuest"></div>
+    <div class="lv-guest hidden" id="lvGuest"></div><div class="lv-pk2 hidden" id="lvPk2"></div>
+    <div class="pkbar hidden" id="pkBar"><div class="pk-names"><b id="pkNa" translate="no"></b><span id="pkTm"></span><b id="pkNb" translate="no"></b></div>
+      <div class="pk-track"><i id="pkA"></i><i id="pkB"></i><span class="sa" id="pkSa">0</span><span class="sb" id="pkSb">0</span></div></div>
+    <div class="pk-res hidden" id="pkRes"></div>
     <div class="lv-top"><a class="lv-host" href="#u/${hp.id}">${avatar(hp)}<span><b translate="no">${esc(hp.full_name || hp.username)}</b><small>👁 <span id="lvV">${n(info.viewers)}</span> · ❤️ <span id="lvL">${n(info.likes)}</span></small></span></a>
       ${host ? "" : `<button class="lv-follow" id="lvF">＋ ফলো</button>`}<span class="lv-gc">🪙 <span id="lvG">${n(info.gift_coins)}</span></span><button class="lv-x" id="lvX">✕</button></div>
     ${info.title ? `<div class="lv-title" translate="no">${esc(info.title)}</div>` : ""}
     <div class="lv-msgs" id="lvM"></div>
     <div class="lv-hearts" id="lvH"></div>
     <div class="lv-bar"><form id="lvF2"><input id="lvI" maxlength="200" placeholder="কিছু বলুন…" autocomplete="off"></form>
-      ${host ? `<button class="lv-b" id="lvReq">🙋<b id="lvRc" class="hidden"></b></button><button class="lv-b" id="lvCam">🔄</button><button class="lv-b" id="lvMic">🎤</button><button class="lv-b end" id="lvEnd">⏹</button>`
+      ${host ? `${setting("pk_enabled", true) !== false ? `<button class="lv-b pkb" id="lvPk">⚔️</button>` : ""}<button class="lv-b" id="lvReq">🙋<b id="lvRc" class="hidden"></b></button><button class="lv-b" id="lvCam">🔄</button><button class="lv-b" id="lvMic">🎤</button><button class="lv-b end" id="lvEnd">⏹</button>`
         : `<button class="lv-b" id="lvJoin">🙋</button><button class="lv-b" id="lvGift">🎁</button><button class="lv-b" id="lvLike">❤️</button>`}</div></div>`;
   const msgs = $("#lvM");
   const addMsg = (m) => {
@@ -2312,14 +2318,102 @@ R.live = async (rid) => {
     if (host || tk.role === "publisher") await publish();
   } catch (e) { toast(errMsg(e), true); }
 
+  // ⚔️ PK ব্যাটল
+  let pk = null, pkClient = null, pkT = null, pkCh = null;
+  const pkPaint = () => {
+    if (!pk) return;
+    const mineA = pk.room_a === id, a = mineA ? pk.score_a : pk.score_b, b = mineA ? pk.score_b : pk.score_a, t = Number(a) + Number(b);
+    $("#pkA").style.width = (t ? Math.max(8, Math.min(92, (a * 100) / t)) : 50) + "%";
+    $("#pkSa").textContent = n(a); $("#pkSb").textContent = n(b);
+  };
+  const pkTick = () => {
+    if (!pk) return;
+    const left = Math.max(0, (new Date(pk.ends_at) - Date.now()) / 1000);
+    $("#pkTm").textContent = "⚔️ " + hms2(left);
+    if (left <= 0 && !pk.fin) { pk.fin = true; rpc("pk_finish", { p_pk: pk.id }).then(() => pkEnd()).catch(() => {}); }
+  };
+  async function pkStart(pid) {
+    if (pk?.id === pid || ended) return;
+    const { data: b } = await sb.from("pk_battles").select("*").eq("id", pid).single();
+    if (!b || b.status !== "active") return;
+    pk = b;
+    const mineA = b.room_a === id, otherRoom = mineA ? b.room_b : b.room_a;
+    const { data: op } = await sb.from("profiles").select("id,username,full_name,avatar_url,user_no").eq("id", mineA ? b.host_b : b.host_a).single();
+    $(".lv").classList.add("pk");
+    $("#pkBar").classList.remove("hidden");
+    $("#pkNa").textContent = "@" + hp.username; $("#pkNb").textContent = "@" + (op?.username ?? "");
+    const box = $("#pkVs"); if (box) box.remove();
+    $("#lvPk2").classList.remove("hidden"); $("#lvPk2").innerHTML = `<div class="lv-wait">${avatar(op)}</div>`;
+    pkPaint(); pkTick(); pkT = setInterval(pkTick, 1000);
+    const vs = document.createElement("div"); vs.className = "pk-vs"; vs.id = "pkVs"; vs.textContent = "VS"; $(".lv").appendChild(vs); setTimeout(() => vs.remove(), 2500);
+    pkCh = sb.channel("pk-" + pid).on("postgres_changes", { event: "UPDATE", schema: "public", table: "pk_battles", filter: `id=eq.${pid}` }, (p) => {
+      if (!pk) return; Object.assign(pk, p.new); pkPaint(); if (p.new.status !== "active") pkEnd();
+    }).subscribe();
+    try {
+      const A = await loadAgora();
+      const tk = await agoraToken(`live_${otherRoom}`);
+      pkClient = A.createClient({ mode: "live", codec: "vp8" });
+      await pkClient.setClientRole("audience", { level: 1 });
+      pkClient.on("user-published", async (user, type) => {
+        if (user.uid !== op?.user_no) return;
+        await pkClient.subscribe(user, type);
+        if (type === "audio") user.audioTrack?.play();
+        if (type === "video" && $("#lvPk2")) { $("#lvPk2").innerHTML = ""; user.videoTrack?.play($("#lvPk2")); }
+      });
+      await pkClient.join(tk.appId, `live_${otherRoom}`, tk.token, tk.uid);
+    } catch { /* অন্য হোস্টের ছবি দেখাবে */ }
+  }
+  async function pkEnd() {
+    if (!pk) return;
+    const old = pk; pk = null;
+    clearInterval(pkT); if (pkCh) sb.removeChannel(pkCh); pkCh = null;
+    try { await pkClient?.leave(); } catch { /* */ } pkClient = null;
+    const { data: b } = await sb.from("pk_battles").select("*").eq("id", old.id).single();
+    const myHost = old.room_a === id ? old.host_a : old.host_b, res = $("#pkRes");
+    if (b?.status === "ended" && res) {
+      res.innerHTML = !b.winner ? "🤝 ড্র" : b.winner === myHost ? `🏆 জয়!${host && b.bonus_paisa ? `<small>বোনাস ${tk(b.bonus_paisa)}</small>` : ""}` : "😢 হার";
+      res.className = "pk-res " + (!b.winner ? "draw" : b.winner === myHost ? "win" : "lose");
+      setTimeout(() => res.classList.add("hidden"), 5000);
+    }
+    $(".lv")?.classList.remove("pk"); $("#pkBar")?.classList.add("hidden"); $("#lvPk2")?.classList.add("hidden");
+  }
+  const { data: lr0 } = await sb.from("live_rooms").select("pk_id").eq("id", id).single();
+  if (lr0?.pk_id) pkStart(lr0.pk_id);
+  const pkInvite = async (b) => {
+    if (!host || b.room_b !== id || b.status !== "invited") return;
+    const { data: op } = await sb.from("profiles").select("username,full_name,avatar_url").eq("id", b.host_a).single();
+    const body = sheet(`<div style="text-align:center">${avatar(op)}<h3>⚔️ PK চ্যালেঞ্জ!</h3><p><b translate="no">@${esc(op?.username)}</b> আপনাকে ${hms2(b.duration_sec)} মিনিটের PK ব্যাটলে ডেকেছে।<br>যে বেশি গিফট পাবে সে জিতবে আর বোনাস পাবে।</p>
+      <div class="row" style="gap:8px"><button class="btn" id="pkNo">না</button><button class="btn primary" id="pkYes">⚔️ রাজি</button></div></div>`);
+    const tmo = setTimeout(closeSheet, 35000);
+    body.querySelector("#pkNo").onclick = () => { clearTimeout(tmo); closeSheet(); rpc("pk_answer", { p_pk: b.id, p_accept: false }).catch(() => {}); };
+    body.querySelector("#pkYes").onclick = async () => { clearTimeout(tmo); closeSheet(); try { await rpc("pk_answer", { p_pk: b.id, p_accept: true }); pkStart(b.id); } catch (e) { toast(errMsg(e), true); } };
+  };
+  $("#lvPk")?.addEventListener("click", async () => {
+    if (pk) { if (confirm("PK এখনই শেষ করবেন? যার স্কোর বেশি সে জিতবে।")) rpc("pk_finish", { p_pk: pk.id }).then(() => pkEnd()).catch((e) => toast(errMsg(e), true)); return; }
+    const list = (await rpc("pk_candidates", { p_room: id }).catch(() => [])) ?? [];
+    const body = sheet(`<h3>⚔️ PK ব্যাটল</h3><p class="tiny muted">অন্য একজন লাইভ হোস্টকে চ্যালেঞ্জ দিন। ${hms2(setting("pk_duration_sec", 300))} মিনিটে যার দর্শকরা বেশি গিফট দেবে সে জিতবে ও বোনাস পাবে।</p>
+      <div class="list">${list.length ? list.map((r) => `<div class="li" style="display:flex;gap:10px;align-items:center">${avatar(r)}<span style="flex:1"><b translate="no">${esc(r.full_name || r.username)}</b><div class="tiny muted">👁 ${n(r.viewers)} <span translate="no">${esc(r.title || "")}</span></div></span>
+        <button class="btn small primary" data-pk="${r.room_id}" style="width:auto;margin:0">⚔️ চ্যালেঞ্জ</button></div>`).join("") : `<div class="empty">এখন আর কোনো হোস্ট লাইভে নেই</div>`}</div>`);
+    body.onclick = async (e) => {
+      const b = e.target.closest("[data-pk]"); if (!b) return;
+      try { await rpc("pk_invite", { p_room: id, p_target: Number(b.dataset.pk) }); closeSheet(); toast("⚔️ চ্যালেঞ্জ পাঠানো হয়েছে — রাজি হলে PK শুরু হবে"); } catch (er) { toast(errMsg(er), true); }
+    };
+  });
+
   // রিয়েলটাইম
   const ch = sb.channel("live-" + id)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "pk_battles", filter: `host_b=eq.${S.me.id}` }, (p) => pkInvite(p.new))
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "pk_battles", filter: `host_a=eq.${S.me.id}` }, (p) => {
+      if (!host || p.new.room_a !== id) return;
+      if (p.new.status === "active") pkStart(p.new.id); else if (p.new.status === "declined") toast("হোস্ট PK-তে রাজি হয়নি");
+    })
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "live_messages", filter: `room_id=eq.${id}` }, (p) => {
       addMsg(p.new);
       if (p.new.kind === "gift") rpc("live_heartbeat", { p_room: id }).then((h) => { if ($("#lvG")) $("#lvG").textContent = n(h.gift_coins); }).catch(() => {});
     })
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "live_rooms", filter: `id=eq.${id}` }, (p) => {
       if (p.new.status === "ended") showEnded(p.new.ended_reason === "admin" ? "অ্যাডমিন লাইভ বন্ধ করেছেন" : "");
+      if (p.new.pk_id && pk?.id !== p.new.pk_id) pkStart(p.new.pk_id); else if (!p.new.pk_id && pk) pkEnd();
       if ($("#lvL")) $("#lvL").textContent = n(p.new.likes);
       if ($("#lvG")) $("#lvG").textContent = n(p.new.gift_coins);
     })
@@ -2377,7 +2471,7 @@ R.live = async (rid) => {
   $("#lvEnd")?.addEventListener("click", async () => { if (confirm("লাইভ শেষ করবেন?")) { await endLive(); location.replace("#home/live"); } });
   $("#lvX").onclick = async () => { if (host && !ended) { if (!confirm("লাইভ শেষ করে বের হবেন?")) return; await endLive(); } history.back(); };
   cleanup = () => {
-    clearInterval(hb); sb.removeChannel(ch);
+    clearInterval(hb); sb.removeChannel(ch); clearInterval(pkT); if (pkCh) sb.removeChannel(pkCh); try { pkClient?.leave(); } catch { /* */ }
     if (host && !ended) rpc("live_end", { p_room: id }).catch(() => {}); else rpc("live_leave", { p_room: id }).catch(() => {});
     leaveRtc();
     document.body.classList.remove("story-open");

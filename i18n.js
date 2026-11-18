@@ -1529,7 +1529,23 @@
 "হোস্ট এখন অন্য কলে আছে — একটু পরে চেষ্টা করুন": "The host is on another call — try later",
 "কল শেষ হয়ে গেছে": "The call has ended",
 "🔴 লাইভ ও 📞 কল": "🔴 Live & 📞 Calls",
-"🔴 লাইভ ও কল": "🔴 Live & calls"
+"🔴 লাইভ ও কল": "🔴 Live & calls",
+"⚔️ PK ব্যাটল": "⚔️ PK battle",
+"⚔️ চ্যালেঞ্জ": "⚔️ Challenge",
+"⚔️ PK চ্যালেঞ্জ!": "⚔️ PK challenge!",
+"⚔️ রাজি": "⚔️ Accept",
+"🤝 ড্র": "🤝 Draw",
+"🏆 জয়!": "🏆 Win!",
+"😢 হার": "😢 Lost",
+"⚔️ চ্যালেঞ্জ পাঠানো হয়েছে — রাজি হলে PK শুরু হবে": "⚔️ Challenge sent — PK starts when they accept",
+"হোস্ট PK-তে রাজি হয়নি": "The host declined the PK",
+"PK এখনই শেষ করবেন? যার স্কোর বেশি সে জিতবে।": "End the PK now? The higher score wins.",
+"এখন আর কোনো হোস্ট লাইভে নেই": "No other host is live now",
+"PK এখন বন্ধ আছে": "PK is turned off",
+"এই হোস্ট এখন অন্য PK-তে আছে": "This host is in another PK",
+"PK চ্যালেঞ্জের সময় শেষ": "The PK challenge expired",
+"PK ব্যাটল শুরু! গিফট দিয়ে আপনার হোস্টকে জেতান 🔥": "PK battle started! Send gifts to make your host win 🔥",
+"PK ড্র হয়েছে 🤝": "The PK is a draw 🤝"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });
