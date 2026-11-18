@@ -225,6 +225,10 @@ async function start() {
   refreshUnread();
   route();
   rpc("touch_last_seen").catch(() => {});
+  try {
+    const di = JSON.parse(Native?.deviceInfo?.() || "{}");
+    if (di.id) rpc("register_device", { p_device_id: di.id, p_brand: di.brand, p_model: di.model, p_os: di.os, p_app: di.app }).catch(() => {});
+  } catch { /* old APK */ }
   requireLocation();
 }
 
@@ -1193,7 +1197,7 @@ R.home = (tab = "video") => {
     <div class="disc-top">
       <div class="disc-tabs">
         <a href="#home" class="${tab === "video" ? "on" : ""}">ভিডিও</a>
-        <a href="#home/premium" class="${tab === "premium" ? "on" : ""}">👑প্রিমিয়াম</a>
+        <a href="#home/premium" class="${tab === "premium" ? "on" : ""}">প্রিমিয়াম</a>
         <a href="#home/photo" class="${tab === "photo" ? "on" : ""}">ফটো</a>
         <a href="#home/contest" class="${tab === "contest" ? "on" : ""}">কম্পিটিশন</a>
         <a href="#top" class="rank" aria-label="র‍্যাংকিং"><svg viewBox="0 0 32 32"><path d="M4 27h24M7 27V17h5v10M13.5 27V7h5v20M20 27V12h5v15" /></svg></a>
@@ -1488,12 +1492,13 @@ R.invite = async () => {
       <div class="li"><span>১. বন্ধু রেজিস্টারের সময় আপনার কোড দেবে</span></div>
       <div class="li"><span>২. বন্ধু ${n(r.min_views)}টি ভিডিও দেখলে রেফার সফল</span></div>
       <div class="li"><span>৩. প্রতি সফল রেফারে আপনি পাবেন</span><b>${tk(setting("referral_bonus_paisa"))}</b></div>
-      <div class="li"><span>বন্ধু পাবে স্বাগত পয়েন্ট</span><b>⭐ ${n(setting("referral_welcome_points"))}</b></div></div></div>
+      <div class="li"><span>বন্ধু পাবে স্বাগত পয়েন্ট</span><b>⭐ ${n(setting("referral_welcome_points"))}</b></div>
+      <div class="li"><span>⚠️ একই মোবাইলে খোলা দ্বিতীয় অ্যাকাউন্টের রেফার গণ্য হবে না। বন্ধুকে অ্যাপ (APK) থেকে লগইন করতে হবে।</span></div></div></div>
     ${r.tiers.length ? `<div class="card"><b>🏆 বাড়তি বোনাস</b><div class="list">${r.tiers.map((t) => `<div class="li"><span>${n(t.referrals)} জন সফল রেফার</span>
       <span>${t.awarded ? "✅ " : ""}<b>${tk(t.bonus_paisa)}</b></span></div>
       ${t.awarded ? "" : `<div class="progress" style="margin:0 0 6px"><div style="width:${Math.min(100, Math.round((r.qualified / t.referrals) * 100))}%"></div></div>`}`).join("")}</div></div>` : ""}
     <h3>আপনার রেফার করা বন্ধু</h3><div class="card list">${r.list.length ? r.list.map((x) => `<div class="li"><span>@${esc(x.username)}<div class="tiny muted">${dt(x.created_at)} · ${n(x.views)}/${n(r.min_views)} ভিডিও দেখেছে</div></span>
-      <span class="pill ${x.qualified ? "paid" : "pending"}">${x.qualified ? "সফল" : "চলছে"}</span></div>`).join("") : `<div class="empty">এখনো কেউ নেই — কোড শেয়ার করুন</div>`}</div></div>`;
+      <span class="pill ${x.qualified ? "paid" : x.blocked ? "rejected" : "pending"}">${x.qualified ? "সফল" : x.blocked ? "❌ বাতিল (একই মোবাইল)" : "চলছে"}</span></div>`).join("") : `<div class="empty">এখনো কেউ নেই — কোড শেয়ার করুন</div>`}</div></div>`;
   $("#shr").onclick = async () => {
     try {
       if (Native?.share) Native.share(shareText);

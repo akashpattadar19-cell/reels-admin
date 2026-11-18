@@ -75,6 +75,9 @@ Admin resets passwords via `admin-tools` edge function. Admin = `profiles.role =
   `#U<user_no>`, admin replies by Telegram Reply → `support_reply_by_user_no`.
 - Account deletion: `request_account_deletion` → cron `process-account-deletions` anonymises after 7 days (`_delete_account`),
   or admin "অ্যাকাউন্ট ডিলিট" page deletes now. Money ledger rows are kept.
+- Devices: APK ≥ v1.0.6 `ReelsAndroid.deviceInfo()` (ANDROID_ID + brand/model/OS) → `register_device` (stores md5 hash in
+  `user_devices`). `_check_referral` blocks (`profiles.referral_blocked='same_device'`) when the new account's phone was
+  used by any other account; `referral_require_device` makes referrals count only after an APK login. Admin "📱 ডিভাইস" page.
 - TODO (owner postponed): move video storage to Cloudflare R2 (account opened; needs bucket + API keys) and allow 1 s – 59 min videos.
 - Adult/18+ content: owner asked for a paid 18+ folder; declined (illegal in BD/KSA, breaks AdMob policy, CSAM risk). Don't build it.
 - Live streaming: not built yet (owner postponed; needs ZEGOCLOUD/Agora + FLAG_SECURE in the APK for no screenshots).

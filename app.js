@@ -115,6 +115,8 @@ async function refreshBadges() {
     $("#bPv").textContent = count || "";
     const sc = await rpc("admin_support_counts").catch(() => null);
     if (sc) { $("#bSu").textContent = sc.user || ""; $("#bSh").textContent = sc.host || ""; $("#bDl").textContent = sc.deletions || ""; }
+    const ds = await rpc("admin_device_stats").catch(() => null);
+    if (ds) $("#bDv").textContent = ds.shared || "";
   } catch { /* ignore */ }
 }
 
@@ -341,6 +343,7 @@ routes.user = async (id) => {
       <a class="btn" href="#lookup/${p.user_no}">🔎 সম্পূর্ণ প্রোফাইল</a>
       <a class="btn" href="#coins/${p.user_no}">🪙 কয়েন পাঠান</a>
       <a class="btn" href="#vault/${p.user_no}">🔒 লক ফোল্ডার</a>
+      <a class="btn" href="#devices/${p.user_no}">📱 ডিভাইস</a>
     </div>
     <h2>উইথড্র</h2>
     <div class="table-wrap">${wd?.length ? `<table><tr><th>তারিখ</th><th class="num">টাকা</th><th>মাধ্যম</th><th>স্ট্যাটাস</th><th>TrxID / কারণ</th></tr>
@@ -573,6 +576,7 @@ routes.lookup = async (no) => {
       <a class="btn" href="#user/${p.id}">⚙️ ম্যানেজ (ব্যান, ব্যালেন্স, পাসওয়ার্ড)</a>
       <a class="btn" href="#coins/${p.user_no}">🪙 কয়েন পাঠান</a>
       <a class="btn" href="#vault/${p.user_no}">🔒 লক ফোল্ডার</a>
+      <a class="btn" href="#devices/${p.user_no}">📱 ডিভাইস</a>
     </div>
     <h2>পোস্ট (${num(d.videos.length)})</h2>
     <div class="videos">${d.videos.length ? d.videos.map((v) => `<div class="vcard">
@@ -826,6 +830,36 @@ async function telegramSetup(box) {
   });
 }
 
+// ---------- ডিভাইস (কোন মোবাইল, একই মোবাইলে কয়টি অ্যাকাউন্ট) ----------
+routes.devices = async (arg = "") => {
+  const shared = arg === "shared", userNo = /^\d+$/.test(arg) ? Number(arg) : null;
+  view.innerHTML = `<h1>📱 ডিভাইস</h1>
+    <p class="muted small">ইউজার নতুন অ্যাপ (APK) খুললে তার মোবাইলের ব্র্যান্ড, মডেল ও Android ভার্সন এখানে আসে। একই মোবাইলে একাধিক অ্যাকাউন্ট খোলা হলে লাল দেখাবে — আর সেই নতুন অ্যাকাউন্টের রেফার বোনাস অটোমেটিক বাতিল হয়।</p>
+    <div id="dst" class="grid"></div>
+    <div class="toolbar"><input id="dq" type="number" inputmode="numeric" placeholder="ইউজার ID দিয়ে খুঁজুন" value="${userNo ?? ""}"><button class="btn" id="dgo">খুঁজুন</button></div>
+    <div class="tabs"><a class="btn sm ${!shared && !userNo ? "on" : ""}" href="#devices">সব ডিভাইস</a><a class="btn sm ${shared ? "on" : ""}" href="#devices/shared">⚠️ একই মোবাইলে একাধিক অ্যাকাউন্ট</a></div>
+    <div id="list" class="list"><div class="empty">লোড হচ্ছে…</div></div>`;
+  $("#dgo").onclick = () => { const v = $("#dq").value.trim(); location.hash = v ? "#devices/" + v : "#devices"; };
+  $("#dq").onkeydown = (e) => e.key === "Enter" && $("#dgo").click();
+  rpc("admin_device_stats").then((st) => {
+    $("#dst").innerHTML = `<div class="card stat"><div class="k">মোট মোবাইল</div><div class="v">${num(st.devices)}</div></div>
+      <div class="card stat ${st.shared ? "alert" : ""}"><div class="k">একাধিক অ্যাকাউন্টের মোবাইল</div><div class="v">${num(st.shared)}</div></div>
+      <div class="card stat"><div class="k">বাতিল রেফার</div><div class="v">${num(st.blocked_refs)}</div></div>
+      <div class="card"><div class="k muted small">জনপ্রিয় মডেল</div><div class="small">${(st.models || []).map((m) => `${esc(m.name)} <b>${num(m.devices)}</b>`).join(" · ") || "—"}</div></div>`;
+  }).catch(() => {});
+  try {
+    const rows = await rpc("admin_devices", { p_only_shared: shared, p_user_no: userNo });
+    $("#list").innerHTML = rows.length ? rows.map((d) => `<div class="item" style="${d.accounts > 1 ? "border-color:#7a2530" : ""}">
+      <div class="top"><b>📱 ${esc(d.brand ?? "")} ${esc(d.model ?? "")}</b>${d.accounts > 1 ? `<span class="pill rejected">${num(d.accounts)}টি অ্যাকাউন্ট</span>` : `<span class="pill">১টি অ্যাকাউন্ট</span>`}</div>
+      <div class="muted small">${esc(d.os ?? "")} · অ্যাপ v${esc(d.app_version ?? "?")} · শেষ ব্যবহার ${dt(d.last_seen)} · ডিভাইস কোড ${esc(String(d.device_hash).slice(0, 8))}</div>
+      <div class="table-wrap" style="margin-top:6px"><table><tr><th>ID</th><th>ইউজার</th><th>প্রথম খুলেছে</th><th>রেফার</th></tr>
+        ${(d.users || []).map((u) => `<tr><td><a href="#lookup/${u.user_no}">${u.user_no}</a></td><td>@${esc(u.username)}${u.status !== "active" ? ' <span class="pill rejected">ব্লক</span>' : ""}</td>
+          <td class="small">${dt(u.first_seen)}</td>
+          <td class="small">${u.referred_by ? `${u.referred_by}-এর রেফার · ${u.ref_ok ? "✅ সফল" : u.ref_blocked ? "❌ বাতিল" : "⏳"}` : "—"}</td></tr>`).join("")}</table></div></div>`).join("")
+      : `<div class="empty">${userNo ? "এই ইউজার এখনো নতুন অ্যাপ থেকে লগইন করেনি" : "এখনো কোনো ডিভাইস নেই — ইউজাররা নতুন APK খুললে দেখা যাবে"}</div>`;
+  } catch (e) { $("#list").innerHTML = `<div class="empty err">${esc(errMsg(e))}</div>`; }
+};
+
 // ---------- অ্যাকাউন্ট ডিলিট রিকোয়েস্ট ----------
 routes.deletions = async () => {
   view.innerHTML = `<h1>🗑️ অ্যাকাউন্ট ডিলিট রিকোয়েস্ট</h1>
@@ -886,6 +920,8 @@ routes.rules = async () => {
       ${row("referral_bonus_paisa", "প্রতি সফল রেফারে রেফারকারী পাবে", "taka")}
       ${row("referral_welcome_points", "নতুন ইউজার স্বাগত পয়েন্ট পাবে", "num")}
       ${row("referral_min_views", "রেফার সফল হতে নতুন ইউজারকে কতটি ভিডিও দেখতে হবে", "num")}
+      ${row("referral_block_same_device", "একই মোবাইলে আগে অন্য অ্যাকাউন্ট থাকলে রেফার বাতিল", "bool")}
+      ${row("referral_require_device", "রেফার সফল হতে নতুন ইউজারকে অ্যাপ (APK) থেকে লগইন করতে হবে", "bool")}
     </div>
     <h2>🏆 রেফার বোনাস ধাপ</h2>
     <p class="muted small">যেমন: ১০ জন সফল রেফার হলে একবার ৳৫০ বাড়তি বোনাস। প্রতিটা ধাপ একজন ইউজার একবারই পাবে।</p>
