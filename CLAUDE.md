@@ -149,7 +149,13 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   Supabase storage with the user's JWT; progress via `window.onEditState`. Baked videos set `videos.music_baked` (no BGM/remix).
   Old APKs/browsers fall back to the simple upload + playback-time song/filter.
 - Premium download: `premium_download(video)` charges `premium_download_coins` once (creator gets premium %); feed shows 🪙N on the save button.
-- TODO (owner postponed): move video storage to Cloudflare R2 (account opened; needs bucket + API keys) and allow 1 s – 59 min videos.
+- Video storage on Cloudflare R2 (041): uploads still go to Supabase `videos` bucket (web, APK editor, stories — no APK change).
+  Cron `r2-move` (every min, `r2_cron()` → pg_net, only when `settings.r2_enabled` and `_r2_pending_count()` > 0) calls edge function
+  `r2-move` (verify_jwt off; auth = header x-cron = `private_config.r2_cron_secret`, or an admin JWT): copies files older than 1 min to R2
+  (aws4fetch S3 PUT, same key as the Supabase path), checks the public URL, rewrites `videos.video_url` / `stories.media_url`, deletes the
+  Supabase file. `r2_tries` (max 5) per row. Keys in `private_config` r2_account_id/r2_access_key/r2_secret_key/r2_bucket/r2_public_url
+  (r2.dev URL; later a custom domain) set on admin "☁️ ভিডিও স্টোরেজ" (`#storage`, `admin_r2_status`, `admin_r2_retry`, test/run buttons).
+  Thumbs/photos/avatars stay on Supabase. Deleting a video does not delete its R2 file. Still TODO: allow 1 s – 59 min videos.
 - Adult/18+ content: owner asked for a paid 18+ folder; declined (illegal in BD/KSA, breaks AdMob policy, CSAM risk). Don't build it.
 - Live & calls (Agora, APK ≥ v1.0.17 grants WebView camera/mic): Agora Web SDK (`agora-rtc-sdk-ng@4` from jsDelivr, lazy) runs in
   the WebView. Tokens from edge function `agora-token` (AccessToken2; verify_jwt off — it calls `agora_grant(channel)` with the

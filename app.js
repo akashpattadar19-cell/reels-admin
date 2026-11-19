@@ -933,6 +933,106 @@ routes.devices = async (arg = "") => {
 };
 
 // ---------- অ্যাপ আপডেট (বাধ্যতামূলক / ঐচ্ছিক) ----------
+// ---------- ভিডিও স্টোরেজ (Cloudflare R2) ----------
+const R2_ERR = (r) => {
+  const e = String(r?.error || "");
+  if (r?.error === "MISSING") return "সব ঘর পূরণ করুন: " + (r.missing || []).join(", ");
+  if (r?.step === "upload") {
+    if (/NoSuchBucket|_404/.test(e)) return "Bucket-এর নাম ভুল (Cloudflare-এ যে নাম দিয়েছেন হুবহু সেটা দিন)";
+    if (/_403|SignatureDoesNotMatch|InvalidAccessKeyId|Unauthorized|_401/.test(e)) return "Access Key / Secret Key ভুল, অথবা token-এ Object Read & Write অনুমতি নেই";
+    if (/fetch|dns|resolve|connect/i.test(e)) return "Account ID ভুল";
+    return "R2-তে আপলোড হয়নি: " + e;
+  }
+  if (r?.step === "public") return "ফাইল R2-তে গেছে, কিন্তু পাবলিক লিংকে খুলছে না — Bucket → Settings → Public Development URL চালু করে সেই লিংকটা (https://pub-….r2.dev) দিন (" + e + ")";
+  return e || "ব্যর্থ";
+};
+routes.storage = async () => {
+  view.innerHTML = `<h1>☁️ ভিডিও স্টোরেজ</h1><div class="empty">লোড হচ্ছে…</div>`;
+  const st = await rpc("admin_r2_status");
+  const ready = st.account && st.bucket && st.public_url && st.has_key && st.has_secret;
+  const pct = Math.min(100, Math.round((Number(st.supabase_mb) || 0) / 1024 * 100));
+  view.innerHTML = `<h1>☁️ ভিডিও স্টোরেজ</h1>
+    <div class="grid">
+      <div class="card stat ${st.enabled ? "" : "alert"}"><div class="k">Cloudflare R2</div><div class="v" style="font-size:18px">${st.enabled ? "✅ চালু" : ready ? "⏸️ বন্ধ" : "❌ সেটআপ হয়নি"}</div></div>
+      <div class="card stat"><div class="k">R2-তে ভিডিও</div><div class="v">${st.on_r2}</div></div>
+      <div class="card stat"><div class="k">Supabase-এ ভিডিও</div><div class="v">${st.on_supabase}</div></div>
+      <div class="card stat ${pct > 80 ? "alert" : ""}"><div class="k">Supabase জায়গা (১ GB)</div><div class="v" style="font-size:18px">${st.supabase_mb} MB · ${pct}%</div></div>
+    </div>
+    <div class="card">
+      <p class="small">চালু থাকলে প্রতিটি নতুন ভিডিও আপলোডের ১–২ মিনিট পর নিজে থেকেই R2-তে চলে যায় আর Supabase থেকে মুছে যায়। পুরনো ভিডিওগুলোও একই ভাবে সরে যাবে। R2-তে ১০ GB জায়গা সারাজীবন ফ্রি, ভিডিও দেখা ও ডাউনলোডের কোনো খরচ নেই। অ্যাপ আপডেট লাগবে না।</p>
+      ${st.failed ? `<p class="small" style="color:var(--bad)">⚠️ ${st.failed}টি ভিডিও ৫ বার চেষ্টা করেও সরানো যায়নি। <button class="btn sm" id="r2Retry">আবার চেষ্টা</button></p>` : ""}
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        ${st.enabled ? `<button class="btn bad" id="r2Off">⏸️ বন্ধ করুন</button>` : `<button class="btn good" id="r2On" ${ready ? "" : "disabled"}>▶️ চালু করুন</button>`}
+        ${ready ? `<button class="btn" id="r2Run">🚚 এখনই সরান</button><button class="btn" id="r2Test">🧪 পরীক্ষা</button>` : ""}
+      </div>
+      <p class="small" id="r2Msg" style="margin-top:8px"></p>
+    </div>
+    <h2>🔑 Cloudflare R2 সেটআপ</h2>
+    <div class="card">
+      <ol class="small" style="padding-left:18px;margin:0 0 10px">
+        <li>মোবাইলের Chrome-এ <b>dash.cloudflare.com</b> খুলে লগইন করুন → মেনু থেকে <b>R2 Object Storage</b>।</li>
+        <li><b>Create bucket</b> → নাম দিন <code>reels-videos</code> → <b>Create bucket</b>।</li>
+        <li>bucket খুলে <b>Settings</b> → <b>Public Development URL</b> → <b>Enable</b> → <code>allow</code> লিখে নিশ্চিত করুন → যে লিংক আসবে (<code>https://pub-….r2.dev</code>) সেটা কপি করে নিচে বসান।</li>
+        <li>R2-এর মূল পেজে ফিরে <b>Account ID</b> কপি করুন (ডানে বা নিচে দেখা যায়)।</li>
+        <li><b>Manage API tokens</b> (বা API Tokens) → <b>Create API token</b> → Permissions: <b>Object Read &amp; Write</b> → Specify bucket: <b>reels-videos</b> → <b>Create</b>।</li>
+        <li>যে <b>Access Key ID</b> আর <b>Secret Access Key</b> দেখাবে, দুটোই কপি করে নিচে বসান। Secret একবারই দেখায় — এখনই বসান।</li>
+        <li><b>সেভ ও পরীক্ষা</b> চাপুন। ✅ এলে উপরে <b>চালু করুন</b> চাপুন।</li>
+      </ol>
+      <label class="small">Account ID</label><input id="r2Acc" value="${esc(st.account ?? "")}" placeholder="32 অক্ষরের ID" autocomplete="off">
+      <label class="small">Bucket-এর নাম</label><input id="r2Bk" value="${esc(st.bucket ?? "reels-videos")}" autocomplete="off">
+      <label class="small">Public URL (r2.dev লিংক)</label><input id="r2Pub" value="${esc(st.public_url ?? "")}" placeholder="https://pub-xxxx.r2.dev" autocomplete="off">
+      <label class="small">Access Key ID</label><input id="r2Key" type="password" placeholder="${st.has_key ? "✅ সেভ আছে (বদলাতে নতুনটা দিন)" : ""}" autocomplete="off">
+      <label class="small">Secret Access Key</label><input id="r2Sec" type="password" placeholder="${st.has_secret ? "✅ সেভ আছে (বদলাতে নতুনটা দিন)" : ""}" autocomplete="off">
+      <button class="btn good" id="r2Save" style="margin-top:10px">সেভ ও পরীক্ষা</button>
+      <p class="muted small" style="margin-top:8px">Key-গুলো শুধু সার্ভারে থাকে, অ্যাডমিন প্যানেল বা অ্যাপ থেকে আর পড়া যায় না।</p>
+    </div>`;
+  const msg = (t, bad) => { const m = $("#r2Msg"); m.textContent = t; m.style.color = bad ? "var(--bad)" : ""; };
+  const call = async (action) => {
+    const { data, error } = await sb.functions.invoke("r2-move", { body: { action } });
+    if (error && !data) throw new Error(error.message);
+    return data;
+  };
+  const test = async () => {
+    msg("🧪 পরীক্ষা হচ্ছে…");
+    const r = await call("test");
+    if (r?.ok) { msg("✅ সব ঠিক আছে — R2-তে আপলোড আর পাবলিক লিংক দুটোই কাজ করছে"); toast("✅ R2 ঠিক আছে"); return true; }
+    msg("❌ " + R2_ERR(r), true); return false;
+  };
+  $("#r2Save").onclick = async (e) => {
+    let acc = $("#r2Acc").value.trim();
+    const m = acc.match(/([0-9a-f]{32})/i); if (m) acc = m[1].toLowerCase();
+    const vals = { r2_account_id: acc, r2_bucket: $("#r2Bk").value.trim(), r2_public_url: $("#r2Pub").value.trim(), r2_access_key: $("#r2Key").value.trim(), r2_secret_key: $("#r2Sec").value.trim() };
+    if (vals.r2_account_id && !/^[0-9a-f]{32}$/.test(vals.r2_account_id)) return toast("Account ID ঠিক নয় (৩২ অক্ষর)", true);
+    if (vals.r2_public_url && !/^https:\/\//.test(vals.r2_public_url)) return toast("Public URL https:// দিয়ে শুরু হবে", true);
+    e.target.disabled = true;
+    try {
+      for (const [k, v] of Object.entries(vals)) if (v) await rpc("admin_set_private_config", { p_key: k, p_value: v });
+      toast("সেভ হয়েছে");
+      const ok = await test();
+      if (ok) setTimeout(() => routes.storage(), 1500);
+    } catch (er) { toast(errMsg(er), true); }
+    e.target.disabled = false;
+  };
+  $("#r2Test")?.addEventListener("click", () => test().catch((er) => msg("❌ " + errMsg(er), true)));
+  $("#r2On")?.addEventListener("click", async () => {
+    if (!(await test().catch(() => false))) return;
+    await act(() => rpc("admin_set_setting", { p_key: "r2_enabled", p_value: true }), "✅ চালু হয়েছে — ভিডিওগুলো ১–২ মিনিটের মধ্যে সরে যাবে");
+    routes.storage();
+  });
+  $("#r2Off")?.addEventListener("click", async () => { await act(() => rpc("admin_set_setting", { p_key: "r2_enabled", p_value: false }), "বন্ধ হয়েছে — নতুন ভিডিও Supabase-এ থাকবে"); routes.storage(); });
+  $("#r2Run")?.addEventListener("click", async (e) => {
+    e.target.disabled = true; msg("🚚 সরানো হচ্ছে… (১–২ মিনিট লাগতে পারে)");
+    try {
+      const r = await call("run");
+      if (!r?.ok) throw new Error(R2_ERR(r));
+      const mb = (r.moved || []).reduce((a, x) => a + (x.mb || 0), 0);
+      msg(`✅ ${r.moved.length}টি সরানো হয়েছে (${mb.toFixed(1)} MB)` + (r.failed?.length ? ` · ❌ ${r.failed.length}টি ব্যর্থ: ${r.failed[0].error}` : "") + (r.moved.length ? "" : " — আপলোডের ১ মিনিট পরের ভিডিওই সরে"));
+      setTimeout(() => routes.storage(), 2500);
+    } catch (er) { msg("❌ " + errMsg(er), true); e.target.disabled = false; }
+  });
+  $("#r2Retry")?.addEventListener("click", async () => { const n = await act(() => rpc("admin_r2_retry"), "আবার চেষ্টা হবে"); if (n !== undefined) routes.storage(); });
+};
+
 routes.appupdate = async () => {
   view.innerHTML = `<h1>📲 অ্যাপ আপডেট</h1><div class="empty">লোড হচ্ছে…</div>`;
   const keys = ["latest_app_build", "min_app_build", "apk_url", "update_message", "update_message_en", "play_latest_build", "play_min_build"];
