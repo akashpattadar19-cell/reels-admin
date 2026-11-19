@@ -933,6 +933,142 @@ routes.devices = async (arg = "") => {
 };
 
 // ---------- অ্যাপ আপডেট (বাধ্যতামূলক / ঐচ্ছিক) ----------
+// ---------- 🚀 লঞ্চ অফার: ইনকাম লক + সিজন প্রতিযোগিতা ----------
+const LOCK_ITEMS = [
+  ["views", "👀 ভিউ থেকে ক্রিয়েটরের আয়", "প্রতি ১০০০ ভিউতে টাকা"],
+  ["likes", "❤️ লাইক থেকে আয়", "প্রতি লাইকে ক্রিয়েটরের টাকা"],
+  ["comments", "💬 কমেন্ট থেকে আয়", "প্রতি কমেন্টকারীতে ক্রিয়েটরের টাকা"],
+  ["watch", "⭐ ভিডিও দেখে পয়েন্ট", "দর্শক পুরো ভিডিও দেখলে পয়েন্ট"],
+  ["ads", "📺 অ্যাড দেখে পয়েন্ট", "রিওয়ার্ড অ্যাডের পয়েন্ট (দর্শক ও ক্রিয়েটর)"],
+  ["posts", "🖼️ ফটো ও লেখা থেকে আয়", "পোস্টে লাইক/কমেন্ট/শেয়ারের টাকা"],
+  ["convert", "🔁 পয়েন্ট → টাকা", "জমানো পয়েন্ট টাকায় নেওয়া"],
+  ["upload", "🪙 ভিডিও আপলোডে কয়েন", "অনুমোদিত ভিডিওতে ফ্রি কয়েন"],
+];
+const SEASON_STATE = { draft: ["📝 খসড়া", ""], upcoming: ["⏳ শুরু হয়নি", "pending"], running: ["🔥 চলছে", "active"], ended: ["🏁 শেষ — পুরস্কার বাকি", "pending"], paid: ["✅ পুরস্কার দেওয়া হয়েছে", "paid"] };
+const WHY_TXT = { videos: "ভিডিও কম", no_device: "APK লগইন নেই", blocked: "ব্লক/জেল", admin: "অ্যাডমিন", excluded: "বাদ দেওয়া" };
+const prizeTotal = (a) => (a || []).reduce((x, y) => x + Number(y || 0), 0);
+const partsTxt = (p) => [["watch", "👀"], ["like", "❤️"], ["comment", "💬"], ["share", "🔁"], ["video", "🎬"], ["referral", "🤝"]]
+  .filter(([k]) => p?.[k]).map(([k, i]) => `${i} ${num(p[k])}`).join(" · ") || "—";
+
+routes.launch = async (arg = "locks") => {
+  const tabs = (on) => `<div class="tabs"><a class="btn sm ${on === "locks" ? "on" : ""}" href="#launch/locks">🔒 ইনকাম লক</a><a class="btn sm ${on !== "locks" ? "on" : ""}" href="#launch/season">🏆 সিজন প্রতিযোগিতা</a></div>`;
+  loading();
+  if (arg === "locks") {
+    const { data } = await sb.from("settings").select("value").eq("key", "income_locks").maybeSingle();
+    const L = data?.value || {};
+    const nLocked = LOCK_ITEMS.filter(([k]) => L[k] === true).length;
+    view.innerHTML = `<h1>🚀 লঞ্চ অফার</h1>${tabs("locks")}
+      <div class="card small" style="margin-bottom:12px">লক করা আয় অ্যাপে <b>🔒 শীঘ্রই আসছে</b> দেখাবে, আর সার্ভার সেই আয় দেবে না (লাইক, কমেন্ট, ভিউ সব স্বাভাবিক চলবে — শুধু টাকা/পয়েন্ট যোগ হবে না)।
+        সবসময় চালু থাকবে: <b>🤝 রেফার বোনাস, 🏆 সিজন পুরস্কার, 🎁 গিফট</b>। নতুন ইউজার বোনাস আলাদা — <a href="#rules">ইনকাম রুলস</a> পেজে।</div>
+      <div class="grid"><div class="card stat ${nLocked ? "alert" : ""}"><div class="k">লক করা</div><div class="v">${nLocked} / ${LOCK_ITEMS.length}</div></div></div>
+      <div class="row" style="gap:8px;margin:8px 0 12px"><button class="btn sm" id="lkAll">🔒 সব লক করুন</button><button class="btn sm" id="lkNone">✅ সব খুলে দিন</button></div>
+      <div class="list">${LOCK_ITEMS.map(([k, t, d]) => `<div class="item"><div class="top"><div><b>${t}</b><div class="muted small">${d}</div></div>
+        <button class="btn sm ${L[k] ? "bad" : "good"}" data-lk="${k}" style="min-width:120px">${L[k] ? "🔒 লক (শীঘ্রই আসছে)" : "✅ চালু"}</button></div></div>`).join("")}</div>`;
+    const save = async (nl, msg) => { await act(() => rpc("admin_set_setting", { p_key: "income_locks", p_value: nl }), msg); routes.launch("locks"); };
+    view.querySelectorAll("[data-lk]").forEach((b) => (b.onclick = () => { const k = b.dataset.lk; save({ ...L, [k]: !L[k] }, L[k] ? "✅ চালু হয়েছে" : "🔒 লক হয়েছে"); }));
+    $("#lkAll").onclick = () => save(Object.fromEntries(LOCK_ITEMS.map(([k]) => [k, true])), "🔒 সব লক হয়েছে");
+    $("#lkNone").onclick = () => { if (confirm("সব আয় চালু করবেন? ইউজাররা আবার টাকা/পয়েন্ট পেতে শুরু করবে।")) save(Object.fromEntries(LOCK_ITEMS.map(([k]) => [k, false])), "✅ সব চালু হয়েছে"); };
+    return;
+  }
+  const list = await rpc("admin_seasons");
+  if (arg === "season") {
+    view.innerHTML = `<h1>🚀 লঞ্চ অফার</h1>${tabs("season")}
+      <div class="card small" style="margin-bottom:12px">নির্দিষ্ট সময়ের প্রতিযোগিতা। অ্যাপে লাইভ লিডারবোর্ড দেখাবে। সিজন শেষ হলে আপনি তালিকা যাচাই করে ভুয়া কাউকে বাদ দেবেন, তারপর <b>💰 পুরস্কার দিন</b> চাপলে
+        বিজয়ীদের ব্যালেন্সে টাকা (উইথড্রযোগ্য), নোটিফিকেশন, ফ্রি 👑 ফ্রেম ও টপ ৩-এর ভিডিওতে ফ্রি বুস্ট চলে যাবে।</div>
+      <a class="btn good" href="#launch/new" style="margin-bottom:12px">➕ নতুন সিজন</a>
+      <div class="list">${list.map((s) => { const [t, c] = SEASON_STATE[s.state] || ["", ""]; return `<a class="item" href="#launch/s${s.id}" style="display:block">
+        <div class="top"><b>${esc(s.title)}</b><span class="pill ${c}">${t}</span></div>
+        <div class="meta">${new Date(s.starts_at).toLocaleString("bn-BD")} → ${new Date(s.ends_at).toLocaleString("bn-BD")}</div>
+        <div class="small">🎬 ক্রিয়েটর পুরস্কার: ${s.creator_prizes.length ? `${s.creator_prizes.length} জন · ৳${num(prizeTotal(s.creator_prizes))}` : "বন্ধ"} &nbsp; 🤝 রেফার পুরস্কার: ${s.referral_prizes.length ? `${s.referral_prizes.length} জন · ৳${num(prizeTotal(s.referral_prizes))}` : "বন্ধ"}</div></a>`; }).join("") || `<div class="empty">এখনো কোনো সিজন নেই — "➕ নতুন সিজন" চাপুন</div>`}</div>`;
+    return;
+  }
+  const isNew = arg === "new";
+  const s = isNew ? { title: "🔥 লঞ্চ অফার — সিজন ১", title_en: "🔥 Launch offer — Season 1",
+      notice: "নিজের বানানো আসল ভিডিও আপলোড করুন, বন্ধুদের রেফার করুন। ভুয়া অ্যাকাউন্ট, একই মোবাইলে একাধিক অ্যাকাউন্ট বা অন্যের ভিডিও দিলে পুরস্কার বাতিল।",
+      notice_en: "Upload your own real videos and invite friends. Fake accounts, several accounts on one phone or other people's videos cancel the prize.",
+      starts_at: new Date().toISOString(), ends_at: new Date(Date.now() + 30 * 864e5).toISOString(),
+      creator_prizes: [3000, 2000, 1000, 400, 400, 400, 400, 400, 400, 400], referral_prizes: [],
+      weights: { watch: 1, like: 2, comment: 3, share: 5, video: 20, referral: 50, actor_cap: 50 }, min_videos: 5, require_device: true, frame_days: 30, boost_days: 7, published: false, state: "draft" }
+    : list.find((x) => "s" + x.id === arg);
+  if (!s) { view.innerHTML = `<div class="empty">সিজন পাওয়া যায়নি</div>`; return; }
+  const W = s.weights || {};
+  const locked = s.state === "paid";
+  const wIn = (k, l) => `<div><label class="small">${l}</label><input type="number" min="0" data-w="${k}" value="${esc(W[k] ?? 0)}" ${locked ? "disabled" : ""}></div>`;
+  const [cb, rb] = isNew ? [[], []] : await Promise.all([rpc("admin_season_board", { p_id: s.id, p_board: "creator", p_limit: 100 }), rpc("admin_season_board", { p_id: s.id, p_board: "referral", p_limit: 100 })]);
+  const board = (rows, prizes) => `<div class="list">${rows.map((r) => `<div class="item" style="${r.eligible ? "" : "opacity:.65"}">
+      <div class="top"><b>${r.rank ? (r.rank <= 3 ? ["🥇", "🥈", "🥉"][r.rank - 1] : "#" + r.rank) : "—"} <a href="#lookup/${r.user_no}">${esc(r.full_name || r.username)}</a></b><span class="amt">${num(r.score)}</span></div>
+      <div class="meta">@${esc(r.username)} · ID ${r.user_no}${r.country_code ? " · " + esc(r.country_code) : ""} · ${partsTxt(r.parts)}</div>
+      <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
+        <span class="small">${r.eligible ? "✅ যোগ্য" : "⛔ " + (WHY_TXT[r.why] || r.why || "")}${r.why === "videos" ? ` (${num(r.parts?.video)}/${s.min_videos})` : ""}</span>
+        ${r.rank && prizes[r.rank - 1] ? `<span class="pill paid">🎁 ৳${num(prizes[r.rank - 1])}</span>` : ""}
+        ${r.shared_device ? `<span class="small" style="color:var(--warn)">⚠️ একই মোবাইলে অন্য অ্যাকাউন্ট</span>` : ""}
+        ${r.reason ? `<span class="muted small">${esc(r.reason)}</span>` : ""}
+        <span style="margin-left:auto">${locked ? "" : r.excluded ? `<button class="btn sm" data-ex="${r.user_id}" data-on="0">↩️ ফেরত</button>` : r.why === "admin" ? "" : `<button class="btn sm bad" data-ex="${r.user_id}" data-on="1">🚫 বাদ</button>`}</span></div></div>`).join("")
+      || `<div class="empty">এখনো কেউ নেই</div>`}</div>`;
+  const [stTxt, stCls] = SEASON_STATE[s.state] || ["", ""];
+  view.innerHTML = `<h1>🚀 লঞ্চ অফার</h1>${tabs("season")}
+    <p><a href="#launch/season">← সব সিজন</a> &nbsp; <span class="pill ${stCls}">${stTxt}</span></p>
+    ${isNew ? "" : `<div class="grid">
+      <div class="card stat"><div class="k">শেষ হবে</div><div class="v" style="font-size:16px">${new Date(s.ends_at).toLocaleString("bn-BD")}</div></div>
+      <div class="card stat"><div class="k">মোট পুরস্কার</div><div class="v">৳${num(prizeTotal(s.creator_prizes) + prizeTotal(s.referral_prizes))}</div></div>
+      <div class="card stat"><div class="k">প্রতিযোগী (যোগ্য)</div><div class="v">${num(cb.filter((r) => r.rank).length + rb.filter((r) => r.rank).length)}</div></div></div>
+      ${s.state === "ended" ? `<div class="card" style="border-color:var(--good)"><b>🏁 সিজন শেষ।</b> নিচের তালিকা দেখে ভুয়া কাউকে "🚫 বাদ" দিন (⚠️ চিহ্ন খেয়াল করুন), তারপর:
+        <button class="btn good" id="sPay" style="margin-top:8px;width:100%">💰 পুরস্কার দিন</button></div>` : ""}
+      ${s.creator_prizes.length ? `<h2>🎬 সেরা ক্রিয়েটর</h2>${board(cb, s.creator_prizes)}` : ""}
+      ${s.referral_prizes.length ? `<h2>🤝 সেরা রেফারকারী</h2>${board(rb, s.referral_prizes)}` : ""}`}
+    <h2>${isNew ? "➕ নতুন সিজন" : "✏️ সিজনের নিয়ম"}</h2>
+    <div class="card"><fieldset style="border:0;padding:0;margin:0" ${locked ? "disabled" : ""}>
+      <label class="small">নাম</label><input id="sT" value="${esc(s.title)}">
+      <label class="small">নাম — English</label><input id="sTe" value="${esc(s.title_en ?? "")}">
+      <div class="row" style="gap:8px"><div style="flex:1"><label class="small">শুরু</label><input id="sS" type="datetime-local" value="${toLocalInput(s.starts_at)}"></div>
+        <div style="flex:1"><label class="small">শেষ</label><input id="sE" type="datetime-local" value="${toLocalInput(s.ends_at)}"></div></div>
+      <label class="small">🎬 সেরা ক্রিয়েটর পুরস্কার (টাকা, কমা দিয়ে — ১ম, ২য়, ৩য়…; খালি = এই তালিকা বন্ধ)</label><input id="sCp" value="${esc(s.creator_prizes.join(", "))}" placeholder="3000, 2000, 1000, 400, 400">
+      <label class="small">🤝 সেরা রেফারকারী পুরস্কার (টাকা, কমা দিয়ে; খালি = বন্ধ)</label><input id="sRp" value="${esc(s.referral_prizes.join(", "))}" placeholder="যেমন 1000, 500, 300">
+      <div class="muted small" id="sSum"></div>
+      <b style="display:block;margin-top:12px">স্কোরের নিয়ম (প্রতিটার পয়েন্ট)</b>
+      <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px">
+        ${wIn("watch", "👀 পুরো ভিডিও দেখা")}${wIn("like", "❤️ লাইক")}${wIn("comment", "💬 কমেন্ট (ভিডিও প্রতি)")}${wIn("share", "🔁 শেয়ার")}${wIn("video", "🎬 অনুমোদিত ভিডিও")}${wIn("referral", "🤝 সফল রেফার")}${wIn("actor_cap", "একজন দর্শক সর্বোচ্চ দিতে পারবে (০ = সীমা নেই)")}</div>
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <div style="flex:1;min-width:130px"><label class="small">ক্রিয়েটরের কমপক্ষে অনুমোদিত ভিডিও</label><input id="sMv" type="number" min="0" value="${s.min_videos}"></div>
+        <div style="flex:1;min-width:130px"><label class="small">ফ্রি 👑 ফ্রেম (দিন, ০ = না)</label><input id="sFd" type="number" min="0" value="${s.frame_days}"></div>
+        <div style="flex:1;min-width:130px"><label class="small">টপ ৩-এর ভিডিও ফ্রি বুস্ট (দিন)</label><input id="sBd" type="number" min="0" value="${s.boost_days}"></div></div>
+      <label class="small">শুধু APK থেকে লগইন করা ইউজার গোনা হবে (ভুয়া ঠেকাতে)</label><select id="sRd"><option value="true" ${s.require_device ? "selected" : ""}>হ্যাঁ (পরামর্শ)</option><option value="false" ${s.require_device ? "" : "selected"}>না</option></select>
+      <label class="small">নিয়মের নোটিশ (অ্যাপে দেখাবে)</label><textarea id="sN" rows="3">${esc(s.notice ?? "")}</textarea>
+      <label class="small">নিয়মের নোটিশ — English</label><textarea id="sNe" rows="3">${esc(s.notice_en ?? "")}</textarea>
+      <label class="small">অ্যাপে দেখাবে?</label><select id="sP"><option value="true" ${s.published ? "selected" : ""}>✅ হ্যাঁ, প্রকাশ করুন</option><option value="false" ${s.published ? "" : "selected"}>📝 না, খসড়া রাখুন</option></select>
+      <div class="row" style="gap:8px;margin-top:12px"><button class="btn good" id="sSave">💾 সেভ</button>${isNew ? "" : `<button class="btn bad" id="sDel">🗑️ মুছুন</button>`}</div>
+    </fieldset></div>`;
+  const parse = (v) => v.split(/[,\s]+/).map((x) => parseInt(x.replace(/[^\d]/g, ""), 10)).filter((x) => x > 0);
+  const sum = () => { const c = parse($("#sCp").value), r = parse($("#sRp").value); $("#sSum").textContent = `মোট খরচ: ৳${num(prizeTotal(c) + prizeTotal(r))} (ক্রিয়েটর ${c.length} জন · রেফার ${r.length} জন)`; };
+  $("#sCp").oninput = $("#sRp").oninput = sum; sum();
+  $("#sSave").onclick = async () => {
+    const st = new Date($("#sS").value), en = new Date($("#sE").value);
+    if (!(en > st)) return toast("শেষের সময় শুরুর পরে হতে হবে", true);
+    const weights = {}; view.querySelectorAll("[data-w]").forEach((i) => (weights[i.dataset.w] = Math.max(0, Number(i.value) || 0)));
+    const p = { id: isNew ? null : s.id, title: $("#sT").value, title_en: $("#sTe").value, notice: $("#sN").value, notice_en: $("#sNe").value,
+      starts_at: st.toISOString(), ends_at: en.toISOString(), creator_prizes: parse($("#sCp").value), referral_prizes: parse($("#sRp").value), weights,
+      min_videos: Number($("#sMv").value) || 0, require_device: $("#sRd").value === "true", frame_days: Number($("#sFd").value) || 0,
+      boost_days: Number($("#sBd").value) || 0, published: $("#sP").value === "true" };
+    const id = await act(() => rpc("admin_save_season", { p }), p.published ? "✅ সেভ ও প্রকাশ হয়েছে" : "💾 খসড়া সেভ হয়েছে");
+    if (id) location.hash = "#launch/s" + id; else routes.launch(arg);
+  };
+  $("#sDel")?.addEventListener("click", async () => { if (!confirm("এই সিজন মুছবেন?")) return; await act(() => rpc("admin_delete_season", { p_id: s.id }), "মুছে ফেলা হয়েছে"); location.hash = "#launch/season"; });
+  view.querySelectorAll("[data-ex]").forEach((b) => (b.onclick = async () => {
+    const on = b.dataset.on === "1";
+    const reason = on ? prompt("কেন বাদ দিচ্ছেন? (যেমন: ভুয়া লাইক, একই মোবাইলে অনেক অ্যাকাউন্ট)", "ভুয়া অ্যাকাউন্ট/লাইক") : null;
+    if (on && reason === null) return;
+    await act(() => rpc("admin_season_exclude", { p_id: s.id, p_user: b.dataset.ex, p_on: on, p_reason: reason }), on ? "🚫 বাদ দেওয়া হয়েছে" : "↩️ ফেরত আনা হয়েছে");
+    routes.launch(arg);
+  }));
+  $("#sPay")?.addEventListener("click", async (e) => {
+    const nW = Math.min(cb.filter((r) => r.rank).length, s.creator_prizes.length) + Math.min(rb.filter((r) => r.rank).length, s.referral_prizes.length);
+    if (!confirm(`${nW} জন বিজয়ীকে পুরস্কার দেবেন? টাকা সাথে সাথে তাদের উইথড্রযোগ্য ব্যালেন্সে যাবে, এটা আর ফেরানো যাবে না।`)) return;
+    e.target.disabled = true;
+    const r = await act(() => rpc("admin_season_pay", { p_id: s.id })).catch(() => null);
+    if (r) { toast(`🎉 ${r.winners} জনকে মোট ${taka(r.paisa)} দেওয়া হয়েছে`); routes.launch(arg); } else e.target.disabled = false;
+  });
+};
+
 // ---------- ভিডিও স্টোরেজ (Cloudflare R2) ----------
 const R2_ERR = (r) => {
   const e = String(r?.error || "");

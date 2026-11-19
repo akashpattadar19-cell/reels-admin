@@ -1288,3 +1288,34 @@ html, body, .auth, .auth-card { overflow-x: clip; }
 .pool-card .tiny { opacity: .92; }
 .av .ini { display: contents; }
 .av.fr .ini { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; background: var(--panel2); color: var(--text); }
+
+/* লঞ্চ অফার: শীঘ্রই আসছে + সিজন প্রতিযোগিতা */
+.soon { display: inline-block; white-space: nowrap; font-size: 11px; font-weight: 700; color: #7c3aed; background: #f1e9ff; border: 1px dashed #c4b5fd; border-radius: 99px; padding: 1px 8px; }
+.ssn-banner { display: flex; align-items: center; gap: 10px; color: #fff; border-radius: 16px; padding: 12px 14px; margin: 6px 0 10px;
+  background: radial-gradient(circle at 85% 20%, rgba(255,215,0,.45), transparent 45%), linear-gradient(135deg, #f59e0b, #e34cf0 55%, #7c3aed); box-shadow: 0 6px 18px rgba(124,58,237,.25); }
+.ssn-banner .ssn-l { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.ssn-banner .ssn-l b { font-size: 15.5px; line-height: 1.25; }
+.ssn-banner .ssn-p { font-size: 12.5px; font-weight: 700; }
+.ssn-banner .ssn-t { font-size: 11.5px; opacity: .95; }
+.ssn-banner .ssn-r { display: grid; justify-items: center; background: rgba(255,255,255,.2); border-radius: 12px; padding: 6px 10px; min-width: 66px; }
+.ssn-banner .ssn-r i { font-style: normal; font-size: 20px; font-weight: 800; }
+.ssn-banner .ssn-r span { font-size: 10.5px; }
+.ssn-hero { text-align: center; color: #fff; border-radius: 20px; padding: 18px 14px 14px; margin-bottom: 12px;
+  background: radial-gradient(circle at 50% 0, rgba(255,215,0,.55), transparent 55%), linear-gradient(160deg, #7c3aed, #c026d3 60%, #f59e0b); }
+.ssn-hero .ssn-trophy { font-size: 46px; line-height: 1; filter: drop-shadow(0 4px 10px rgba(0,0,0,.25)); }
+.ssn-hero > b { display: block; font-size: 19px; margin-top: 6px; }
+.ssn-hero .ssn-total { font-size: 13px; opacity: .95; margin-top: 2px; }
+.ssn-hero .ssn-total span { font-size: 26px; font-weight: 800; display: block; color: #fff7c2; }
+.ssn-hero .ssn-clock { display: inline-block; background: rgba(0,0,0,.2); border-radius: 99px; padding: 3px 12px; font-size: 12.5px; margin: 6px 0 10px; }
+.ssn-hero .ssn-prizes { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.ssn-hero .ssn-prizes span { background: rgba(255,255,255,.18); border-radius: 99px; padding: 2px 9px; font-size: 12px; font-weight: 700; }
+.ssn-hero .ssn-prizes span.top { background: #fff; color: #7c3aed; }
+.ssn-me { display: flex; align-items: center; gap: 12px; }
+.ssn-me .av { width: 48px; height: 48px; }
+.ssn-why { color: #b45309; margin-top: 3px; }
+.ssn-parts { display: grid; grid-template-columns: repeat(auto-fit, minmax(62px, 1fr)); gap: 6px; }
+.ssn-parts div { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 7px 4px; display: grid; justify-items: center; text-align: center; }
+.ssn-parts b { font-size: 15px; } .ssn-parts span { font-size: 10.5px; color: var(--muted); } .ssn-parts em { font-style: normal; font-size: 10px; color: var(--purple); }
+.top-row.me { background: #f5efff; margin: 0 -14px; padding: 10px 14px; }
+.top-row .av { flex: none; }
+.av.fr > img { position: absolute; inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); }

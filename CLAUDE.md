@@ -220,6 +220,18 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
     `boosted_feed()` mixed into the main feed every `boost_every_n` slides with "🚀 প্রমোটেড".
   - Sponsor ads (direct deals): `sponsor_ads` (image in `photos` bucket, link, placement all|home|feed, ends_at, impressions/clicks via
     `sponsor_event`), admin CRUD `admin_save_sponsor/admin_delete_sponsor`; app: Home banner (`homeSponsors`) + feed slide every `sponsor_every_n`.
+- Launch offer (042, admin "🚀 লঞ্চ অফার" `#launch/<locks|season|new|s<id>>`):
+  - Income locks: `settings.income_locks` {views, likes, comments, watch, ads, posts, convert, upload} (true = locked, all locked at launch).
+    `_wallet_move` skips positive moves of locked types via `_income_locked(type)` (actions still work, no money/points); `points_convert`
+    raises INCOME_LOCKED. App: `locked(k)` / `soon()` show "🔒 শীঘ্রই আসছে" on #rules, #wallet, upload card; watch toast hidden. Referral, gifts,
+    season prizes, welcome bonus (own switch) are never locked.
+  - Seasons: `seasons` (prizes in taka arrays `creator_prizes`/`referral_prizes`, `weights` {watch, like, comment, share, video, referral,
+    actor_cap}, min_videos, require_device, frame_days, boost_days, published), `season_excluded`, `season_winners`. `_season_scores` counts
+    only other real users (active, APK device if require_device, no shared device with the creator), comments/shares once per video, each
+    viewer capped at actor_cap points per creator; creator needs ≥ min_videos approved in the window. `_season_ranked`, `season_current()`
+    (app: top 20 + me), admin `admin_seasons/admin_save_season/admin_delete_season/admin_season_board/admin_season_exclude/admin_season_pay`
+    (after end: pays `season_prize` to earning, notifies, 👑 crown frame, boosts top-3 latest video). App: `seasonBanner()` on Home/#rules/#wallet,
+    `#season/<creator|referral>`.
 - Not built on purpose: Chamet "BIG WIN"/"City PK" coin games (betting).
 - Declined: real-money betting games in live (coins are bought with money and earnings withdraw → gambling, illegal in BD/KSA,
   banned by Play). Offer free point games instead. Call moderation must cover the whole call, not only the first minutes.

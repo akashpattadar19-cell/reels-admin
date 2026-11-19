@@ -198,6 +198,7 @@ const avatar = (p, cls = "av") => `<div class="${cls}">${p?.avatar_url ? `<img s
 const ERR = {
   "Invalid login credentials": "মোবাইল নম্বর বা পাসওয়ার্ড ভুল",
   INSUFFICIENT_COINS: "কয়েন যথেষ্ট নেই — আগে কয়েন কিনুন",
+  INCOME_LOCKED: "এই সুবিধা শীঘ্রই চালু হবে 🔒", NOT_ENDED: "সিজন এখনো শেষ হয়নি",
   POOL_MODE: "এখন রিওয়ার্ড পুল চালু — পয়েন্ট দিয়ে প্রতিদিন পুলের ভাগ পাবেন", VIP_OFF: "VIP এখন বন্ধ", NOT_VIP: "এটা শুধু VIP-দের জন্য",
   ALREADY_CLAIMED: "আজকের ফ্রি কয়েন আগেই নিয়েছেন", ALREADY_OWNED: "এটা আপনার কাছে আগেই আছে", STORE_OFF: "দোকান এখন বন্ধ",
   BOOST_OFF: "বুস্ট এখন বন্ধ", NOT_PUBLISHED: "ভিডিও অনুমোদনের পরে বুস্ট করা যাবে",
@@ -726,6 +727,9 @@ window.addEventListener("hashchange", route);
 const back = () => (history.length > 1 ? history.back() : (location.hash = "#home"));
 // এডমিনের লেখা নোটিশ: English বেছে নিলে <key>_en থাকলে সেটা দেখায়
 const settingL = (k, d = "") => (window.getLang?.() === "en" && setting(k + "_en", "")) || setting(k, d);
+// লঞ্চ অফার: অ্যাডমিন যে আয় লক করেছে সেখানে "শীঘ্রই আসছে"
+const locked = (k) => (setting("income_locks", {}) || {})[k] === true;
+const soon = () => `<b class="soon">🔒 শীঘ্রই আসছে</b>`;
 // ব্রাউজারের confirm() এর বদলে অ্যাপের নিজের ডায়ালগ (উপরে ওয়েবসাইটের ঠিকানা দেখায় না)
 function ask(msg, { ok = "ঠিক আছে", cancel = "বাতিল", danger = /মুছ|ডিলিট|লগআউট|শেষ|কেটে/.test(String(msg)) } = {}) {
   return new Promise((res) => {
@@ -1028,7 +1032,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
     if (el._viewOk && !el._claimed && durMs > 0 && el._watched >= durMs * Number(setting("watch_full_pct", 95)) / 100) {
       el._claimed = true;
       rpc("claim_watch_reward", { p_video_id: el._v.id, p_watch_ms: el._watched })
-        .then((r) => { if (r?.points > 0) toast(`⭐ পুরো ভিডিও দেখেছেন: +${r.points} পয়েন্ট`); else if (r?.reason === "too_fast") el._claimed = false; })
+        .then((r) => { if (r?.points > 0 && !locked("watch")) toast(`⭐ পুরো ভিডিও দেখেছেন: +${r.points} পয়েন্ট`); else if (r?.reason === "too_fast") el._claimed = false; })
         .catch(() => { el._claimed = false; });
     }
   }, 500);
@@ -1178,7 +1182,7 @@ R.upload = () => {
     <label class="pick" id="pickL"><input type="file" id="vf" accept="video/*" class="hidden"><div class="ic">🎬</div>
       <b>ভিডিও বেছে নিন</b><div class="muted tiny">${pro ? `লম্বা ভিডিও কেটে ${maxSec} সেকেন্ডের মধ্যে আনা যাবে` : `সর্বোচ্চ ${maxSec} সেকেন্ড`} · খাড়া (9:16) ভিডিও সবচেয়ে ভালো দেখায়</div></label>
     ${pro ? "" : `<p class="notice tiny">✂️ ভিডিও কাটা, ক্রপ, স্টিকার ও নিজের গান যোগ করতে অ্যাপ আপডেট করুন।</p>`}
-    <div class="up-rule">${Number(setting("upload_reward_coins", 0)) > 0 ? `<b>🪙 প্রতিটা ভিডিও অনুমোদন হলে +${n(setting("upload_reward_coins", 0))} কয়েন!</b>` : `<b>📋 ভিডিও আপলোডের নিয়ম</b>`}
+    <div class="up-rule">${Number(setting("upload_reward_coins", 0)) > 0 && !locked("upload") ? `<b>🪙 প্রতিটা ভিডিও অনুমোদন হলে +${n(setting("upload_reward_coins", 0))} কয়েন!</b>` : `<b>📋 ভিডিও আপলোডের নিয়ম</b>`}
       <div>✅ নিজের তোলা আসল ভিডিও দিন</div>
       <div>❌ ওয়াটারমার্ক, TikTok / অন্য অ্যাপের লোগো, কোনো পেজের নাম থাকলে বাতিল হবে</div>
       <div>👀 এডমিন দেখে অনুমোদন করলে তবেই সবাই দেখতে পাবে</div></div>
@@ -1501,7 +1505,7 @@ async function xhrUpload(bucket, path, blob, type, onProg) {
 const TX = {
   view_earning: "ভিউ থেকে আয়", like_earning: "লাইক থেকে আয়", comment_earning: "কমেন্ট থেকে আয়", gift_received: "গিফট পেয়েছেন",
   gift_sent: "গিফট পাঠিয়েছেন", watch_reward: "ভিডিও দেখে পয়েন্ট", ad_reward_viewer: "অ্যাড দেখে পয়েন্ট", ad_reward_creator: "আপনার ভিডিওতে অ্যাড",
-  points_convert: "পয়েন্ট → টাকা", pending_release: "পেন্ডিং থেকে ব্যালেন্সে", cash_in: "ক্যাশ-ইন (কয়েন)", play_purchase: "Google Play থেকে কয়েন কেনা", vip_purchase: "💎 VIP কেনা", vip_daily: "💎 VIP ফ্রি কয়েন", store_purchase: "🎨 দোকান থেকে কেনা", video_boost: "🚀 ভিডিও বুস্ট", reward_pool: "💰 রিওয়ার্ড পুল", upload_reward: "🎬 ভিডিও আপলোড পুরস্কার", withdraw_hold: "উইথড্র রিকোয়েস্ট",
+  points_convert: "পয়েন্ট → টাকা", pending_release: "পেন্ডিং থেকে ব্যালেন্সে", cash_in: "ক্যাশ-ইন (কয়েন)", play_purchase: "Google Play থেকে কয়েন কেনা", vip_purchase: "💎 VIP কেনা", vip_daily: "💎 VIP ফ্রি কয়েন", store_purchase: "🎨 দোকান থেকে কেনা", video_boost: "🚀 ভিডিও বুস্ট", reward_pool: "💰 রিওয়ার্ড পুল", upload_reward: "🎬 ভিডিও আপলোড পুরস্কার", season_prize: "🏆 প্রতিযোগিতার পুরস্কার", withdraw_hold: "উইথড্র রিকোয়েস্ট",
   withdraw_refund: "উইথড্র ফেরত", admin_adjust: "অ্যাডমিন অ্যাডজাস্টমেন্ট", premium_unlock: "প্রিমিয়াম ভিডিও আনলক", welcome_bonus: "নতুন ইউজার বোনাস", jail_release: "জেল থেকে মুক্তি",
 };
 // ================= আয়ের নতুন ফিচার: স্পন্সর, বুস্ট, VIP, দোকান, রিওয়ার্ড পুল =================
@@ -1553,6 +1557,82 @@ function boostSheet(v) {
     catch (er) { toast(errMsg(er), true); if (String(er.message).includes("INSUFFICIENT_COINS")) setTimeout(() => (location.hash = "#cashin"), 900); }
   };
 }
+
+// ---------- 🏆 সিজন প্রতিযোগিতা ----------
+let SSN = null, SSN_AT = 0;
+async function seasonData(force) {
+  if (!force && SSN_AT && Date.now() - SSN_AT < 60000) return SSN;
+  SSN = await rpc("season_current").catch(() => null); SSN_AT = Date.now();
+  return SSN;
+}
+const ssnTitle = (s) => (window.getLang?.() === "en" && s.title_en) || s.title;
+function ssnLeft(s) {
+  const en = window.getLang?.() === "en";
+  const t = new Date(s.state === "upcoming" ? s.starts_at : s.ends_at) - Date.now();
+  if (s.state === "paid") return en ? "🎉 Winners announced" : "🎉 বিজয়ী ঘোষণা হয়েছে";
+  if (s.state === "ended" || t <= 0) return en ? "🏁 Finished — results soon" : "🏁 শেষ — শীঘ্রই ফলাফল";
+  const d = Math.floor(t / 864e5), h = Math.floor(t % 864e5 / 36e5), m = Math.floor(t % 36e5 / 6e4);
+  const span = en ? `${d ? d + "d " : ""}${h}h ${m}m` : `${d ? n(d) + " দিন " : ""}${n(h)} ঘণ্টা ${n(m)} মিনিট`;
+  return s.state === "upcoming" ? (en ? `⏳ Starts in ${span}` : `⏳ শুরু হতে ${span}`) : (en ? `⏳ ${span} left` : `⏳ শেষ হতে ${span}`);
+}
+const RANK_IC = ["🥇", "🥈", "🥉"];
+async function seasonBanner(box, home) {
+  if (!box) return;
+  const s = await seasonData();
+  if (!s || !box.isConnected) return;
+  const b = s.creator_prizes?.length ? "creator" : "referral";
+  const prizes = s[b + "_prizes"] || [], me = s[b]?.me;
+  box.innerHTML = `<a class="ssn-banner${home ? " home" : ""}" href="#season"><div class="ssn-l"><b translate="no">🏆 ${esc(ssnTitle(s))}</b>
+      <span class="ssn-p" translate="no">${prizes.slice(0, 3).map((p, i) => `${RANK_IC[i]} ৳${n(p)}`).join(" · ")}${prizes.length > 3 ? ` · +${n(prizes.length - 3)}` : ""}</span>
+      <span class="ssn-t">${ssnLeft(s)}</span></div>
+    <div class="ssn-r">${me?.rank ? `<i>#${n(me.rank)}</i><span>আপনার র‍্যাংক</span>` : `<i>👉</i><span>যোগ দিন</span>`}</div></a>`;
+}
+R.season = async (tab) => {
+  screen.innerHTML = `<div class="page">${header("🏆 প্রতিযোগিতা")}<div class="spinner"></div></div>`;
+  const s = await seasonData(true);
+  if (!s) { screen.innerHTML = `<div class="page">${header("🏆 প্রতিযোগিতা")}<div class="empty">এখন কোনো প্রতিযোগিতা চলছে না।<br>নতুন অফার এলে এখানে দেখাবে 🔔</div></div>`; return; }
+  const boards = ["creator", "referral"].filter((b) => s[b + "_prizes"]?.length);
+  if (!boards.includes(tab)) tab = boards[0];
+  const W = s.weights || {}, en = window.getLang?.() === "en";
+  const prizes = s[tab + "_prizes"] || [], bd = s[tab] || { top: [], me: {} }, me = bd.me || {};
+  const total = boards.reduce((a, b) => a + (s[b + "_prizes"] || []).reduce((x, y) => x + y, 0), 0);
+  const P = me.parts || {};
+  const whyTxt = { videos: `আরও ${n(Math.max(0, s.min_videos - (P.video || 0)))}টি ভিডিও অনুমোদন হলে তালিকায় আসবেন`, no_device: "Reels Enjoy অ্যাপ (APK) থেকে লগইন করলে গোনা হবে",
+    blocked: "আপনার অ্যাকাউন্ট এখন অংশ নিতে পারছে না", excluded: "নিয়ম ভাঙায় এই সিজনে বাদ দেওয়া হয়েছে", admin: "অ্যাডমিন অংশ নিতে পারেন না" };
+  const parts = tab === "creator"
+    ? [["video", "🎬", "অনুমোদিত ভিডিও", W.video], ["watch", "👀", "পুরো দেখা", W.watch], ["like", "❤️", "লাইক", W.like], ["comment", "💬", "কমেন্ট", W.comment], ["share", "🔁", "শেয়ার", W.share]]
+    : [["referral", "🤝", "সফল রেফার", W.referral]];
+  const paid = s.state === "paid";
+  screen.innerHTML = `<div class="page">${header("🏆 প্রতিযোগিতা")}
+    <div class="ssn-hero"><div class="ssn-trophy">🏆</div><b translate="no">${esc(ssnTitle(s))}</b>
+      <div class="ssn-total">${en ? "Total prize" : "মোট পুরস্কার"} <span translate="no">৳${Number(total).toLocaleString("en-IN")}</span></div>
+      <div class="ssn-clock" id="ssnClock">${ssnLeft(s)}</div>
+      <div class="ssn-prizes" translate="no">${prizes.map((p, i) => `<span class="${i < 3 ? "top" : ""}">${i < 3 ? RANK_IC[i] : "#" + n(i + 1)} ৳${n(p)}</span>`).join("")}</div></div>
+    ${boards.length > 1 ? `<div class="seg">${boards.map((b) => `<button class="${b === tab ? "on" : ""}" onclick="location.hash='#season/${b}'">${b === "creator" ? "🎬 সেরা ক্রিয়েটর" : "🤝 সেরা রেফারকারী"}</button>`).join("")}</div>` : ""}
+    ${paid ? "" : `<div class="card ssn-me">${avatarD(S.me)}<div style="flex:1;min-width:0"><b>${me.rank ? `${en ? "Your rank" : "আপনার র‍্যাংক"} #${n(me.rank)}` : "আপনি এখনো তালিকায় নেই"}</b>
+        <div class="tiny muted">${en ? "Score" : "স্কোর"} ${n(me.score || 0)}${me.rank && prizes[me.rank - 1] ? ` · 🎁 ৳${n(prizes[me.rank - 1])}` : ""}</div>
+        ${!me.eligible && me.why ? `<div class="tiny ssn-why">⚠️ ${whyTxt[me.why] || ""}</div>` : ""}</div></div>
+      <div class="ssn-parts">${parts.map(([k, i, l, w]) => `<div><b>${i} ${n(P[k] || 0)}</b><span>${l}</span><em>×${n(w || 0)}</em></div>`).join("")}</div>
+      <div class="row" style="gap:8px;margin:10px 0">${tab === "creator" ? `<a class="btn primary" href="#upload" style="flex:1">🎬 ভিডিও আপলোড</a>` : ""}<a class="btn ${tab === "creator" ? "" : "primary"}" href="#invite" style="flex:1">🤝 বন্ধুকে রেফার</a></div>`}
+    <div class="card"><b>${paid ? "🎉 বিজয়ীরা" : "📊 লিডারবোর্ড"}</b>
+      ${(bd.top || []).map((r) => `<a class="top-row${r.user_id === S.me.id ? " me" : ""}" href="#u/${r.user_id}"><span class="rk">${r.rank <= 3 ? RANK_IC[r.rank - 1] : n(r.rank)}</span>${avatarD(r)}
+        <span style="flex:1;min-width:0"><b translate="no">${esc(r.full_name || r.username)}</b> ${vipTag(r)}<div class="tiny muted" translate="no">@${esc(r.username)} · ID ${r.user_no}</div></span>
+        <b style="text-align:right">${n(r.score)}<div class="tiny" style="color:#16a34a;font-weight:700">${(paid ? r.prize_paisa / 100 : prizes[r.rank - 1]) ? "৳" + n(paid ? r.prize_paisa / 100 : prizes[r.rank - 1]) : ""}</div></b></a>`).join("")
+        || `<div class="empty">এখনো কেউ নেই — প্রথম হওয়ার সুযোগ আপনার! 🚀</div>`}</div>
+    <div class="card"><b>📋 নিয়ম</b><div class="list tiny">
+      ${tab === "creator" ? `${parts.map(([k, i, l, w]) => `<div class="li"><span>${i} ${l}</span><b>${n(w || 0)} পয়েন্ট</b></div>`).join("")}
+        <div class="li"><span>তালিকায় আসতে কমপক্ষে অনুমোদিত ভিডিও</span><b>${n(s.min_videos)}টি</b></div>
+        ${W.actor_cap > 0 ? `<div class="li"><span>একজন দর্শক আপনাকে সর্বোচ্চ দিতে পারবে</span><b>${n(W.actor_cap)} পয়েন্ট</b></div>` : ""}`
+        : `<div class="li"><span>🤝 প্রতি সফল রেফার (বন্ধু ৩ দিনের টাস্ক শেষ করলে)</span><b>${n(W.referral || 0)} পয়েন্ট</b></div>`}
+      <div class="li"><span>নিজের কাজ বা একই মোবাইলের অন্য অ্যাকাউন্টের কাজ গোনা হয় না</span><b>❌</b></div>
+      ${s.require_device ? `<div class="li"><span>শুধু অ্যাপ (APK) থেকে লগইন করা ইউজার গোনা হয়</span><b>📱</b></div>` : ""}
+      <div class="li"><span>বিজয়ীরা পাবেন</span><b>৳ ব্যালেন্সে${s.frame_days > 0 ? ` + 👑 ফ্রেম ${n(s.frame_days)} দিন` : ""}</b></div>
+      <div class="li"><span>সময়</span><b>${dt(s.starts_at)} – ${dt(s.ends_at)}</b></div></div>
+      ${s.notice ? `<p class="tiny" style="margin:10px 0 0;white-space:pre-line" translate="no">${esc((en && s.notice_en) || s.notice)}</p>` : ""}
+      <p class="tiny muted" style="margin:8px 0 0">স্কোর প্রতি কয়েক মিনিটে আপডেট হয়। ভুয়া কাজ পেলে অ্যাডমিন পুরস্কার বাতিল করতে পারেন।</p></div></div>`;
+  const tick = setInterval(() => { const c = $("#ssnClock"); if (!c) return clearInterval(tick); c.textContent = ssnLeft(s); }, 30000);
+  cleanup = () => clearInterval(tick);
+};
 
 // রিওয়ার্ড পুল কার্ড (চালু থাকলে)
 async function poolCard(box) {
@@ -1651,24 +1731,27 @@ R.wallet = async () => {
         <a href="#withdraw"><span class="ic">💸</span>উইথড্র<small>bKash / Nagad / Rocket</small></a>
         <a href="#cashin"><span class="ic">🪙</span>কয়েন কিনুন<small>গিফট পাঠাতে</small></a>
         ${setting("pool_enabled", false) === true ? `<a href="#rules"><span class="ic">💰</span>রিওয়ার্ড পুল<small>পয়েন্ট দিয়ে পুলের ভাগ</small></a>`
-          : `<button id="conv"><span class="ic">🔁</span>পয়েন্ট → টাকা<small>${n(setting("points_convert_min", 1000))} পয়েন্ট থেকে</small></button>`}
-        ${rew && Native?.showRewarded ? `<button id="rw"><span class="ic">📺</span>অ্যাড দেখে পয়েন্ট<small>+${rew.viewer_points} পয়েন্ট</small></button>` : `<a href="#history"><span class="ic">📜</span>লেনদেন<small>সব হিসাব</small></a>`}
+          : `<button id="conv"><span class="ic">🔁</span>পয়েন্ট → টাকা<small>${locked("convert") ? "🔒 শীঘ্রই আসছে" : `${n(setting("points_convert_min", 1000))} পয়েন্ট থেকে`}</small></button>`}
+        ${rew && Native?.showRewarded && !locked("ads") ? `<button id="rw"><span class="ic">📺</span>অ্যাড দেখে পয়েন্ট<small>+${rew.viewer_points} পয়েন্ট</small></button>` : `<a href="#history"><span class="ic">📜</span>লেনদেন<small>সব হিসাব</small></a>`}
       </div>
-      <div id="poolBox"></div>
+      <div id="poolBox"></div><div id="ssnBox"></div>
       <a class="btn" style="width:100%;margin-bottom:12px" href="#history">📜 লেনদেনের হিসাব</a>
       <div class="card"><b>কীভাবে আয় করবেন</b>
         <div class="list tiny">
-          <div class="li"><span>আপনার ভিডিওর প্রতি ১০০০ ভিউ</span><b>${tk(setting("view_rate_paisa_per_1000"))}</b></div>
-          <div class="li"><span>প্রতি লাইক / প্রতি কমেন্টকারী</span><b>${tk(setting("like_rate_paisa"))} / ${tk(setting("comment_rate_paisa"))}</b></div>
+          <div class="li"><span>আপনার ভিডিওর প্রতি ১০০০ ভিউ</span>${locked("views") ? soon() : `<b>${tk(setting("view_rate_paisa_per_1000"))}</b>`}</div>
+          <div class="li"><span>প্রতি লাইক / প্রতি কমেন্টকারী</span>${locked("likes") && locked("comments") ? soon() : `<b>${locked("likes") ? "🔒" : tk(setting("like_rate_paisa"))} / ${locked("comments") ? "🔒" : tk(setting("comment_rate_paisa"))}</b>`}</div>
           <div class="li"><span>গিফট পেলে</span><b>গিফটের দামের বড় অংশ</b></div>
-          <div class="li"><span>ভিডিও দেখে (প্রতি ভিডিও, দিনে সর্বোচ্চ ${n(setting("viewer_daily_points_cap"))})</span><b>+${n(setting("watch_points"))} পয়েন্ট</b></div>
+          <div class="li"><span>ভিডিও দেখে (প্রতি ভিডিও, দিনে সর্বোচ্চ ${n(setting("viewer_daily_points_cap"))})</span>${locked("watch") ? soon() : `<b>+${n(setting("watch_points"))} পয়েন্ট</b>`}</div>
           ${setting("pool_enabled", false) === true ? `<div class="li"><span>পয়েন্ট</span><b>প্রতিদিনের রিওয়ার্ড পুলের ভাগ</b></div>`
-            : `<div class="li"><span>${n(setting("points_convert_min"))} পয়েন্ট</span><b>${tk(setting("points_convert_min") * setting("point_value_paisa"))}</b></div>`}
+            : `<div class="li"><span>${n(setting("points_convert_min"))} পয়েন্ট</span>${locked("convert") ? soon() : `<b>${tk(setting("points_convert_min") * setting("point_value_paisa"))}</b>`}</div>`}
+          <div class="li"><span>🤝 প্রতি সফল রেফার</span><b>${tk(setting("referral_bonus_paisa"))}</b></div>
           <div class="li"><span>আয় ব্যালেন্সে আসে</span><b>${n(setting("pending_hold_hours"))} ঘণ্টা পরে</b></div>
           <div class="li"><span>সর্বনিম্ন উইথড্র</span><b>${tk(setting("withdraw_min_paisa"))} · ${n(setting("withdraw_cooldown_days"))} দিনে একবার</b></div>
         </div></div></div>`;
     poolCard($("#poolBox")).catch(() => {});
+    seasonBanner($("#ssnBox")).catch(() => {});
     if ($("#conv")) $("#conv").onclick = async () => {
+      if (locked("convert")) return toast("এই সুবিধা শীঘ্রই চালু হবে 🔒");
       const min = Number(setting("points_convert_min", 1000));
       if (w.points < min) return toast(`কমপক্ষে ${n(min)} পয়েন্ট লাগবে`, true);
       if (!await ask(`${n(w.points)} পয়েন্ট → ${tk(w.points * setting("point_value_paisa", 1))} ব্যালেন্সে যোগ করবেন?`)) return;
@@ -2088,9 +2171,9 @@ R.inbox = async (tab = "chat") => {
 R.notifs = async () => {
   screen.innerHTML = `<div class="page">${header("🔔 নোটিফিকেশন")}<div class="card list" id="nl"><div class="spinner"></div></div></div>`;
   const { data } = await sb.from("notifications").select("*").eq("user_id", S.me.id).order("id", { ascending: false }).limit(80);
-  const icon = { like: "❤️", comment: "💬", gift: "🎁", follow: "👤", withdraw: "💸", cash_in: "🪙", system: "📢", mention: "📣" };
+  const icon = { like: "❤️", comment: "💬", gift: "🎁", follow: "👤", withdraw: "💸", cash_in: "🪙", system: "📢", mention: "📣", season_prize: "🏆" };
   const href = (x) => x.data?.video_id ? `#v/${x.data.video_id}` : x.data?.post_id ? `#post/${x.data.post_id}` : x.data?.contest_id ? `#contest/${x.data.contest_id}`
-    : x.data?.user_id ? `#u/${x.data.user_id}` : x.type === "withdraw" ? "#withdraw" : x.type === "cash_in" ? "#cashin" : "";
+    : x.data?.user_id ? `#u/${x.data.user_id}` : x.type === "season_prize" ? "#season" : x.type === "withdraw" ? "#withdraw" : x.type === "cash_in" ? "#cashin" : "";
   $("#nl").innerHTML = data?.length ? data.map((x) => `<a class="li" ${href(x) ? `href="${href(x)}"` : ""}
       style="${x.is_read ? "" : "background:rgba(155,92,255,.08);margin:0 -14px;padding:12px 14px"}">
       <div style="display:flex;gap:10px"><span style="font-size:22px">${icon[x.type] ?? "🔔"}</span><div><b>${esc(x.title)}</b>${x.body ? `<div class="tiny muted">${esc(x.body)}</div>` : ""}<div class="tiny muted">${ago(x.created_at)}</div></div></div></a>`).join("")
@@ -3666,7 +3749,7 @@ R.home = (tab = "video") => {
       </div>
     </div>
     ${notice() ? `<div style="padding:0 10px">${notice()}</div>` : ""}
-    ${tab === "video" ? `<div id="homeSp" style="padding:0 10px"></div>` : ""}
+    ${tab === "video" ? `<div id="homeSsn" style="padding:0 10px"></div><div id="homeSp" style="padding:0 10px"></div>` : ""}
     ${tab === "video" ? `<div class="st-row hidden" id="stRow"></div>` : ""}
     ${tab === "video" || tab === "photo" ? `<div class="trend-row hidden" id="trend"></div>` : ""}
     <div class="disc-grid"><div class="disc-col" id="c0"></div><div class="disc-col" id="c1"></div></div>
@@ -3678,6 +3761,7 @@ R.home = (tab = "video") => {
   $("#fCountry").onchange = (e) => { S.disc.country = e.target.value; save(); R.home(tab); };
   storyRow($("#stRow"));
   homeSponsors($("#homeSp")).catch(() => {});
+  seasonBanner($("#homeSsn"), true).catch(() => {});
   if ($("#trend")) rpc("trending_tags", { p_days: 7, p_limit: 12 }).then((tr) => {
     if (!tr?.length || !$("#trend")) return;
     $("#trend").innerHTML = `<a class="tr-all" href="#tags">🔥 ট্রেন্ডিং</a>${tr.map((t) => `<a href="#tag/${encodeURIComponent(t.tag)}" translate="no">#${esc(t.tag)}</a>`).join("")}`;
@@ -4030,25 +4114,27 @@ R.rules = async () => {
   const [{ data: tiers }, mine] = await Promise.all([sb.from("referral_tiers").select("*").eq("is_active", true).order("referrals"), rpc("my_referral_tasks").catch(() => null)]);
   const rew = S.ads.rewarded_points;
   screen.innerHTML = `<div class="page">${header("📋 আমার টাস্ক ও আয়ের নিয়ম")}
-    ${S.ads.rewarded_points && Native?.showRewarded ? `<div class="card hero"><b>🎬 অ্যাড দেখে পয়েন্ট নিন</b><div class="tiny" style="margin:4px 0 10px">প্রতি অ্যাডে ⭐ ${n(S.ads.rewarded_points.viewer_points)} · দিনে ${n(S.ads.rewarded_points.daily_cap)} বার</div><a class="btn" href="#wallet" style="background:#fff;color:#5b2bd0;border:0">ওয়ালেটে গিয়ে অ্যাড দেখুন</a></div>` : ""}
+    <div id="ssnBox2"></div>
+    ${S.ads.rewarded_points && Native?.showRewarded && !locked("ads") ? `<div class="card hero"><b>🎬 অ্যাড দেখে পয়েন্ট নিন</b><div class="tiny" style="margin:4px 0 10px">প্রতি অ্যাডে ⭐ ${n(S.ads.rewarded_points.viewer_points)} · দিনে ${n(S.ads.rewarded_points.daily_cap)} বার</div><a class="btn" href="#wallet" style="background:#fff;color:#5b2bd0;border:0">ওয়ালেটে গিয়ে অ্যাড দেখুন</a></div>` : ""}
     <div id="poolBox2"></div>
     ${mine && !mine.qualified && !mine.blocked ? `<a class="card ref-mine" href="#invite" style="display:block"><b>🎯 রেফার টাস্ক — ⭐ ${n(setting("referral_welcome_points"))} পয়েন্ট পাবেন</b>
       <div class="tiny muted" style="margin:2px 0 8px">⏳ ${refLeft(mine.end)}</div>${refTaskList(mine, true)}</a>` : ""}
     <div class="card"><b>✅ প্রতিদিনের টাস্ক</b><div class="list tiny">
-      <div class="li"><span>ভিডিও পুরোটা দেখুন (ছোট-বড় যেকোনো ভিডিও)</span><b>⭐ ${n(setting("watch_points"))} / ভিডিও</b></div>
+      <div class="li"><span>ভিডিও পুরোটা দেখুন (ছোট-বড় যেকোনো ভিডিও)</span>${locked("watch") ? soon() : `<b>⭐ ${n(setting("watch_points"))} / ভিডিও</b>`}</div>
       <div class="li"><span>ভিডিও আপলোড করুন</span><a href="#upload" class="btn small">আপলোড</a></div>
       <div class="li"><span>বন্ধুকে রেফার করুন</span><a href="#invite" class="btn small">রেফার</a></div></div></div>
     <div class="card"><b>🎬 ভিডিও বানিয়ে (ক্রিয়েটর)</b><div class="list tiny">
-      <div class="li"><span>প্রতি ১০০০ ভিউ</span><b>${tk(setting("view_rate_paisa_per_1000"))}</b></div>
-      <div class="li"><span>প্রতি লাইক</span><b>${tk(setting("like_rate_paisa"))}</b></div>
-      <div class="li"><span>প্রতি কমেন্টকারী</span><b>${tk(setting("comment_rate_paisa"))}</b></div>
+      <div class="li"><span>প্রতি ১০০০ ভিউ</span>${locked("views") ? soon() : `<b>${tk(setting("view_rate_paisa_per_1000"))}</b>`}</div>
+      <div class="li"><span>প্রতি লাইক</span>${locked("likes") ? soon() : `<b>${tk(setting("like_rate_paisa"))}</b>`}</div>
+      <div class="li"><span>প্রতি কমেন্টকারী</span>${locked("comments") ? soon() : `<b>${tk(setting("comment_rate_paisa"))}</b>`}</div>
       <div class="li"><span>গিফট পেলে</span><b>গিফটের দামের বড় অংশ</b></div>
-      ${rew ? `<div class="li"><span>আপনার ভিডিওতে কেউ অ্যাড দেখলে</span><b>⭐ ${n(rew.creator_points)}</b></div>` : ""}</div></div>
+      ${Number(setting("upload_reward_coins", 0)) > 0 ? `<div class="li"><span>ভিডিও অনুমোদন হলে</span>${locked("upload") ? soon() : `<b>🪙 ${n(setting("upload_reward_coins"))}</b>`}</div>` : ""}
+      ${rew ? `<div class="li"><span>আপনার ভিডিওতে কেউ অ্যাড দেখলে</span>${locked("ads") ? soon() : `<b>⭐ ${n(rew.creator_points)}</b>`}</div>` : ""}</div></div>
     <div class="card"><b>👀 ভিডিও দেখে (দর্শক)</b><div class="list tiny">
-      <div class="li"><span>প্রতি ভিডিও</span><b>⭐ ${n(setting("watch_points"))}</b></div>
-      <div class="li"><span>দিনে সর্বোচ্চ</span><b>⭐ ${n(setting("viewer_daily_points_cap"))}</b></div>
-      ${rew ? `<div class="li"><span>অ্যাড দেখে (দিনে সর্বোচ্চ ${n(rew.daily_cap)} বার)</span><b>⭐ ${n(rew.viewer_points)}</b></div>` : ""}
-      <div class="li"><span>${n(setting("points_convert_min"))} পয়েন্ট</span><b>${tk(setting("points_convert_min") * setting("point_value_paisa"))}</b></div></div></div>
+      <div class="li"><span>প্রতি ভিডিও</span>${locked("watch") ? soon() : `<b>⭐ ${n(setting("watch_points"))}</b>`}</div>
+      ${locked("watch") ? "" : `<div class="li"><span>দিনে সর্বোচ্চ</span><b>⭐ ${n(setting("viewer_daily_points_cap"))}</b></div>`}
+      ${rew ? `<div class="li"><span>অ্যাড দেখে (দিনে সর্বোচ্চ ${n(rew.daily_cap)} বার)</span>${locked("ads") ? soon() : `<b>⭐ ${n(rew.viewer_points)}</b>`}</div>` : ""}
+      <div class="li"><span>${n(setting("points_convert_min"))} পয়েন্ট</span>${locked("convert") ? soon() : `<b>${tk(setting("points_convert_min") * setting("point_value_paisa"))}</b>`}</div></div></div>
     <div class="card"><b>🤝 রেফার</b><div class="list tiny">
       <div class="li"><span>প্রতি সফল রেফার</span><b>${tk(setting("referral_bonus_paisa"))}</b></div>
       ${(tiers ?? []).map((t) => `<div class="li"><span>${n(t.referrals)} জন সফল রেফার হলে বাড়তি</span><b>${tk(t.bonus_paisa)}</b></div>`).join("")}</div></div>
@@ -4057,6 +4143,7 @@ R.rules = async () => {
       <div class="li"><span>কত দিন পরপর</span><b>${n(setting("withdraw_cooldown_days"))} দিন</b></div>
       <div class="li"><span>আয় ব্যালেন্সে আসে</span><b>${n(setting("pending_hold_hours"))} ঘণ্টা পরে</b></div></div></div></div>`;
   poolCard($("#poolBox2")).catch(() => {});
+  seasonBanner($("#ssnBox2")).catch(() => {});
 };
 R.u = async (id) => {
   const mine = id === S.me.id;
