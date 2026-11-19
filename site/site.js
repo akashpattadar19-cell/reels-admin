@@ -23,6 +23,33 @@
   }
   $("#lang").onclick = () => { lang = lang === "en" ? "bn" : "en"; try { localStorage.setItem("lang", lang); } catch { /* */ } applyLang(); };
 
+
+  // অ্যাডমিন → ওয়েবসাইট পেজের লেখা ও ডিজাইন
+  function applySite(S) {
+    const T = S.site_texts || {};
+    document.querySelectorAll("[data-k]").forEach((el) => {
+      const k = el.dataset.k;
+      if (el.dataset.bn === undefined) el.dataset.bn = el.textContent;
+      if (T[k]) el.dataset.bn = T[k];
+      if (T[k + "_en"]) el.dataset.en = T[k + "_en"];
+    });
+    const rib = $("#ribbon"), rt = lang === "en" ? (T.notice_en || T.notice) : T.notice;
+    if (rt) { rib.textContent = rt; rib.classList.remove("hidden"); } else rib.classList.add("hidden");
+    const soc = [["facebook", "📘 Facebook"], ["youtube", "▶️ YouTube"], ["tiktok", "🎵 TikTok"], ["instagram", "📸 Instagram"]]
+      .filter(([k]) => /^https:\/\//.test(T[k] || "")).map(([k, l]) => `<a href="${esc(T[k])}" target="_blank" rel="noopener">${l}</a>`);
+    const wa = String(T.whatsapp || "").replace(/[^0-9]/g, "");
+    if (wa) soc.unshift(`<a href="https://wa.me/${wa}" target="_blank" rel="noopener">💬 WhatsApp</a>`);
+    $("#socials").innerHTML = soc.join(" · ");
+    $("#footNote").textContent = (lang === "en" ? (T.footer_en || T.footer) : T.footer) || "";
+    const q = new URLSearchParams(location.search).get("theme");
+    const th = /^[abc]$/.test(q || "") ? q : (/^[abc]$/.test(S.site_theme || "") ? S.site_theme : "a");
+    document.body.className = "t-" + th;
+  }
+  function extraFaq(S) {
+    const T = S.site_texts || {};
+    return String((lang === "en" && T.faq_en) || T.faq || "").split("\n").map((l) => l.split("||")).filter((x) => x.length === 2 && x[0].trim() && x[1].trim())
+      .map(([q, a]) => [q.trim(), a.trim()]);
+  }
   function left(s) {
     const t = new Date(s.state === "upcoming" ? s.starts_at : s.ends_at) - Date.now();
     if (s.state === "paid") return L("🎉 বিজয়ী ঘোষণা হয়েছে", "🎉 Winners announced");
@@ -58,6 +85,7 @@
 
   function render() {
     const I = INFO, S = I.settings || {}, LK = S.income_locks || {};
+    applySite(S); document.querySelectorAll("[data-k]").forEach((el) => (el.textContent = lang === "en" ? el.dataset.en : el.dataset.bn));
     // ডাউনলোড লিংক ও ভার্সন
     if (S.apk_url) { $("#dlTop").href = S.apk_url; $("#dlBottom").href = S.apk_url; }
     const ver = S.latest_app_build ? `v1.0.${S.latest_app_build}` : "";
@@ -179,6 +207,7 @@
       [L("আমার তথ্য কি নিরাপদ?", "Is my data safe?"), L("আপনার ফোন নম্বর ও ইমেইল অন্য ইউজারদের দেখানো হয় না। অবস্থান আনুমানিকভাবে রাখা হয়, সঠিক ঠিকানা নয়। বিস্তারিত গোপনীয়তা নীতিতে।", "Your phone number and email are never shown to other users. Location is stored only roughly, never your exact address. Details are in the privacy policy.")],
       [L("সমস্যা হলে কোথায় জানাব?", "Where do I get help?"), L("অ্যাপে সেটিংস → লাইভ সাপোর্ট, অথবা নিচের ইমেইলে লিখুন।", "In the app: Settings → Live Support, or email us below.")],
     ];
+    faq.push(...extraFaq(S));
     $("#faqList").innerHTML = faq.map(([q, a], i) => `<details ${i === 0 ? "open" : ""}><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join("");
   }
 
@@ -220,6 +249,7 @@
     } catch (er) { msg.className = "note err"; msg.textContent = er.message; }
     btn.disabled = false;
   };
+  { const q = new URLSearchParams(location.search).get("theme"); if (/^[abc]$/.test(q || "")) document.body.className = "t-" + q; }
   applyLang();
   load();
 })();

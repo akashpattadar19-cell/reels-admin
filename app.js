@@ -933,6 +933,56 @@ routes.devices = async (arg = "") => {
 };
 
 // ---------- অ্যাপ আপডেট (বাধ্যতামূলক / ঐচ্ছিক) ----------
+// ---------- 🌐 ওয়েবসাইট: ডিজাইন ও লেখা ----------
+const SITE_FIELDS = [
+  ["notice", "📢 সবার উপরে ঘোষণার ফিতা (খালি = দেখাবে না)", "যেমন: 🎉 লঞ্চ অফার চলছে — নতুন ইউজাররা পাচ্ছেন ৳২০ বোনাস!"],
+  ["hero_tag", "উপরের ছোট ট্যাগ", "🇧🇩 বাংলা ভাষার মানুষের জন্য"],
+  ["hero_title", "বড় শিরোনাম", "ছোট ভিডিও, লাইভ আড্ডা, প্রতিযোগিতা — আর পুরস্কার"],
+  ["hero_lead", "শিরোনামের নিচের লেখা", "Reels Enjoy একটি ফ্রি ছোট ভিডিও অ্যাপ…", true],
+  ["offers_title", "অফার অংশের শিরোনাম", "🔥 এখনকার অফার"],
+  ["features_title", "ফিচার অংশের শিরোনাম", "অ্যাপে যা যা করতে পারবেন"],
+  ["earn_title", "আয় অংশের শিরোনাম", "পুরস্কার ও আয় — সোজা কথায়"],
+  ["agent_title", "এজেন্ট অংশের শিরোনাম", "🧑‍💼 এজেন্ট হন"],
+  ["faq_title", "প্রশ্ন-উত্তর অংশের শিরোনাম", "প্রশ্ন ও উত্তর"],
+  ["faq", "বাড়তি প্রশ্ন-উত্তর (প্রতি লাইনে: প্রশ্ন || উত্তর)", "উইথড্র কত দিনে আসে? || সাধারণত ২৪ ঘণ্টার মধ্যে।", true],
+  ["footer", "নিচের ছোট লেখা", "যেমন: ঢাকা, বাংলাদেশ"],
+];
+const SITE_SOCIAL = [["whatsapp", "💬 WhatsApp নম্বর", "+8801…"], ["facebook", "📘 Facebook পেজের লিংক", "https://facebook.com/…"], ["youtube", "▶️ YouTube লিংক", "https://youtube.com/…"],
+  ["tiktok", "🎵 TikTok লিংক", "https://tiktok.com/@…"], ["instagram", "📸 Instagram লিংক", "https://instagram.com/…"]];
+const SITE_THEMES = [["a", "ডিজাইন ১ — হালকা বেগুনি", "linear-gradient(135deg,#efe9ff,#f7d9ff)", "#1d1236"], ["b", "ডিজাইন ২ — রাতের নিয়ন", "linear-gradient(135deg,#0d0a1c,#3b1d6e)", "#f3efff"],
+  ["c", "ডিজাইন ৩ — উৎসবের রঙ", "linear-gradient(135deg,#ff3d7f,#ff7a3d,#ffc23d)", "#fff"]];
+routes.website = async () => {
+  loading();
+  const { data } = await sb.from("settings").select("key,value").in("key", ["site_texts", "site_theme"]);
+  const M = Object.fromEntries((data ?? []).map((x) => [x.key, x.value]));
+  const T = M.site_texts || {}, th = M.site_theme || "a";
+  const inp = (k, ph, area) => area ? `<textarea data-t="${k}" rows="3" placeholder="${esc(ph)}" style="width:100%">${esc(T[k] ?? "")}</textarea>` : `<input data-t="${k}" placeholder="${esc(ph)}" value="${esc(T[k] ?? "")}">`;
+  view.innerHTML = `<h1>🌐 ওয়েবসাইট</h1>
+    <div class="card small" style="margin-bottom:12px">অফার, প্রতিযোগিতা, বোনাস, উইথড্রর নিয়ম আর এজেন্টের নিয়ম ওয়েবসাইটে নিজে থেকেই অ্যাপ থেকে আসে। এখানে শুধু ডিজাইন আর স্থায়ী লেখা বদলাবেন।
+      খালি রাখলে আগের লেখাই দেখাবে। <div style="margin-top:8px"><a class="btn sm" href="${SITE_URL}" target="_blank" rel="noopener">🌐 ওয়েবসাইট দেখুন</a></div></div>
+    <h2>🎨 ডিজাইন</h2>
+    <div class="grid">${SITE_THEMES.map(([k, l, bg, fg]) => `<div class="card" style="padding:0;overflow:hidden;${k === th ? "outline:3px solid var(--good)" : ""}">
+      <div style="background:${bg};color:${fg};padding:22px 14px;font-weight:700;text-align:center">${l}${k === th ? "<br>✅ চালু আছে" : ""}</div>
+      <div class="row" style="gap:6px;padding:10px;justify-content:center"><a class="btn sm" href="${SITE_URL}?theme=${k}" target="_blank" rel="noopener">👁 দেখুন</a>${k === th ? "" : `<button class="btn sm good" data-th="${k}">এটা চালু করুন</button>`}</div></div>`).join("")}</div>
+    <h2>✍️ লেখা</h2>
+    <div class="list">${SITE_FIELDS.map(([k, l, ph, area]) => `<div class="item"><b>${l}</b>
+      <label class="small muted" style="display:block;margin-top:6px">বাংলা</label>${inp(k, ph, area)}
+      <label class="small muted" style="display:block;margin-top:6px">English</label>${inp(k + "_en", "", area)}</div>`).join("")}</div>
+    <h2>🔗 সোশ্যাল ও যোগাযোগ</h2>
+    <div class="list">${SITE_SOCIAL.map(([k, l, ph]) => `<div class="item"><b>${l}</b>${inp(k, ph)}</div>`).join("")}</div>
+    <button class="btn good" id="wsSave" style="margin:14px 0 30px;width:100%">💾 সব লেখা সেভ করুন</button>`;
+  view.querySelectorAll("[data-th]").forEach((b) => (b.onclick = async () => {
+    await act(() => rpc("admin_set_setting", { p_key: "site_theme", p_value: b.dataset.th }), "✅ ডিজাইন বদলানো হয়েছে");
+    routes.website();
+  }));
+  $("#wsSave").onclick = async () => {
+    const nt = {};
+    view.querySelectorAll("[data-t]").forEach((el) => { const v = el.value.trim(); if (v) nt[el.dataset.t] = v; });
+    for (const k of ["facebook", "youtube", "tiktok", "instagram"]) if (nt[k] && !/^https:\/\//.test(nt[k])) return toast(`${k} লিংক https:// দিয়ে শুরু হবে`, true);
+    await act(() => rpc("admin_set_setting", { p_key: "site_texts", p_value: nt }), "✅ সেভ হয়েছে — ওয়েবসাইটে এখনই দেখাবে");
+  };
+};
+
 // ---------- 🚀 লঞ্চ অফার: ইনকাম লক + সিজন প্রতিযোগিতা ----------
 const LOCK_ITEMS = [
   ["views", "👀 ভিউ থেকে ক্রিয়েটরের আয়", "প্রতি ১০০০ ভিউতে টাকা"],

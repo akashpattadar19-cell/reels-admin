@@ -241,6 +241,9 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   (`#launch/posts|pnew|p<id>`, `admin_site_posts/admin_save_site_post/admin_delete_site_post`, optional `admin_broadcast`).
   App: `app_offers()` → Home strip (`homeOffers`) + `#offers`; Settings links to #offers and the website; `get/` links to the site.
   No own domain/repo yet (session can't create repos) — a custom domain would improve trust.
+- Website editor (046, admin "🌐 ওয়েবসাইট" `#website`): `settings.site_theme` a (light purple) | b (dark neon) | c (festive gradient) → body class
+  `t-<x>` (preview any with `site/?theme=b`); `settings.site_texts` {notice (top ribbon), hero_tag/title/lead, *_title, faq ("q || a" per line),
+  footer, whatsapp/facebook/youtube/tiktok/instagram, each text also `<key>_en`} applied to `[data-k]` elements by `applySite()` in site.js.
 - Agents (044/045): owner wants NO apply option inside the app. People apply on the website (`site/#agent` form → `agent_web_apply(user_no, name,
   phone, area, plan)`, anon allowed, rate-limited, table `agent_applications`; `agent_apply` revoked). Admin "🧑‍💼 এজেন্ট" `#agents/<pending|approved|rejected|all|rules>`
   (`admin_agents`, `admin_agent_action` approve|reject|remove, agent_* settings). `profiles.agent_status/agent_since/ref_agent`; trigger `tg_ref_agent`

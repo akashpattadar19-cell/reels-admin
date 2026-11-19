@@ -15,9 +15,10 @@
 <link rel="icon" href="img/icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="site.css?v=202611191723">
+<link rel="stylesheet" href="site.css?v=202611191728">
 </head>
 <body>
+<div id="ribbon" class="ribbon hidden"></div>
 <header class="nav" id="top">
   <a class="brand" href="#top"><img src="img/icon.png" alt=""><span>Reels Enjoy</span></a>
   <nav class="links">
@@ -36,9 +37,9 @@
 <section class="hero">
   <div class="hero-in">
     <div class="hero-txt">
-      <span class="tag" data-en="🇧🇩 Made for Bangla speakers">🇧🇩 বাংলা ভাষার মানুষের জন্য</span>
-      <h1 data-en="Short videos, live chats, contests — and prizes">ছোট ভিডিও, লাইভ আড্ডা, প্রতিযোগিতা — আর পুরস্কার</h1>
-      <p class="lead" data-en="Reels Enjoy is a free short-video app. Watch and make videos, chat live with friends, and win prizes in contests. All rules, offers and contact details are on this page.">Reels Enjoy একটি ফ্রি ছোট ভিডিও অ্যাপ। ভিডিও দেখুন ও বানান, বন্ধুদের সাথে লাইভে আড্ডা দিন, প্রতিযোগিতায় অংশ নিয়ে পুরস্কার জিতুন। অ্যাপের সব নিয়ম, অফার আর যোগাযোগের তথ্য এই পেজেই আছে।</p>
+      <span class="tag" data-k="hero_tag" data-en="🇧🇩 Made for Bangla speakers">🇧🇩 বাংলা ভাষার মানুষের জন্য</span>
+      <h1 data-k="hero_title" data-en="Short videos, live chats, contests — and prizes">ছোট ভিডিও, লাইভ আড্ডা, প্রতিযোগিতা — আর পুরস্কার</h1>
+      <p class="lead" data-k="hero_lead" data-en="Reels Enjoy is a free short-video app. Watch and make videos, chat live with friends, and win prizes in contests. All rules, offers and contact details are on this page.">Reels Enjoy একটি ফ্রি ছোট ভিডিও অ্যাপ। ভিডিও দেখুন ও বানান, বন্ধুদের সাথে লাইভে আড্ডা দিন, প্রতিযোগিতায় অংশ নিয়ে পুরস্কার জিতুন। অ্যাপের সব নিয়ম, অফার আর যোগাযোগের তথ্য এই পেজেই আছে।</p>
       <div class="cta">
         <a class="btn big" id="dlTop" href="https://akashpattadar19-cell.github.io/reels-admin/download/Reels-Enjoy.apk"><span>⬇️</span><span><b data-en="Download for Android">Android-এ ডাউনলোড</b><small id="verTop" data-en="Free · APK">ফ্রি · APK</small></span></a>
         <span class="btn ghost big play"><span>▶️</span><span><b>Google Play</b><small data-en="Coming soon">শীঘ্রই আসছে</small></span></span>
@@ -55,7 +56,7 @@
 
 <section id="offers" class="sec">
   <div class="in">
-    <h2 data-en="🔥 Offers right now">🔥 এখনকার অফার</h2>
+    <h2 data-k="offers_title" data-en="🔥 Offers right now">🔥 এখনকার অফার</h2>
     <p class="sub" data-en="Updated live from the app. When an offer ends it disappears here too.">অ্যাপ থেকে সরাসরি আপডেট হয়। অফার শেষ হলে এখান থেকেও সরে যায়।</p>
     <div id="liveOffers" class="offers"><div class="loading" data-en="Loading offers…">অফার লোড হচ্ছে…</div></div>
   </div>
@@ -65,7 +66,7 @@
 
 <section id="features" class="sec alt">
   <div class="in">
-    <h2 data-en="What you can do in the app">অ্যাপে যা যা করতে পারবেন</h2>
+    <h2 data-k="features_title" data-en="What you can do in the app">অ্যাপে যা যা করতে পারবেন</h2>
     <div class="grid feats">
       <div class="f"><i>🎬</i><b data-en="Reels">রিলস</b><p data-en="Full-screen short videos: drama, funny, music, vlogs and more. Filter by language and country.">ফুল স্ক্রিনে ছোট ভিডিও — নাটক, ফানি, গান, ভ্লগ। ভাষা আর দেশ দিয়ে বেছে দেখুন।</p></div>
       <div class="f"><i>✂️</i><b data-en="Video editor">ভিডিও এডিটর</b><p data-en="Trim, crop, stickers, text, filters and songs before you upload.">আপলোডের আগে কাটুন, ক্রপ করুন, স্টিকার, লেখা, ফিল্টার আর গান যোগ করুন।</p></div>
@@ -90,7 +91,7 @@
 
 <section id="earn" class="sec">
   <div class="in">
-    <h2 data-en="Rewards & earning — honest and clear">পুরস্কার ও আয় — সোজা কথায়</h2>
+    <h2 data-k="earn_title" data-en="Rewards & earning — honest and clear">পুরস্কার ও আয় — সোজা কথায়</h2>
     <p class="sub" data-en="These numbers come live from the app. Anything marked “Coming soon” is not paid yet.">এই সংখ্যাগুলো সরাসরি অ্যাপ থেকে আসে। যেখানে “শীঘ্রই আসছে” লেখা, সেটা এখনো চালু নেই — তার জন্য এখন টাকা বা পয়েন্ট দেওয়া হয় না।</p>
     <div id="earnList" class="rules-grid"><div class="loading" data-en="Loading…">লোড হচ্ছে…</div></div>
     <p class="warn" data-en="⚠️ Reels Enjoy is an entertainment app, not a job or investment. Prizes and rewards depend on the rules on this page, which can change. Never pay anyone who promises guaranteed income from this app.">⚠️ Reels Enjoy একটি বিনোদনের অ্যাপ — এটা চাকরি বা বিনিয়োগ নয়। পুরস্কার ও আয় এই পেজের নিয়ম মেনে হয়, নিয়ম সময়ের সাথে বদলাতে পারে। কেউ এই অ্যাপ থেকে “নিশ্চিত আয়” দেওয়ার কথা বলে টাকা চাইলে দেবেন না।</p>
@@ -124,7 +125,7 @@
 
 <section id="agent" class="sec hidden">
   <div class="in">
-    <h2 data-en="🧑‍💼 Become an agent">🧑‍💼 এজেন্ট হন</h2>
+    <h2 data-k="agent_title" data-en="🧑‍💼 Become an agent">🧑‍💼 এজেন্ট হন</h2>
     <p class="sub" data-en="Bring new people with your own link and earn agent bonuses. Apply below — after admin approval the Agent page opens in your app.">নিজের লিংক দিয়ে নতুন মানুষ আনুন, এজেন্ট বোনাস নিন। নিচের ফর্মে আবেদন করুন — অ্যাডমিন অনুমোদন দিলে আপনার অ্যাপে এজেন্ট পেজ খুলে যাবে।</p>
     <div id="agentBox"></div>
     <form class="card agform" id="agForm">
@@ -175,7 +176,7 @@
 
 <section id="faq" class="sec">
   <div class="in">
-    <h2 data-en="Questions & answers">প্রশ্ন ও উত্তর</h2>
+    <h2 data-k="faq_title" data-en="Questions & answers">প্রশ্ন ও উত্তর</h2>
     <div id="faqList" class="faq"></div>
   </div>
 </section>
@@ -193,6 +194,7 @@
         <h3 data-en="✉️ Email">✉️ ইমেইল</h3>
         <p><a id="supEmail" href="mailto:akashpattadar19@gmail.com">akashpattadar19@gmail.com</a></p>
         <p id="supTg"></p>
+        <p id="socials" class="socials"></p>
         <p class="note" data-en="Developer: Reels Enjoy Studio">ডেভেলপার: Reels Enjoy Studio</p>
       </div>
     </div>
@@ -213,11 +215,11 @@
       <a href="../policy/delete-account.html" data-en="Delete account">অ্যাকাউন্ট ডিলিট</a>
       <a href="../policy/about.html" data-en="About">আমাদের সম্পর্কে</a>
     </nav>
-    <p class="copy">© 2026 Reels Enjoy Studio · <span data-en="For users 18 and older">১৮ বছর বা তার বেশি বয়সীদের জন্য</span></p>
+    <p class="copy"><span id="footNote"></span> © 2026 Reels Enjoy Studio · <span data-en="For users 18 and older">১৮ বছর বা তার বেশি বয়সীদের জন্য</span></p>
   </div>
 </footer>
 
-<script src="../config.js?v=202611191723"></script>
-<script src="site.js?v=202611191723"></script>
+<script src="../config.js?v=202611191728"></script>
+<script src="site.js?v=202611191728"></script>
 </body>
 </html>

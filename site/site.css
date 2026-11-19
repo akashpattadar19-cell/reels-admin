@@ -151,3 +151,56 @@ img { max-width: 100%; }
 .agform input, .agform textarea { font: inherit; font-weight: 400; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: #fbfaff; }
 .agform input:focus, .agform textarea:focus { outline: 2px solid #c4b5fd; }
 #agMsg.ok { color: var(--good); font-weight: 700; } #agMsg.err { color: #dc2626; font-weight: 600; }
+
+/* ঘোষণার ফিতা */
+.ribbon { background: linear-gradient(90deg, #f59e0b, #e34cf0); color: #fff; text-align: center; font-weight: 700; font-size: 14.5px; padding: 7px 14px; }
+.socials { display: flex; flex-wrap: wrap; gap: 6px 12px; font-weight: 600; }
+.socials a { text-decoration: none; }
+
+/* ===== ডিজাইন B: রাতের নিয়ন (ডার্ক) ===== */
+body.t-b { --ink: #f3efff; --muted: #a79fc9; --bg: #0d0a1c; --card: #171230; --line: #2b2350; --p1: #a78bfa; --p2: #f472b6; background: #0d0a1c; }
+.t-b .nav { background: rgba(13,10,28,.85); border-color: #2b2350; }
+.t-b .brand, .t-b .links a { color: #f3efff; }
+.t-b .lang { background: #171230; border-color: #2b2350; }
+.t-b .hero { background: radial-gradient(circle at 50% 0, rgba(167,139,250,.35), transparent 55%), radial-gradient(circle at 90% 80%, rgba(244,114,182,.25), transparent 45%), #0d0a1c; }
+.t-b .hero-in { grid-template-columns: 1fr; text-align: center; justify-items: center; padding-top: 56px; }
+.t-b .hero h1 { background: linear-gradient(90deg, #fff, #f0abfc, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; max-width: 760px; }
+.t-b .lead { color: #cfc6f5; max-width: 640px; margin-left: auto; margin-right: auto; }
+.t-b .cta, .t-b .ticks { justify-content: center; }
+.t-b .ticks { color: #cfc6f5; }
+.t-b .tag { background: #171230; border-color: #3b2f6b; color: #f0abfc; }
+.t-b .phone { box-shadow: 0 0 0 2px #3b2f6b, 0 30px 80px rgba(167,139,250,.45); background: #05030d; }
+.t-b .btn { box-shadow: 0 0 24px rgba(244,114,182,.45); }
+.t-b .btn.ghost { background: #171230; color: #f3efff; border-color: #3b2f6b; }
+.t-b .sec.alt { background: #120e26; }
+.t-b .card, .t-b .f, .t-b .oc, .t-b .r, .t-b .st, .t-b .faq details, .t-b .w, .t-b .stats .s { background: #171230; border-color: #2b2350; box-shadow: 0 0 0 1px rgba(167,139,250,.06); }
+.t-b .f p, .t-b .oc p, .t-b .st p, .t-b .faq p { color: #c7bff0; }
+.t-b .r .v { color: #6ee7b7; }
+.t-b .warn { background: #2a1a0b; border-color: #7c2d12; color: #fdba74; }
+.t-b .agform input, .t-b .agform textarea { background: #0d0a1c; border-color: #3b2f6b; color: #f3efff; }
+.t-b .shots img { border-color: #05030d; }
+.t-b .foot { background: #07050f; }
+
+/* ===== ডিজাইন C: উৎসবের রঙ (সাহসী গ্রেডিয়েন্ট) ===== */
+body.t-c { --ink: #2b1028; --muted: #8a5a73; --bg: #fff8f1; --line: #f6dccb; --p1: #e11d74; --p2: #f97316; background: #fff8f1; }
+.t-c .nav { background: rgba(255,248,241,.9); border-color: #f6dccb; }
+.t-c .hero { background: linear-gradient(135deg, #ff3d7f 0%, #ff7a3d 55%, #ffc23d 100%); color: #fff; border-radius: 0 0 40px 40px; }
+.t-c .hero h1 { color: #fff; text-shadow: 0 4px 18px rgba(120,0,40,.25); }
+.t-c .lead, .t-c .ticks { color: #fff3ea; }
+.t-c .tag { background: rgba(255,255,255,.22); border-color: rgba(255,255,255,.5); color: #fff; }
+.t-c .hero .btn { background: #fff; color: #e11d74; box-shadow: 0 10px 24px rgba(120,0,40,.25); }
+.t-c .hero .btn.ghost { background: rgba(255,255,255,.18); color: #fff; border-color: rgba(255,255,255,.6); }
+.t-c .phone { background: #2b1028; transform: none; box-shadow: 0 30px 60px rgba(120,0,40,.35); }
+.t-c .phone .cap { color: #fff3ea; }
+.t-c .sec h2 { text-align: left; display: flex; align-items: center; gap: 10px; }
+.t-c .sec h2::before { content: ""; width: 8px; height: 30px; border-radius: 6px; background: linear-gradient(#ff3d7f, #ff7a3d); }
+.t-c .sec .sub { text-align: left; margin-left: 0; }
+.t-c .sec.alt { background: #fff0e4; }
+.t-c .f, .t-c .oc, .t-c .r, .t-c .st { border-top: 4px solid #ff7a3d; border-radius: 20px; }
+.t-c .f:nth-child(3n+2), .t-c .r:nth-child(3n+2) { border-top-color: #ff3d7f; }
+.t-c .f:nth-child(3n), .t-c .r:nth-child(3n) { border-top-color: #ffc23d; }
+.t-c .season { background: radial-gradient(circle at 90% 0, rgba(255,255,255,.35), transparent 45%), linear-gradient(140deg, #e11d74, #f97316); }
+.t-c .r .v { color: #e11d74; }
+.t-c .st span { background: linear-gradient(135deg, #ff3d7f, #ff7a3d); }
+.t-c .foot { background: #2b1028; }
+.t-c .ribbon { background: #2b1028; }
