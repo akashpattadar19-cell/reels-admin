@@ -27,8 +27,28 @@ h1{margin:14px 0 4px;font-size:30px;color:#2a1660}.sub{color:#5d5480;margin:0 0 
 .feat{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}
 .feat div{background:#fff;border-radius:14px;padding:12px 8px;font-size:14px;box-shadow:0 2px 10px rgba(40,20,90,.05)}
 .feat span{font-size:24px;display:block}
-.steps{text-align:left;background:#fff;border-radius:16px;padding:12px 16px;font-size:14px;color:#4b4268}
-.steps ol{margin:6px 0;padding-left:20px}.foot{font-size:12px;color:#8b84a3;margin-top:18px}.foot a{color:#6d3df0}
+.guide{text-align:left;margin-top:22px}
+.guide h2{font-size:21px;color:#2a1660;margin:0 0 4px;text-align:center}
+.guide .note{font-size:13.5px;color:#6b6290;text-align:center;margin:0 0 14px}
+.step{background:#fff;border-radius:18px;padding:14px 14px 16px;margin-bottom:12px;box-shadow:0 2px 12px rgba(40,20,90,.07)}
+.step .hd{display:flex;gap:10px;align-items:flex-start}
+.step .no{flex:none;width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#9b5cff,#e34cf0);color:#fff;font-weight:700;display:grid;place-items:center}
+.step .hd>div>b{display:block;font-size:16px;color:#2a1660}.step .hd p b{color:#2a1660}.step .hd p{margin:2px 0 0;font-size:13.5px;color:#5d5480}
+.mock{margin:12px auto 0;max-width:290px;background:#1f1d2b;border-radius:22px;padding:14px 12px;box-shadow:inset 0 0 0 3px #3a3650}
+.dlg{background:#fff;border-radius:16px;padding:14px;font-size:13px;color:#333;font-family:system-ui,sans-serif}
+.dlg .t{font-weight:700;font-size:14px;margin-bottom:6px;color:#111}
+.dlg .row{display:flex;justify-content:flex-end;gap:18px;margin-top:12px;font-weight:600;color:#1a73e8}
+.dlg .row span.dim{color:#666}
+.hl{position:relative;outline:3px solid #ff3d7f;outline-offset:3px;border-radius:6px;animation:pulse 1.2s infinite}
+.hl:after{content:"👆";position:absolute;right:-8px;bottom:-26px;font-size:22px}
+@keyframes pulse{50%{outline-color:rgba(255,61,127,.35)}}
+.tg{display:flex;justify-content:space-between;align-items:center;padding:6px 0}
+.sw{width:42px;height:24px;border-radius:12px;background:#1a73e8;position:relative}.sw:after{content:"";position:absolute;right:3px;top:3px;width:18px;height:18px;border-radius:50%;background:#fff}
+.app{display:flex;align-items:center;gap:10px;margin-bottom:8px}.app img{width:36px;height:36px;border-radius:9px}
+.faq{background:#fff;border-radius:16px;padding:6px 16px;margin-top:14px;text-align:left;font-size:14px;color:#4b4268}
+.faq details{border-bottom:1px solid #eee;padding:10px 0}.faq details:last-child{border:0}
+.faq summary{font-weight:600;color:#2a1660;cursor:pointer}.faq p{margin:6px 0 0}
+.again{display:block;margin:16px 0 0;color:#6d3df0;font-weight:600;text-decoration:none}.foot{font-size:12px;color:#8b84a3;margin-top:18px}.foot a{color:#6d3df0}
 </style>
 </head>
 <body>
@@ -44,11 +64,46 @@ h1{margin:14px 0 4px;font-size:30px;color:#2a1660}.sub{color:#5d5480;margin:0 0 
     <div><span>🎬</span>রিলস দেখে আয়</div><div><span>📸</span>ফটো কম্পিটিশন</div>
     <div><span>✍️</span>লেখা দিয়ে আয়</div><div><span>💸</span>bKash / Nagad উইথড্র</div>
   </div>
-  <div class="steps"><b>কীভাবে ইনস্টল করবেন</b><ol>
-    <li>"অ্যাপ ডাউনলোড করুন" চাপুন</li>
-    <li>ডাউনলোড শেষে ফাইলটি খুলুন</li>
-    <li>প্রয়োজন হলে "এই উৎস থেকে অনুমতি দিন" চালু করুন</li>
-    <li>"ইনস্টল" চাপুন, তারপর অ্যাপ খুলে রেজিস্টার করুন</li></ol></div>
+  <div class="feat" style="margin-top:0">
+    <div><span>🔴</span>লাইভ ও PK ব্যাটল</div><div><span>🎤</span>পার্টি ভয়েস রুম</div>
+    <div><span>📞</span>ভিডিও / অডিও কল</div><div><span>🎁</span>বন্ধুকে রেফার করে বোনাস</div>
+  </div>
+
+  <div class="guide" id="guide">
+    <h2>📲 কীভাবে ইনস্টল করবেন</h2>
+    <p class="note">অ্যাপটি Play Store-এর বাইরে থেকে নামানো হচ্ছে, তাই ফোন প্রথমবার একটু অনুমতি চাইবে। এটা স্বাভাবিক — ১ মিনিটেই হয়ে যাবে।</p>
+
+    <div class="step"><div class="hd"><span class="no">১</span><div><b>ফাইল ডাউনলোড করুন</b>
+      <p>উপরের বেগুনি বোতাম চাপুন। Chrome সতর্ক করলে <b>"Download anyway / তবুও ডাউনলোড করুন"</b> চাপুন।</p></div></div>
+      <div class="mock"><div class="dlg"><div class="t">Reels-Enjoy.apk</div>This type of file can harm your device. Do you want to keep it anyway?
+        <div class="row"><span class="dim">Cancel</span><span class="hl">Download anyway</span></div></div></div></div>
+
+    <div class="step"><div class="hd"><span class="no">২</span><div><b>ফাইলটি খুলুন</b>
+      <p>ডাউনলোড শেষ হলে নিচের নোটিফিকেশন বা <b>"Open / খুলুন"</b> চাপুন। খুঁজে না পেলে Files অ্যাপ → <b>Downloads</b> ফোল্ডারে <b>Reels-Enjoy.apk</b>।</p></div></div>
+      <div class="mock"><div class="dlg" style="display:flex;align-items:center;gap:10px"><span style="font-size:26px">📦</span><div style="flex:1"><div class="t" style="margin:0">Reels-Enjoy.apk</div><span style="color:#666">ডাউনলোড সম্পূর্ণ</span></div><span class="hl" style="color:#1a73e8;font-weight:700">Open</span></div></div></div>
+
+    <div class="step"><div class="hd"><span class="no">৩</span><div><b>অনুমতি দিন (শুধু প্রথমবার)</b>
+      <p>"For your security…" লেখা এলে <b>Settings</b> চাপুন, তারপর <b>"Allow from this source / এই উৎস থেকে অনুমতি দিন"</b> চালু করে পেছনে (←) আসুন।</p></div></div>
+      <div class="mock"><div class="dlg"><div class="t">Install unknown apps</div>
+        <div class="app"><span style="font-size:28px">🌐</span><b>Chrome</b></div>
+        <div class="tg"><span>Allow from this source</span><span class="sw hl"></span></div></div></div></div>
+
+    <div class="step"><div class="hd"><span class="no">৪</span><div><b>ইনস্টল চাপুন</b>
+      <p><b>Install / ইনস্টল</b> চাপুন। Google Play Protect "অচেনা অ্যাপ" বললে <b>"More details → Install anyway"</b> চাপুন — নতুন অ্যাপ বলে এমন দেখায়।</p></div></div>
+      <div class="mock"><div class="dlg"><div class="app"><img src="icon.png" alt=""><b>Reels Enjoy</b></div>Do you want to install this app?
+        <div class="row"><span class="dim">Cancel</span><span class="hl">Install</span></div></div></div></div>
+
+    <div class="step"><div class="hd"><span class="no">৫</span><div><b>অ্যাপ খুলে শুরু করুন 🎉</b>
+      <p><b>Open</b> চাপুন, Google বা মোবাইল নম্বর দিয়ে লগইন করুন। বন্ধুর রেফার কোড থাকলে লগইন পেজে <b>"🎁 বন্ধুর রেফার কোড আছে?"</b> চেপে দিন।</p></div></div></div>
+
+    <div class="faq"><b style="display:block;padding:8px 0 2px;color:#2a1660">❓ সমস্যা হলে</b>
+      <details><summary>"App not installed / অ্যাপ ইনস্টল হয়নি" দেখাচ্ছে</summary><p>ফোনে আগের কোনো পুরোনো Reels Enjoy থাকলে সেটা আনইনস্টল করে আবার ইনস্টল করুন। ফোনে জায়গা কম থাকলেও এমন হয় — কিছু জায়গা খালি করুন।</p></details>
+      <details><summary>Play Protect ইনস্টল আটকে দিচ্ছে</summary><p>"More details" চাপুন, তারপর "Install anyway"। এটা শুধু জানায় যে অ্যাপটি এখনো Play Store-এ আসেনি।</p></details>
+      <details><summary>ডাউনলোড শুরু হচ্ছে না</summary><p>Chrome ব্রাউজারে এই পেজটি খুলুন (Facebook/Messenger-এর ভেতরের ব্রাউজারে অনেক সময় ডাউনলোড হয় না) — উপরের ⋮ → "Open in Chrome"।</p></details>
+      <details><summary>Samsung / Xiaomi / অন্য ফোনে মেনুর নাম আলাদা</summary><p>নাম একটু আলাদা হতে পারে: "Install unknown apps", "অজানা অ্যাপ ইনস্টল", "Unknown sources" — যেটাই আসুক, চালু করে দিন।</p></details>
+    </div>
+    <a class="again" href="../download/Reels-Enjoy.apk">⬇️ আবার ডাউনলোড করুন</a>
+  </div>
   <p class="foot"><a href="../policy/privacy.html">গোপনীয়তা নীতি</a> · <a href="../policy/terms.html">শর্তাবলি</a></p>
 </div>
 <script>
