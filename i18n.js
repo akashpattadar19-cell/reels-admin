@@ -1787,7 +1787,8 @@
 "🌐 সব": "🌐 All",
 "এই এলাকায় কোনো হেল্পার নেই": "No helpers in this region",
 "আমার রিচার্জের অবস্থা দেখুন ›": "Check my recharge status ›",
-"অফার: ঠিক ৳": "Offer: send exactly ৳"
+"অফার: ঠিক ৳": "Offer: send exactly ৳",
+"ঠিক আছে": "OK"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });

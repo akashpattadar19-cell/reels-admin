@@ -711,6 +711,20 @@ window.addEventListener("hashchange", route);
 const back = () => (history.length > 1 ? history.back() : (location.hash = "#home"));
 // এডমিনের লেখা নোটিশ: English বেছে নিলে <key>_en থাকলে সেটা দেখায়
 const settingL = (k, d = "") => (window.getLang?.() === "en" && setting(k + "_en", "")) || setting(k, d);
+// ব্রাউজারের confirm() এর বদলে অ্যাপের নিজের ডায়ালগ (উপরে ওয়েবসাইটের ঠিকানা দেখায় না)
+function ask(msg, { ok = "ঠিক আছে", cancel = "বাতিল", danger = /মুছ|ডিলিট|লগআউট|শেষ|কেটে/.test(String(msg)) } = {}) {
+  return new Promise((res) => {
+    const d = document.createElement("div");
+    d.className = "ask-bg";
+    d.innerHTML = `<div class="ask-box" role="dialog"><p></p><div class="ask-btns"><button class="ask-no">${cancel}</button><button class="ask-yes${danger ? " danger" : ""}">${ok}</button></div></div>`;
+    d.querySelector("p").textContent = String(msg);
+    const done = (v) => { d.classList.add("out"); setTimeout(() => d.remove(), 150); res(v); };
+    d.querySelector(".ask-no").onclick = () => done(false);
+    d.querySelector(".ask-yes").onclick = () => done(true);
+    d.onclick = (e) => { if (e.target === d) done(false); };
+    document.body.appendChild(d);
+  });
+}
 const header = (title, showBack = true) => `<h1>${showBack ? `<button class="back" onclick="history.back()">←</button>` : ""}${title}</h1>`;
 const notice = () => (settingL("app_notice", "") ? `<div class="notice" translate="no">📢 ${esc(settingL("app_notice", ""))}</div>` : "");
 
@@ -865,7 +879,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
         <div class="muted">🪙 ${n(v.premium_coins)} কয়েন দিয়ে দেখুন</div>
         <button class="btn unl">🪙 ${n(v.premium_coins)} কয়েনে দেখুন</button></div></div>` : ""}`;
     el.querySelector(".unl")?.addEventListener("click", async (e) => {
-      if (!confirm(`${v.premium_coins} কয়েন দিয়ে ভিডিওটি দেখবেন?`)) return;
+      if (!await ask(`${v.premium_coins} কয়েন দিয়ে ভিডিওটি দেখবেন?`)) return;
       e.currentTarget.disabled = true;
       try {
         const r = await rpc("unlock_premium", { p_video: v.id });
@@ -1021,7 +1035,7 @@ async function openComments(el) {
   attachSuggest($("#ci", body));
   $("#cl", body).onclick = async (e) => {
     const d = e.target.closest(".del");
-    if (!d || !confirm("কমেন্ট মুছবেন?")) return;
+    if (!d || !await ask("কমেন্ট মুছবেন?")) return;
     try { await rpc("delete_comment", { p_id: Number(d.dataset.id) }); v.comments_count--; el.querySelector(".cm .c").textContent = n(v.comments_count); load(); }
     catch (er) { toast(errMsg(er), true); }
   };
@@ -1468,7 +1482,7 @@ R.wallet = async () => {
     $("#conv").onclick = async () => {
       const min = Number(setting("points_convert_min", 1000));
       if (w.points < min) return toast(`কমপক্ষে ${n(min)} পয়েন্ট লাগবে`, true);
-      if (!confirm(`${n(w.points)} পয়েন্ট → ${tk(w.points * setting("point_value_paisa", 1))} ব্যালেন্সে যোগ করবেন?`)) return;
+      if (!await ask(`${n(w.points)} পয়েন্ট → ${tk(w.points * setting("point_value_paisa", 1))} ব্যালেন্সে যোগ করবেন?`)) return;
       try { const r = await rpc("convert_points", { p_points: w.points }); toast(`${tk(r.paisa)} যোগ হয়েছে`); R.wallet(); }
       catch (e) { toast(errMsg(e), true); }
     };
@@ -1785,7 +1799,7 @@ R.withdraw = async () => {
   $("#accList").addEventListener("click", async (e) => {
     const d = e.target.closest("[data-del]"); if (!d) return;
     e.preventDefault();
-    if (!confirm("এই নম্বর মুছবেন?")) return;
+    if (!await ask("এই নম্বর মুছবেন?")) return;
     try { await rpc("delete_payout_account", { p_id: Number(d.dataset.del) }); R.withdraw(); } catch (er) { toast(errMsg(er), true); }
   });
   $("#wf")?.addEventListener("submit", async (e) => {
@@ -1794,7 +1808,7 @@ R.withdraw = async () => {
     const sel = saved.find((a) => a.id === Number($("input[name=acc]:checked")?.value));
     const m = sel ? sel.method : $("input[name=m]:checked").value, acc = sel ? sel.account : cleanPhone($("#ac").value), nm = sel ? sel.name ?? "" : $("#an").value;
     if (!acc) return toast("নম্বর দিন", true);
-    if (!confirm(`${tk(amount)} ${METHOD[m]} ${acc} নম্বরে উইথড্র করবেন?`)) return;
+    if (!await ask(`${tk(amount)} ${METHOD[m]} ${acc} নম্বরে উইথড্র করবেন?`)) return;
     const b = e.submitter; b.disabled = true;
     try {
       if (!sel && $("#sv")?.checked) await rpc("add_payout_account", { p_method: m, p_account: acc, p_name: nm }).catch(() => {});
@@ -1851,7 +1865,7 @@ R.seller = async () => {
     e.preventDefault();
     if (!buyer) return toast("সঠিক ক্রেতার ID দিন", true);
     const c = Math.floor(Number($("#bc").value)); if (!c || c < 1) return toast(ERR.BAD_AMOUNT, true);
-    if (!confirm(`@${buyer.username}-কে 🪙 ${n(c)} কয়েন পাঠাবেন?\nআপনার স্টক থেকে কাটবে 🪙 ${n(c + com(c))} (কমিশনসহ)`)) return;
+    if (!await ask(`@${buyer.username}-কে 🪙 ${n(c)} কয়েন পাঠাবেন?\nআপনার স্টক থেকে কাটবে 🪙 ${n(c + com(c))} (কমিশনসহ)`)) return;
     const b = e.submitter; b.disabled = true;
     try {
       const r = await rpc("seller_sell_coins", { p_user_no: Number($("#bno").value), p_coins: c, p_taka: $("#bt").value ? Number($("#bt").value) : null, p_note: $("#bn").value });
@@ -1971,7 +1985,7 @@ R.chat = async (uid) => {
       if (a === "reply") setBar("reply", m);
       else if (a === "edit") setBar("edit", m);
       else if (a === "copy") { try { await navigator.clipboard.writeText(m.body); toast("কপি হয়েছে"); } catch { /* */ } }
-      else if (a === "del" && confirm("মেসেজটি মুছবেন?")) {
+      else if (a === "del" && await ask("মেসেজটি মুছবেন?")) {
         try { await rpc("delete_message", { p_id: m.id }); msgs.delete(m.id); list.querySelector(`.bub[data-id="${m.id}"]`)?.remove(); } catch (er) { toast(errMsg(er), true); }
       }
     };
@@ -2048,7 +2062,7 @@ function bindPost(el, v) {
   };
   el.querySelector(".gf")?.addEventListener("click", () => openGifts(el, true));
   el.querySelector(".del")?.addEventListener("click", async () => {
-    if (!confirm("পোস্টটি মুছবেন?")) return;
+    if (!await ask("পোস্টটি মুছবেন?")) return;
     try { await rpc("delete_post", { p_post: v.id }); el.remove(); toast("মুছে ফেলা হয়েছে"); if (location.hash.startsWith("#post/")) history.back(); }
     catch (er) { toast(errMsg(er), true); }
   });
@@ -2066,7 +2080,7 @@ async function openPostComments(el) {
   attachSuggest($("#ci", body));
   const setC = () => { const x = el.querySelector(".cm span"); if (x) x.textContent = n(v.comments_count); };
   $("#cl", body).onclick = async (e) => {
-    const d = e.target.closest(".del"); if (!d || !confirm("কমেন্ট মুছবেন?")) return;
+    const d = e.target.closest(".del"); if (!d || !await ask("কমেন্ট মুছবেন?")) return;
     try { await rpc("delete_post_comment", { p_id: Number(d.dataset.id) }); v.comments_count--; setC(); load(); } catch (er) { toast(errMsg(er), true); }
   };
   $("#cf", body).onsubmit = async (e) => {
@@ -2354,7 +2368,7 @@ async function downloadVideo(v) {
     if (v.locked) return toast("আগে ভিডিওটি আনলক করুন, তারপর ডাউনলোড করুন", true);
     const fee = Number(setting("premium_download_coins", 0));
     const owned = await sb.from("premium_downloads").select("video_id").eq("user_id", S.me.id).eq("video_id", v.id).maybeSingle().then((r) => !!r.data).catch(() => false);
-    if (!owned && !confirm(`👑 প্রিমিয়াম ভিডিও ডাউনলোড করতে 🪙 ${n(fee)} কয়েন লাগবে। ডাউনলোড করবেন?`)) return;
+    if (!owned && !await ask(`👑 প্রিমিয়াম ভিডিও ডাউনলোড করতে 🪙 ${n(fee)} কয়েন লাগবে। ডাউনলোড করবেন?`)) return;
     try {
       const r = await rpc("premium_download", { p_video: v.id });
       v.video_url = r.video_url; v._dlPaid = true;
@@ -2765,7 +2779,7 @@ R.live = async (rid) => {
     body.querySelector("#pkYes").onclick = async () => { clearTimeout(tmo); closeSheet(); try { await rpc("pk_answer", { p_pk: b.id, p_accept: true }); pkStart(b.id); } catch (e) { toast(errMsg(e), true); } };
   };
   $("#lvPk")?.addEventListener("click", async () => {
-    if (pk) { if (confirm("PK এখনই শেষ করবেন? যার স্কোর বেশি সে জিতবে।")) rpc("pk_finish", { p_pk: pk.id }).then(() => pkEnd()).catch((e) => toast(errMsg(e), true)); return; }
+    if (pk) { if (await ask("PK এখনই শেষ করবেন? যার স্কোর বেশি সে জিতবে।")) rpc("pk_finish", { p_pk: pk.id }).then(() => pkEnd()).catch((e) => toast(errMsg(e), true)); return; }
     const list = (await rpc("pk_candidates", { p_room: id }).catch(() => [])) ?? [];
     const body = sheet(`<h3>⚔️ PK ব্যাটল</h3><p class="tiny muted">অন্য একজন লাইভ হোস্টকে চ্যালেঞ্জ দিন। ${hms2(setting("pk_duration_sec", 300))} মিনিটে যার দর্শকরা বেশি গিফট দেবে সে জিতবে ও বোনাস পাবে।</p>
       <div class="list">${list.length ? list.map((r) => `<div class="li" style="display:flex;gap:10px;align-items:center">${avatar(r)}<span style="flex:1"><b translate="no">${esc(r.full_name || r.username)}</b><div class="tiny muted">👁 ${n(r.viewers)} <span translate="no">${esc(r.title || "")}</span></div></span>
@@ -2832,7 +2846,7 @@ R.live = async (rid) => {
     };
   });
   $("#lvJoin")?.addEventListener("click", async () => {
-    if (myRole === "host") { if (confirm("লাইভ থেকে নেমে যাবেন?")) { await rpc("live_leave", { p_room: id }).catch(() => {}); } return; }
+    if (myRole === "host") { if (await ask("লাইভ থেকে নেমে যাবেন?")) { await rpc("live_leave", { p_room: id }).catch(() => {}); } return; }
     try { await rpc("live_request_cohost", { p_room: id }); toast("🙋 অনুরোধ পাঠানো হয়েছে — হোস্ট রাজি হলে আপনি লাইভে চলে আসবেন"); } catch (e) { toast(errMsg(e), true); }
   });
   $("#lvGift")?.addEventListener("click", () => openGifts({ _v: { username: hp.username, id: 0 } }, false, id));
@@ -2842,8 +2856,8 @@ R.live = async (rid) => {
   $("#lvCam")?.addEventListener("click", async () => { facing = facing === "user" ? "environment" : "user"; try { await cam?.setDevice({ facingMode: facing }); } catch { toast("ক্যামেরা বদলানো যায়নি", true); } });
   $("#lvMic")?.addEventListener("click", async (e) => { if (!mic) return; const on = !mic.muted; await mic.setMuted(on); e.currentTarget.textContent = on ? "🔇" : "🎤"; });
   const endLive = async () => { await rpc("live_end", { p_room: id }).catch(() => {}); showEnded(); };
-  $("#lvEnd")?.addEventListener("click", async () => { if (confirm("লাইভ শেষ করবেন?")) { await endLive(); location.replace("#home"); } });
-  $("#lvX").onclick = async () => { if (host && !ended) { if (!confirm("লাইভ শেষ করে বের হবেন?")) return; await endLive(); } history.back(); };
+  $("#lvEnd")?.addEventListener("click", async () => { if (await ask("লাইভ শেষ করবেন?")) { await endLive(); location.replace("#home"); } });
+  $("#lvX").onclick = async () => { if (host && !ended) { if (!await ask("লাইভ শেষ করে বের হবেন?")) return; await endLive(); } history.back(); };
   cleanup = () => {
     clearInterval(hb); sb.removeChannel(ch); clearInterval(pkT); if (pkCh) sb.removeChannel(pkCh); try { pkClient?.leave(); } catch { /* */ }
     if (host && !ended) rpc("live_end", { p_room: id }).catch(() => {}); else rpc("live_leave", { p_room: id }).catch(() => {});
@@ -3067,8 +3081,8 @@ R.party = async (rid) => {
   let likeT = 0;
   $("#pyLike")?.addEventListener("click", () => { heart(); if (Date.now() - likeT > 1500) { likeT = Date.now(); rpc("live_send", { p_room: id, p_body: "❤️", p_kind: "like" }).catch(() => {}); } });
   const endParty = async () => { await rpc("live_end", { p_room: id }).catch(() => {}); showEnded(); };
-  $("#pyEnd")?.addEventListener("click", async () => { if (confirm("পার্টি শেষ করবেন?")) { await endParty(); location.replace("#home"); } });
-  $("#lvX").onclick = async () => { if (host && !ended) { if (!confirm("পার্টি শেষ করে বের হবেন?")) return; await endParty(); } history.back(); };
+  $("#pyEnd")?.addEventListener("click", async () => { if (await ask("পার্টি শেষ করবেন?")) { await endParty(); location.replace("#home"); } });
+  $("#lvX").onclick = async () => { if (host && !ended) { if (!await ask("পার্টি শেষ করে বের হবেন?")) return; await endParty(); } history.back(); };
   cleanup = () => {
     clearInterval(hb); sb.removeChannel(ch);
     if (host && !ended) rpc("live_end", { p_room: id }).catch(() => {}); else rpc("live_leave", { p_room: id }).catch(() => {});
@@ -3116,7 +3130,7 @@ async function incomingCall(c) {
 async function startCall(host, kind) {
   try {
     needMedia();
-    if (!confirm(`${kind === "video" ? "📹 ভিডিও" : "📞 অডিও"} কল: প্রতি মিনিটে 🪙 ${n(callRate(host, kind))} কয়েন কাটবে। কল দেবেন?`)) return;
+    if (!await ask(`${kind === "video" ? "📹 ভিডিও" : "📞 অডিও"} কল: প্রতি মিনিটে 🪙 ${n(callRate(host, kind))} কয়েন কাটবে। কল দেবেন?`)) return;
     const r = await rpc("call_start", { p_callee: host.id, p_kind: kind });
     location.hash = `#call/${r.call_id}`;
   } catch (e) {
@@ -3304,7 +3318,7 @@ R.story = async (uid) => {
   $("#stH")?.addEventListener("click", () => { reply("❤️"); const h = document.createElement("div"); h.className = "big-heart"; h.textContent = "❤️"; screen.querySelector(".stv").appendChild(h); setTimeout(() => h.remove(), 900); });
   $("#stDel")?.addEventListener("click", async () => {
     pause(true);
-    if (!confirm("এই স্টোরি মুছবেন?")) return pause(false);
+    if (!await ask("এই স্টোরি মুছবেন?")) return pause(false);
     try { await rpc("delete_story", { p_id: list[i].id }); list.splice(i, 1); toast("মুছে ফেলা হয়েছে"); if (!list.length) return close(); i = Math.min(i, list.length - 1); screen.querySelectorAll(".stv-bars i")[0]?.remove(); bars.splice(0, 1); show(); }
     catch (er) { toast(errMsg(er), true); pause(false); }
   });
@@ -3554,7 +3568,7 @@ R.jail = async () => {
     ${bal >= fee ? `<button class="btn primary" id="pay">🔓 ${n(fee)} কয়েন দিয়ে মুক্ত হোন</button>` : `<a class="btn primary" href="#cashin">🪙 কয়েন কিনুন</a>`}
     <button class="btn" id="lo" style="width:100%;margin-top:10px">🚪 লগআউট</button></div>`;
   $("#pay")?.addEventListener("click", async (e) => {
-    if (!confirm(`${fee} কয়েন দিয়ে জেল থেকে মুক্ত হবেন?`)) return;
+    if (!await ask(`${fee} কয়েন দিয়ে জেল থেকে মুক্ত হবেন?`)) return;
     e.target.disabled = true;
     try { await rpc("pay_jail_release"); S.me.jailed = false; toast("🔓 আপনি এখন মুক্ত"); location.hash = "#home"; }
     catch (er) { toast(errMsg(er), true); e.target.disabled = false; }
@@ -3632,11 +3646,11 @@ function accountBlock(me) {
 function bindAccount(me, reload) {
   const en = window.getLang?.() === "en", host = me.account_type === "host", pending = !host && me.host_requested_at;
   $("#lang")?.addEventListener("click", () => window.setLang?.(en ? "bn" : "en"));
-  $("#lo")?.addEventListener("click", async () => { if (!confirm("লগআউট করবেন?")) return; await sb.auth.signOut(); S.me = null; location.hash = ""; showAuth(); });
+  $("#lo")?.addEventListener("click", async () => { if (!await ask("লগআউট করবেন?")) return; await sb.auth.signOut(); S.me = null; location.hash = ""; showAuth(); });
   document.querySelectorAll(".acct button").forEach((b) => (b.onclick = async () => {
     const t = b.dataset.t;
     if ((t === "host" && (host || pending)) || (t === "user" && !host && !pending)) return;
-    if (t === "user" && !confirm(host ? "হোস্ট থেকে ইউজারে ফিরবেন? আবার হোস্ট হতে অনুমোদন লাগবে।" : "হোস্ট আবেদন বাতিল করবেন?")) return;
+    if (t === "user" && !await ask(host ? "হোস্ট থেকে ইউজারে ফিরবেন? আবার হোস্ট হতে অনুমোদন লাগবে।" : "হোস্ট আবেদন বাতিল করবেন?")) return;
     try {
       const r = await rpc("set_account_type", { p_type: t });
       toast(r === "pending" ? "✅ হোস্ট আবেদন পাঠানো হয়েছে" : r === "host" ? "🎤 আপনি এখন হোস্ট" : "👤 ইউজার অ্যাকাউন্ট");
@@ -3706,7 +3720,7 @@ R.delacct = async () => {
       <button class="btn" id="doDel" style="width:100%;background:#e5484d;color:#fff;border:0">🗑️ আমার অ্যাকাউন্ট ডিলিট করুন</button>`}
     <p class="tiny muted" style="margin-top:12px">বিস্তারিত: <a href="#policy/delete-account">অ্যাকাউন্ট ডিলিট নীতি</a></p></div>`;
   $("#doDel")?.addEventListener("click", async () => {
-    if (!confirm("সত্যিই অ্যাকাউন্ট ডিলিট করবেন? ৭ দিন পর সব তথ্য স্থায়ীভাবে মুছে যাবে।")) return;
+    if (!await ask("সত্যিই অ্যাকাউন্ট ডিলিট করবেন? ৭ দিন পর সব তথ্য স্থায়ীভাবে মুছে যাবে।")) return;
     try { await rpc("request_account_deletion", { p_cancel: false }); toast("ডিলিটের অনুরোধ নেওয়া হয়েছে"); R.delacct(); } catch (e) { toast(errMsg(e), true); }
   });
   $("#cancelDel")?.addEventListener("click", async () => {
@@ -3864,7 +3878,7 @@ R.u = async (id) => {
       <span class="pill ${v.status === "pending" ? "pending" : "rejected"}">${v.status === "pending" ? "⏳ পেন্ডিং" : "রিজেক্টেড"}</span></div>`).join("")}</div></div>`;
   }
   $("#lang")?.addEventListener("click", () => window.setLang?.(window.getLang?.() === "en" ? "bn" : "en"));
-  $("#lo")?.addEventListener("click", async () => { if (!confirm("লগআউট করবেন?")) return; await sb.auth.signOut(); S.me = null; location.hash = ""; showAuth(); });
+  $("#lo")?.addEventListener("click", async () => { if (!await ask("লগআউট করবেন?")) return; await sb.auth.signOut(); S.me = null; location.hash = ""; showAuth(); });
   $("#cbV")?.addEventListener("click", () => startCall(p, "video"));
   $("#cbA")?.addEventListener("click", () => startCall(p, "audio"));
   $("#fb")?.addEventListener("click", async (e) => {
@@ -4045,8 +4059,8 @@ R.edit = () => {
     coverBlob = bl; coverDel = false; $("#cvPrev").style.backgroundImage = `url('${URL.createObjectURL(bl)}')`; $("#cvPrev").innerHTML = ""; $("#cvDel").hidden = false; }); };
   $("#af").onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) openCrop(f, "#avCrop", 1, (bl) => {
     avatarBlob = bl; avatarDel = false; $("#avPrev .av").innerHTML = `<img src="${URL.createObjectURL(bl)}">`; $("#avDel").hidden = false; }); };
-  $("#avDel").onclick = () => { if (!confirm("প্রোফাইল ছবি মুছবেন?")) return; avatarDel = true; avatarBlob = null; $("#avPrev").innerHTML = avatar({ ...p, avatar_url: null }); $("#avDel").hidden = true; };
-  $("#cvDel").onclick = () => { if (!confirm("কভার ফটো মুছবেন?")) return; coverDel = true; coverBlob = null; $("#cvPrev").style.backgroundImage = ""; $("#cvPrev").innerHTML = "<span>কোনো কভার ফটো নেই</span>"; $("#cvDel").hidden = true; };
+  $("#avDel").onclick = async () => { if (!await ask("প্রোফাইল ছবি মুছবেন?")) return; avatarDel = true; avatarBlob = null; $("#avPrev").innerHTML = avatar({ ...p, avatar_url: null }); $("#avDel").hidden = true; };
+  $("#cvDel").onclick = async () => { if (!await ask("কভার ফটো মুছবেন?")) return; coverDel = true; coverBlob = null; $("#cvPrev").style.backgroundImage = ""; $("#cvPrev").innerHTML = "<span>কোনো কভার ফটো নেই</span>"; $("#cvDel").hidden = true; };
   $("#sv").onclick = async (e) => {
     e.target.disabled = true;
     try {
@@ -4123,7 +4137,7 @@ R.vault = async () => {
       : `<img src="${esc(url)}" style="width:100%;max-height:65vh;object-fit:contain;border-radius:12px" alt="">`}
       <button class="btn" id="vdel" style="width:100%;margin-top:10px;color:#ff8a8a">🗑️ মুছে ফেলুন</button>`);
     $("#vdel", body).onclick = async () => {
-      if (!confirm("ফাইলটি স্থায়ীভাবে মুছবেন?")) return;
+      if (!await ask("ফাইলটি স্থায়ীভাবে মুছবেন?")) return;
       try {
         await sb.storage.from("vault").remove([a.dataset.path]);
         await rpc("vault_remove", { p_id: Number(a.dataset.id) });
