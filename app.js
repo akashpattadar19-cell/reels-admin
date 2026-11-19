@@ -1118,6 +1118,156 @@ routes.rules = async (kind = "user") => {
   };
 };
 
+// ---------- 💎 আয়ের ফিচার: রিওয়ার্ড পুল · VIP · দোকান · বুস্ট · স্পন্সর ----------
+const MON_TABS = [["pool", "💰 রিওয়ার্ড পুল"], ["vip", "💎 VIP"], ["store", "🎨 দোকান"], ["boost", "🚀 বুস্ট"], ["sponsor", "📢 স্পন্সর"]];
+const STYLE_OPTS = { frame: [["gold", "সোনালি"], ["rainbow", "রংধনু (চলমান)"], ["neon", "নিয়ন (জ্বলজ্বলে)"], ["flower", "ফুল 🌸"], ["fire", "আগুন 🔥"], ["crown", "মুকুট 👑"]],
+  entry: [["stars", "তারা ✨"], ["fire", "আগুন 🔥"], ["royal", "রাজকীয় 👑"], ["rocket", "রকেট 🚀"]],
+  bubble: [["pink", "গোলাপি"], ["ocean", "সাগর নীল"], ["gold", "সোনালি"], ["night", "রাতের বেগুনি"]] };
+routes.monetize = async (tab = "pool") => {
+  if (!MON_TABS.some((t) => t[0] === tab)) tab = "pool";
+  loading();
+  const [{ data: st }, stats] = await Promise.all([sb.from("settings").select("key,value"), rpc("admin_monetize_stats", { p_days: 30 }).catch(() => ({}))]);
+  const S2 = Object.fromEntries((st ?? []).map((x) => [x.key, x.value]));
+  const row = (key, label, kind) => {
+    const v = S2[key];
+    return `<div class="item" data-key="${key}" data-kind="${kind}"><div class="top"><b>${label}</b></div><div class="row" style="flex-wrap:nowrap">${kind === "bool"
+      ? `<select name="v"><option value="true" ${v === true ? "selected" : ""}>চালু</option><option value="false" ${v === false ? "selected" : ""}>বন্ধ</option></select>`
+      : `<input name="v" type="number" step="${kind === "taka" ? "0.01" : "1"}" min="0" value="${esc(kind === "taka" ? Number(v ?? 0) / 100 : v ?? 0)}">${kind === "taka" ? '<span class="muted">৳</span>' : ""}`}
+      <button class="btn sm good" data-save>সেভ</button></div></div>`;
+  };
+  const tabsHtml = `<div class="tabs">${MON_TABS.map(([k, l]) => `<a class="btn sm ${k === tab ? "on" : ""}" href="#monetize/${k}">${l}</a>`).join("")}</div>`;
+  const statHtml = `<div class="grid">
+    <div class="card stat"><div class="k">এখন VIP</div><div class="v">${num(stats.vip_active)}</div></div>
+    <div class="card stat"><div class="k">VIP থেকে কয়েন (৩০ দিন)</div><div class="v">🪙 ${num(stats.vip_coins)}</div></div>
+    <div class="card stat"><div class="k">দোকান থেকে কয়েন</div><div class="v">🪙 ${num(stats.store_coins)}</div></div>
+    <div class="card stat"><div class="k">বুস্ট থেকে কয়েন</div><div class="v">🪙 ${num(stats.boost_coins)}</div></div></div>`;
+  let body = "";
+  if (tab === "pool") {
+    const today = new Date(Date.now() + 6 * 3600e3).toISOString().slice(0, 10);
+    const tp = await rpc("pool_today").catch(() => null);
+    body = `<div class="card small" style="margin-bottom:12px">প্রতিদিন যত টাকার কয়েন বিক্রি হয় (বিকাশ/নগদ অনুমোদিত + Google Play), তার <b>নির্দিষ্ট %</b> পুলে যায়।
+      বাংলাদেশ সময় রাত ১২:১০-এ আগের দিনের পুল দর্শকদের মধ্যে তাদের পয়েন্ট অনুযায়ী ভাগ হয় (পেন্ডিং ব্যালেন্সে)। আয় যত, দেওয়াও তত — কখনো লোকসান হবে না।
+      <br>⚠️ পুল চালু থাকলে "পয়েন্ট → টাকা" রূপান্তর বন্ধ থাকবে (দুবার পেমেন্ট এড়াতে)।</div>
+      <div class="grid"><div class="card stat"><div class="k">আজ এখন পর্যন্ত পুল</div><div class="v">${taka(tp?.pool_paisa ?? 0)}</div></div>
+        <div class="card stat"><div class="k">আজ মোট পয়েন্ট</div><div class="v">${num(tp?.total_points ?? 0)}</div></div></div>
+      <div class="list">${row("pool_enabled", "রিওয়ার্ড পুল চালু", "bool")}${row("pool_pct", "কয়েন বিক্রির কত % পুলে যাবে", "num")}
+        ${row("pool_user_cap_paisa", "একজন দিনে সর্বোচ্চ কত পাবে (০ = সীমা নেই)", "taka")}${row("pool_min_points", "ভাগ পেতে দিনে কমপক্ষে কত পয়েন্ট", "num")}
+        ${row("play_net_pct", "Google Play কেনার কত % আপনার হাতে আসে", "num")}</div>
+      <div class="card" style="max-width:520px;margin-top:12px"><b>➕ আজকের পুলে বাড়তি টাকা যোগ</b><div class="muted small">যেমন অ্যাড বা স্পন্সর থেকে আয়ের একটা অংশ দর্শকদের দিতে চাইলে।</div>
+        <div class="row" style="gap:8px;margin-top:6px"><input type="number" id="pxAmt" min="0" step="1" placeholder="টাকা" style="flex:1"><button class="btn good" id="pxSave">আজকের পুলে যোগ</button></div></div>
+      <h2>📜 আগের দিনের পুল</h2><div class="table-wrap"><table><tr><th>দিন</th><th class="num">আয়</th><th class="num">%</th><th class="num">বাড়তি</th><th class="num">পুল</th><th class="num">জন</th><th class="num">দেওয়া</th></tr>
+        ${(stats.pools ?? []).map((r) => `<tr><td>${r.day}</td><td class="num">${taka(r.revenue_paisa)}</td><td class="num">${r.pct}</td><td class="num">${taka(r.extra_paisa)}</td><td class="num">${taka(r.pool_paisa)}</td><td class="num">${num(r.users)}</td><td class="num">${r.settled_at ? taka(r.paid_paisa) : "—"}</td></tr>`).join("") || `<tr><td colspan="7" class="muted">এখনো নেই</td></tr>`}</table></div>`;
+    view.innerHTML = `<h1>💎 আয়ের ফিচার</h1>${tabsHtml}${body}`;
+    $("#pxSave").onclick = async () => {
+      const t = Number($("#pxAmt").value); if (!(t >= 0)) return toast("টাকা লিখুন", true);
+      await act(() => rpc("admin_pool_extra", { p_day: today, p_paisa: Math.round(t * 100) }), "পুলে যোগ হয়েছে"); routes.monetize("pool");
+    };
+  } else if (tab === "vip") {
+    const { data: plans } = await sb.from("vip_plans").select("*").order("sort");
+    view.innerHTML = `<h1>💎 আয়ের ফিচার</h1>${tabsHtml}${statHtml}
+      <div class="list">${row("vip_enabled", "VIP মেম্বারশিপ চালু", "bool")}</div>
+      <p class="muted small">ইউজার কয়েন দিয়ে VIP কেনে। সুবিধা: ব্যাজ, প্রতিদিন ফ্রি কয়েন, ভিডিও দেখার পয়েন্টে বোনাস %, লাইভে VIP এন্ট্রি, শুধু-VIP ফ্রেম।
+        ⚠️ প্রতিদিনের ফ্রি কয়েন × দিন যেন দামের অর্ধেকের কম থাকে, নইলে লোকসান।</p>
+      <h2>প্ল্যান</h2><div class="table-wrap"><table id="vpT"><tr><th>নাম</th><th>ব্যাজ</th><th>রং</th><th class="num">দিন</th><th class="num">দাম 🪙</th><th class="num">দৈনিক 🪙</th><th class="num">পয়েন্ট বোনাস %</th><th>চালু</th><th></th></tr>
+        ${[...(plans ?? []), { id: "new", name: "", badge: "💎", color: "gold", days: 30, price_coins: "", daily_coins: 0, points_bonus_pct: 0, active: true, sort: 9 }].map((p) => `<tr data-id="${p.id}">
+          <td><input name="name" value="${esc(p.name)}" placeholder="যেমন VIP"></td><td><input name="badge" value="${esc(p.badge)}" style="width:50px"></td>
+          <td><select name="color">${["gold", "purple", "pink", "blue"].map((c) => `<option ${c === p.color ? "selected" : ""}>${c}</option>`).join("")}</select></td>
+          <td><input name="days" type="number" min="1" value="${p.days}" style="width:70px"></td><td><input name="price" type="number" min="1" value="${p.price_coins}" style="width:90px"></td>
+          <td><input name="daily" type="number" min="0" value="${p.daily_coins}" style="width:70px"></td><td><input name="bonus" type="number" min="0" value="${p.points_bonus_pct}" style="width:70px"></td>
+          <td><input name="active" type="checkbox" ${p.active ? "checked" : ""} style="width:auto"></td><td><button class="btn sm good" data-vs>${p.id === "new" ? "যোগ" : "সেভ"}</button></td></tr>`).join("")}</table></div>
+      <h2>এখনকার VIP</h2><div class="table-wrap"><table><tr><th>ID</th><th>ইউজার</th><th>প্ল্যান</th><th>মেয়াদ</th></tr>
+        ${(stats.vip_users ?? []).map((u) => `<tr><td><a href="#lookup/${u.user_no}">${u.user_no}</a></td><td>@${esc(u.username)}</td><td>${esc(u.plan ?? "")}</td><td>${dt(u.vip_until)}</td></tr>`).join("") || `<tr><td colspan="4" class="muted">এখনো কেউ নেই</td></tr>`}</table></div>`;
+    $("#vpT").onclick = async (e) => {
+      const b = e.target.closest("[data-vs]"); if (!b) return;
+      const tr = b.closest("tr"), g = (n2) => tr.querySelector(`[name=${n2}]`);
+      await act(() => rpc("admin_save_vip_plan", { p_id: tr.dataset.id === "new" ? null : Number(tr.dataset.id), p_name: g("name").value.trim(), p_days: Number(g("days").value),
+        p_price: Number(g("price").value), p_daily: Number(g("daily").value), p_bonus: Number(g("bonus").value), p_badge: g("badge").value.trim(), p_color: g("color").value,
+        p_active: g("active").checked, p_sort: 0 }), "সেভ হয়েছে");
+      if (tr.dataset.id === "new") routes.monetize("vip");
+    };
+  } else if (tab === "store") {
+    const { data: items } = await sb.from("store_items").select("*").order("kind").order("sort");
+    const kinds = { frame: "🖼️ ফ্রেম", entry: "✨ এন্ট্রি", bubble: "💬 চ্যাট বাবল" };
+    view.innerHTML = `<h1>💎 আয়ের ফিচার</h1>${tabsHtml}${statHtml}
+      <div class="list">${row("store_enabled", "দোকান চালু", "bool")}</div>
+      <p class="muted small">ডিজাইন অ্যাপে আগে থেকে বানানো — এখানে নাম, দাম (কয়েন), কত দিন চলবে (০ = সারাজীবন) আর শুধু VIP কিনা ঠিক করবেন। নতুন ডিজাইন চাইলে আমাকে বলুন।</p>
+      ${Object.entries(kinds).map(([k, l]) => `<h2>${l}</h2><div class="table-wrap"><table class="siT"><tr><th>ডিজাইন</th><th>নাম</th><th class="num">দাম 🪙</th><th class="num">দিন</th><th>শুধু VIP</th><th>চালু</th><th></th></tr>
+        ${[...(items ?? []).filter((x) => x.kind === k), { id: "new", kind: k, style: STYLE_OPTS[k][0][0], name: "", price_coins: "", days: 30, vip_only: false, active: true }].map((it) => `<tr data-id="${it.id}" data-kind="${k}">
+          <td><select name="style">${STYLE_OPTS[k].map(([v, lb]) => `<option value="${v}" ${v === it.style ? "selected" : ""}>${lb}</option>`).join("")}</select></td>
+          <td><input name="name" value="${esc(it.name)}" placeholder="যেমন সোনালি ফ্রেম"></td><td><input name="price" type="number" min="0" value="${it.price_coins}" style="width:90px"></td>
+          <td><input name="days" type="number" min="0" value="${it.days}" style="width:70px"></td><td><input name="vip" type="checkbox" ${it.vip_only ? "checked" : ""} style="width:auto"></td>
+          <td><input name="active" type="checkbox" ${it.active ? "checked" : ""} style="width:auto"></td><td><button class="btn sm good" data-ss>${it.id === "new" ? "যোগ" : "সেভ"}</button></td></tr>`).join("")}</table></div>`).join("")}`;
+    view.querySelectorAll(".siT").forEach((t) => (t.onclick = async (e) => {
+      const b = e.target.closest("[data-ss]"); if (!b) return;
+      const tr = b.closest("tr"), g = (n2) => tr.querySelector(`[name=${n2}]`);
+      if (!g("name").value.trim()) return toast("নাম লিখুন", true);
+      await act(() => rpc("admin_save_store_item", { p_id: tr.dataset.id === "new" ? null : Number(tr.dataset.id), p_kind: tr.dataset.kind, p_style: g("style").value,
+        p_name: g("name").value.trim(), p_price: Number(g("price").value || 0), p_days: Number(g("days").value || 0), p_vip: g("vip").checked, p_active: g("active").checked, p_sort: 0 }), "সেভ হয়েছে");
+      if (tr.dataset.id === "new") routes.monetize("store");
+    }));
+  } else if (tab === "boost") {
+    view.innerHTML = `<h1>💎 আয়ের ফিচার</h1>${tabsHtml}${statHtml}
+      <p class="muted small">ক্রিয়েটর নিজের অনুমোদিত ভিডিওতে 🚀 চাপলে কয়েন দিয়ে বুস্ট করতে পারে। বুস্ট করা ভিডিও সবার রিলে "🚀 প্রমোটেড" হিসেবে মাঝে মাঝে আসে।</p>
+      <div class="list">${row("boost_enabled", "বুস্ট চালু", "bool")}${row("boost_coins_per_day", "প্রতি দিনের দাম (কয়েন)", "num")}
+        ${row("boost_max_days", "একবারে সর্বোচ্চ কত দিন", "num")}${row("boost_every_n", "রিলে প্রতি কয়টি ভিডিওর পর ১টি বুস্ট", "num")}</div>
+      <h2>সাম্প্রতিক বুস্ট</h2><div class="table-wrap"><table><tr><th>ভিডিও</th><th>ক্রিয়েটর</th><th>শেষ</th><th class="num">কয়েন</th><th class="num">ভিউ</th></tr>
+        ${(stats.boosts ?? []).map((v) => `<tr><td class="small">#${v.id} ${esc((v.caption ?? "").slice(0, 40))}</td><td><a href="#lookup/${v.user_no}">${v.user_no}</a> @${esc(v.username)}</td><td>${dt(v.boost_until)}</td><td class="num">${num(v.boost_coins)}</td><td class="num">${num(v.views_count)}</td></tr>`).join("") || `<tr><td colspan="5" class="muted">এখনো নেই</td></tr>`}</table></div>`;
+  } else {
+    const { data: ads } = await sb.from("sponsor_ads").select("*").order("created_at", { ascending: false });
+    view.innerHTML = `<h1>💎 আয়ের ফিচার</h1>${tabsHtml}
+      <p class="muted small">দোকান, অনলাইন পেজ বা কোম্পানির কাছে সরাসরি বিজ্ঞাপন বিক্রি করুন। ছবি (৩:১ চওড়া ভালো দেখায়) আর লিংক দিন — হোমের উপরে ও রিলের মাঝে দেখাবে। কতজন দেখেছে/ক্লিক করেছে নিচে দেখা যাবে।</p>
+      <div class="list">${row("sponsor_every_n", "রিলে প্রতি কয়টি ভিডিওর পর ১টি স্পন্সর", "num")}</div>
+      <div class="card" style="max-width:520px;margin-top:12px" id="spForm"><input type="hidden" id="spId">
+        <label>শিরোনাম<input id="spT" maxlength="80" placeholder="যেমন রহিম ফ্যাশন — ঈদ অফার ৩০% ছাড়"></label>
+        <label>ছবি<input type="file" id="spF" accept="image/*"></label><div id="spPrev" class="small muted"></div>
+        <label>লিংক (ঐচ্ছিক — Facebook পেজ, WhatsApp, ওয়েবসাইট)<input id="spL" placeholder="https://…"></label>
+        <div class="row" style="gap:8px"><label style="flex:1">কোথায়<select id="spP"><option value="all">হোম + রিল</option><option value="home">শুধু হোম</option><option value="feed">শুধু রিল</option></select></label>
+          <label style="flex:1">শেষ তারিখ<input type="date" id="spE"></label></div>
+        <label>নোট (কত টাকায় বিক্রি, যোগাযোগ — শুধু আপনি দেখবেন)<input id="spN"></label>
+        <label class="row" style="gap:6px;justify-content:flex-start"><input type="checkbox" id="spA" checked style="width:auto"> চালু</label>
+        <div class="row" style="gap:8px"><button class="btn primary" id="spSave">স্পন্সর যোগ করুন</button><button class="btn hidden" id="spCancel">বাতিল</button></div></div>
+      <h2>সব স্পন্সর</h2><div class="table-wrap"><table id="spT2"><tr><th>ছবি</th><th>শিরোনাম</th><th>কোথায়</th><th>শেষ</th><th class="num">দেখা</th><th class="num">ক্লিক</th><th>অবস্থা</th><th></th></tr>
+        ${(ads ?? []).map((a) => `<tr data-id="${a.id}"><td><img src="${esc(a.image_url)}" style="width:90px;height:30px;object-fit:cover;border-radius:6px"></td><td>${esc(a.title)}<div class="small muted">${esc(a.price_note ?? "")}</div></td>
+          <td>${{ all: "হোম + রিল", home: "হোম", feed: "রিল" }[a.placement]}</td><td>${a.ends_at ? dt(a.ends_at) : "—"}</td><td class="num">${num(a.impressions)}</td><td class="num">${num(a.clicks)}</td>
+          <td>${a.active && (!a.ends_at || new Date(a.ends_at) > new Date()) ? '<span class="pill approved">চলছে</span>' : '<span class="pill rejected">বন্ধ</span>'}</td>
+          <td style="white-space:nowrap"><button class="btn sm" data-se="${a.id}">এডিট</button> <button class="btn sm danger" data-sd="${a.id}">মুছুন</button></td></tr>`).join("") || `<tr><td colspan="8" class="muted">এখনো নেই</td></tr>`}</table></div>`;
+    let img = null;
+    const reset = () => { ["#spId", "#spT", "#spL", "#spE", "#spN"].forEach((q) => ($(q).value = "")); $("#spF").value = ""; $("#spA").checked = true; $("#spP").value = "all"; img = null; $("#spPrev").innerHTML = ""; $("#spSave").textContent = "স্পন্সর যোগ করুন"; $("#spCancel").classList.add("hidden"); };
+    $("#spCancel").onclick = reset;
+    $("#spT2").onclick = async (e) => {
+      const ed = e.target.closest("[data-se]"), del = e.target.closest("[data-sd]");
+      if (del) { if (!confirm("এই স্পন্সর মুছবেন?")) return; await act(() => rpc("admin_delete_sponsor", { p_id: Number(del.dataset.sd) }), "মুছে ফেলা হয়েছে"); return routes.monetize("sponsor"); }
+      if (!ed) return;
+      const a = ads.find((x) => x.id === Number(ed.dataset.se));
+      $("#spId").value = a.id; $("#spT").value = a.title; $("#spL").value = a.link_url ?? ""; $("#spP").value = a.placement; $("#spE").value = a.ends_at ? a.ends_at.slice(0, 10) : "";
+      $("#spN").value = a.price_note ?? ""; $("#spA").checked = a.active; img = a.image_url; $("#spPrev").innerHTML = `<img src="${esc(img)}" style="width:150px;border-radius:8px">`;
+      $("#spSave").textContent = "পরিবর্তন সেভ করুন"; $("#spCancel").classList.remove("hidden"); $("#spForm").scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+    $("#spSave").onclick = async () => {
+      const title = $("#spT").value.trim(); if (title.length < 2) return toast("শিরোনাম লিখুন", true);
+      const f = $("#spF").files[0];
+      if (f) {
+        const path = `${S.me.id}/sponsor-${Date.now()}.${(f.name.split(".").pop() || "jpg").toLowerCase()}`;
+        const { error } = await sb.storage.from("photos").upload(path, f, { contentType: f.type || "image/jpeg" });
+        if (error) return toast(errMsg(error), true);
+        img = sb.storage.from("photos").getPublicUrl(path).data.publicUrl;
+      }
+      if (!img) return toast("ছবি দিন", true);
+      const ends = $("#spE").value ? new Date($("#spE").value + "T23:59:00+06:00").toISOString() : null;
+      await act(() => rpc("admin_save_sponsor", { p_id: $("#spId").value ? Number($("#spId").value) : null, p_title: title, p_image: img, p_link: $("#spL").value.trim(),
+        p_place: $("#spP").value, p_starts: null, p_ends: ends, p_active: $("#spA").checked, p_note: $("#spN").value.trim(), p_sort: 0 }), "সেভ হয়েছে");
+      routes.monetize("sponsor");
+    };
+  }
+  view.querySelectorAll("[data-save]").forEach((b) => (b.onclick = async () => {
+    const it = b.closest(".item"), raw = it.querySelector("[name=v]").value, kind = it.dataset.kind;
+    const value = kind === "bool" ? raw === "true" : kind === "taka" ? Math.round(Number(raw) * 100) : Math.round(Number(raw));
+    if (kind !== "bool" && (isNaN(value) || value < 0)) return toast("সঠিক সংখ্যা দিন", true);
+    if (it.dataset.key === "pool_enabled" && value === true && !confirm("রিওয়ার্ড পুল চালু করলে পয়েন্ট → টাকা রূপান্তর বন্ধ হবে, পয়েন্ট দিয়ে প্রতিদিন পুলের ভাগ পাবে। চালু করবেন?")) return;
+    await act(() => rpc("admin_set_setting", { p_key: it.dataset.key, p_value: value }), "সেভ হয়েছে");
+  }));
+};
+
 // ---------- 🎁 রেফার (নিয়ম, টাস্ক, অফার, বোনাস ধাপ, তালিকা) ----------
 const REF_TASK = { full_watch: "🎬 ভিডিও পুরো দেখা", likes: "❤️ লাইক", comments: "💬 কমেন্ট", shares: "↗️ শেয়ার",
   active_days: "📱 অ্যাপ ব্যবহারের দিন", video_posts: "🎥 ভিডিও পোস্ট (অনুমোদিত)", text_posts: "✍️ টেক্সট পোস্ট" };

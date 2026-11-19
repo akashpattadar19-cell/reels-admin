@@ -1193,3 +1193,98 @@ html, body, .auth, .auth-card { overflow-x: clip; }
 .ref-rules { display: flex; flex-wrap: wrap; gap: 6px; }
 .ref-rules span { background: #f1ecff; color: #4b2a9a; border-radius: 10px; padding: 4px 9px; font-size: 12px; }
 .ref-fr { padding: 12px 14px; }
+
+/* ===== VIP, ফ্রেম, এন্ট্রি, বাবল, বুস্ট, স্পন্সর, পুল ===== */
+.viptag { display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; font-weight: 800; padding: 2px 9px; border-radius: 20px; color: #5a3500;
+  background: linear-gradient(135deg, #fff1a8, #ffc83d); box-shadow: 0 2px 8px rgba(245,183,0,.35); vertical-align: middle; margin: 2px 4px; }
+.viptag.v-purple { color: #fff; background: linear-gradient(135deg, #b46cff, #6a2fd6); box-shadow: 0 2px 8px rgba(124,58,237,.4); }
+.viptag.v-pink { color: #fff; background: linear-gradient(135deg, #ff8ac4, #e34cf0); }
+.viptag.v-blue { color: #fff; background: linear-gradient(135deg, #6cc3ff, #3b6dff); }
+.vipmini { font-style: normal; font-size: 10px; font-weight: 800; background: #ffc83d; color: #4a2c00; border-radius: 6px; padding: 0 5px; margin-right: 3px; }
+
+/* ফ্রেম: অবতারের চারপাশে রঙিন রিং */
+.av.fr { padding: 3px; overflow: visible; position: relative; border: 0; }
+.av.fr img { border-radius: 50%; }
+.av.fr::after { position: absolute; font-size: 0.42em; line-height: 1; pointer-events: none; }
+.av.fr-gold { background: linear-gradient(135deg, #fff3a0, #f5b700, #b07800, #ffe066); box-shadow: 0 0 10px rgba(245,183,0,.65); }
+.av.fr-rainbow { background: linear-gradient(90deg, #ff3b3b, #ffb800, #3bdc6a, #3bb3ff, #a03bff, #ff3b3b); background-size: 300% 100%; animation: frSlide 3s linear infinite; }
+.av.fr-neon { background: #29f3ff; box-shadow: 0 0 6px #29f3ff, 0 0 14px #ff3bf2; animation: frGlow 1.4s ease-in-out infinite alternate; }
+.av.fr-flower { background: radial-gradient(circle, #ffd1e8, #ff6fb5); box-shadow: 0 0 8px rgba(255,111,181,.6); }
+.av.fr-flower::after { content: "🌸"; top: -6%; right: -8%; font-size: 0.5em; }
+.av.fr-fire { background: linear-gradient(0deg, #ff3d00, #ffb300); box-shadow: 0 0 12px #ff6d00; animation: frGlow 1s ease-in-out infinite alternate; }
+.av.fr-fire::after { content: "🔥"; bottom: -10%; left: 50%; transform: translateX(-50%); font-size: 0.45em; }
+.av.fr-crown { background: linear-gradient(135deg, #ffe082, #ff8f00, #ffe082); box-shadow: 0 0 12px rgba(255,143,0,.6); }
+.av.fr-crown::after { content: "👑"; top: -30%; left: 50%; transform: translateX(-50%) rotate(-8deg); font-size: 0.55em; }
+@keyframes frSlide { to { background-position: 300% 0; } }
+@keyframes frGlow { from { filter: brightness(.9); } to { filter: brightness(1.25); } }
+
+/* লাইভে এন্ট্রি */
+.lm .entry, .entry { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 18px; color: #fff; font-size: 13px;
+  animation: entryIn .6s ease-out; background: linear-gradient(90deg, #7c3aed, #c026d3); box-shadow: 0 4px 14px rgba(124,58,237,.4); }
+.entry.e-stars { background: linear-gradient(90deg, #1e3a8a, #7c3aed, #f0abfc); }
+.entry.e-fire { background: linear-gradient(90deg, #b91c1c, #f97316, #facc15); }
+.entry.e-royal { background: linear-gradient(90deg, #78350f, #f59e0b, #fde68a); color: #3b1d00; }
+.entry.e-rocket { background: linear-gradient(90deg, #0e7490, #22d3ee, #a5f3fc); color: #06283a; }
+.entry.e-vip { background: linear-gradient(90deg, #b45309, #fbbf24); }
+@keyframes entryIn { from { transform: translateX(-60%); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* চ্যাট বাবল */
+.bub.bb-pink { background: linear-gradient(135deg, #ff9ad5, #ff5fa2) !important; color: #fff !important; }
+.bub.bb-ocean { background: linear-gradient(135deg, #5ee7df, #3b82f6) !important; color: #fff !important; }
+.bub.bb-gold { background: linear-gradient(135deg, #fff1a8, #f5b700) !important; color: #3b2600 !important; }
+.bub.bb-night { background: linear-gradient(135deg, #1e1b4b, #4c1d95) !important; color: #fff !important; }
+
+/* Me পেজ: VIP / দোকান */
+.me-promo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 14px 10px; }
+.me-promo a { border-radius: 14px; padding: 10px 12px; display: grid; gap: 2px; color: #fff; box-shadow: 0 6px 16px rgba(80,30,160,.18); }
+.me-promo a b { font-size: 15px; } .me-promo a span { font-size: 11.5px; opacity: .92; }
+.me-promo .vipb { background: linear-gradient(135deg, #f59e0b, #b45309); }
+.me-promo .storeb { background: linear-gradient(135deg, #a855f7, #ec4899); }
+
+/* VIP পেজ */
+.vip-hero { display: flex; gap: 12px; align-items: center; background: linear-gradient(135deg, #2e1065, #7c3aed); color: #fff; border-radius: 18px; padding: 14px; margin-bottom: 12px; }
+.vip-hero .av { width: 58px; height: 58px; }
+.vip-plan { border-radius: 18px; padding: 14px; margin-bottom: 12px; color: #3b2600; background: linear-gradient(135deg, #fff7d6, #ffe08a); border: 1px solid #f5d26b; }
+.vip-plan.v-purple { color: #fff; background: linear-gradient(135deg, #6d28d9, #a855f7); border: 0; }
+.vip-plan .vp-head { display: flex; align-items: center; gap: 8px; } .vip-plan .vp-b { font-size: 26px; }
+.vip-plan .vp-head b { font-size: 20px; flex: 1; } .vip-plan .vp-head em { font-style: normal; font-size: 12px; opacity: .85; }
+.vip-plan ul { margin: 8px 0 10px; padding-left: 4px; list-style: none; font-size: 13px; display: grid; gap: 4px; }
+.vip-plan .vp-buy { width: 100%; background: #fff; color: #6d28d9; border: 0; font-weight: 800; }
+
+/* দোকান */
+.store-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.st-item { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 12px 10px; text-align: center; display: grid; gap: 5px; justify-items: center; }
+.st-item.on { border: 2px solid #a855f7; background: #faf5ff; }
+.st-prev { min-height: 74px; display: grid; place-items: center; width: 100%; }
+.st-prev .av { width: 58px; height: 58px; font-size: 22px; }
+.st-prev .bub { max-width: 100%; margin: 0; }
+.st-prev .entry { font-size: 11.5px; padding: 4px 9px; }
+
+/* বুস্ট */
+.boosttag { display: inline-block; background: rgba(255,200,61,.95); color: #3b2600; font-size: 11px; font-weight: 800; border-radius: 8px; padding: 2px 8px; margin-bottom: 4px; }
+.boost-opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
+.boost-opts button { border: 1px solid #e9d5ff; background: #faf5ff; border-radius: 14px; padding: 12px 4px; display: grid; gap: 4px; font: inherit; color: var(--text); }
+.boost-opts b { font-size: 16px; } .boost-opts span { color: #7c3aed; font-weight: 700; }
+
+/* স্পন্সর */
+.sponsor-slide { background: #000; display: grid; place-items: center; }
+.sponsor-slide .sp-img { width: 100%; height: 100%; object-fit: contain; }
+.sp-info { position: absolute; left: 14px; right: 14px; bottom: calc(80px + var(--safe-b)); color: #fff; display: grid; gap: 8px; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+.sp-info b { font-size: 17px; }
+.sp-tag { justify-self: start; display: inline-block; background: rgba(255,255,255,.85); color: #333; font-size: 10.5px; font-weight: 700; border-radius: 6px; padding: 1px 7px; text-shadow: none; }
+.sp-go { justify-self: start; background: linear-gradient(135deg, #9b5cff, #e34cf0); color: #fff; border: 0; }
+.home-sp { position: relative; border-radius: 14px; overflow: hidden; margin: 6px 0 4px; aspect-ratio: 3 / 1; background: #eee; cursor: pointer; }
+.home-sp img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.home-sp .sp-tag { position: absolute; top: 6px; left: 6px; }
+.home-sp b { position: absolute; left: 10px; bottom: 6px; color: #fff; font-size: 13px; text-shadow: 0 1px 4px rgba(0,0,0,.7); }
+
+/* রিওয়ার্ড পুল */
+.pool-card { background: linear-gradient(135deg, #064e3b, #059669); color: #fff; border: 0; }
+.pool-card .pc-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.pool-card .pc-top b { font-size: 24px; }
+.pool-card .pc-me { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 6px; }
+.pool-card .pc-me div { background: rgba(255,255,255,.14); border-radius: 12px; padding: 8px; display: grid; }
+.pool-card .pc-me b { font-size: 17px; } .pool-card .pc-me span { font-size: 11.5px; opacity: .9; }
+.pool-card .tiny { opacity: .92; }
+.av .ini { display: contents; }
+.av.fr .ini { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; background: var(--panel2); color: var(--text); }

@@ -188,11 +188,19 @@ function attachSuggest(el) {
   el.addEventListener("blur", () => setTimeout(close, 200));
 }
 
-const avatar = (p, cls = "av") => `<div class="${cls}">${p?.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="">` : esc((p?.full_name || p?.username || "?").trim().charAt(0).toUpperCase())}</div>`;
+const isVip = (p) => !!p?.vip_until && new Date(p.vip_until) > new Date();
+const vipPlan = (p) => (S.vipPlans ?? []).find((x) => x.id === p?.vip_plan_id);
+const vipTag = (p) => (isVip(p) ? `<span class="viptag v-${esc(vipPlan(p)?.color || "gold")}">${esc(vipPlan(p)?.badge || "💎")} ${esc(vipPlan(p)?.name || "VIP")}</span>` : "");
+// কেনা ফ্রেম পরানো অবতার
+const avatarD = (p, cls = "av") => avatar(p, cls + (p?.deco?.frame ? ` fr fr-${String(p.deco.frame).replace(/[^a-z0-9-]/g, "")}` : ""));
+const avatar = (p, cls = "av") => `<div class="${cls}">${p?.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="">` : `<span class="ini">${esc((p?.full_name || p?.username || "?").trim().charAt(0).toUpperCase())}</span>`}</div>`;
 
 const ERR = {
   "Invalid login credentials": "মোবাইল নম্বর বা পাসওয়ার্ড ভুল",
   INSUFFICIENT_COINS: "কয়েন যথেষ্ট নেই — আগে কয়েন কিনুন",
+  POOL_MODE: "এখন রিওয়ার্ড পুল চালু — পয়েন্ট দিয়ে প্রতিদিন পুলের ভাগ পাবেন", VIP_OFF: "VIP এখন বন্ধ", NOT_VIP: "এটা শুধু VIP-দের জন্য",
+  ALREADY_CLAIMED: "আজকের ফ্রি কয়েন আগেই নিয়েছেন", ALREADY_OWNED: "এটা আপনার কাছে আগেই আছে", STORE_OFF: "দোকান এখন বন্ধ",
+  BOOST_OFF: "বুস্ট এখন বন্ধ", NOT_PUBLISHED: "ভিডিও অনুমোদনের পরে বুস্ট করা যাবে",
   NOT_SELLER: "আপনি কয়েন সেলার নন",
   SELLER_OFF: "কয়েন বিক্রি এখন বন্ধ আছে",
   SELF_SALE: "নিজের কাছে বিক্রি করা যায় না",
@@ -525,6 +533,7 @@ async function start() {
   } catch { /* */ }
   S.settings = Object.fromEntries((settings ?? []).map((s) => [s.key, s.value]));
   S.ads = Object.fromEntries((ads ?? []).map((a) => [a.key, a]));
+  sb.from("vip_plans").select("*").order("sort").then(({ data }) => (S.vipPlans = data ?? []), () => {});
   // এডমিন রেট (কয়েনের দাম ইত্যাদি) বদলালে অ্যাপ খোলা থাকলেও কিছুক্ষণের মধ্যে নতুনটা দেখাবে
   if (!S.setTimer) {
     const reload = async () => { try { const { data } = await sb.from("settings").select("key,value"); if (data?.length) S.settings = Object.fromEntries(data.map((s) => [s.key, s.value])); } catch { /* */ } };
@@ -811,7 +820,8 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
     ${type === "foryou" ? `<div class="cat-row">${CATS.map(([k, l]) => `<a href="#feed${k ? "/" + k : ""}" class="${k === category ? "on" : ""}">${l}</a>`).join("")}</div>` : ""}
     <div class="feed" id="feed"></div>`;
   const feedEl = $("#feed");
-  const st = { before: startId ? startId + 1 : null, loading: false, done: false, slides: [], active: null, swipes: 0, timer: null };
+  const st = { before: startId ? startId + 1 : null, loading: false, done: false, slides: [], active: null, swipes: 0, timer: null, boostQ: null, boostSeen: new Set(), spons: null, sponI: 0 };
+  const mixIn = !user && type !== "following" && type !== "user";   // শুধু সাধারণ ফিডে বুস্ট/স্পন্সর মেশানো
   const minWatch = Number(setting("min_watch_ms", 5000));
   const inter = S.ads.feed_interstitial;
 
@@ -833,11 +843,23 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
         }
       }
       const newEls = [];
+      if (mixIn && st.boostQ === null) {
+        st.boostQ = (await rpc("boosted_feed", { p_limit: 10 }).catch(() => [])) ?? [];
+        const { data: sp } = await sb.from("sponsor_ads").select("*").in("placement", ["all", "feed"]).order("sort");
+        st.spons = sp ?? [];
+      }
+      const bN = Math.max(2, Number(setting("boost_every_n", 4))), sN = Math.max(3, Number(setting("sponsor_every_n", 8)));
+      const addSlide = (el) => { st.slides.push(el); feedEl.appendChild(el); obs.observe(el); };
       for (const v of rows) {
         const el = slideEl(v, st.slides.length);
-        st.slides.push(el); newEls.push(el);
-        feedEl.appendChild(el);
-        obs.observe(el);
+        addSlide(el); newEls.push(el);
+        if (!mixIn) continue;
+        const pos = st.slides.length;
+        if (st.spons?.length && pos % sN === 0) addSlide(sponsorSlide(st.spons[st.sponI++ % st.spons.length], st.slides.length));
+        else if (pos % bN === 0) {
+          const b = (st.boostQ ?? []).find((x) => !st.boostSeen.has(x.id));
+          if (b) { st.boostSeen.add(b.id); const be = slideEl({ ...b, _boost: true }, st.slides.length); addSlide(be); newEls.push(be); }
+        }
       }
       if (rows.length) sb.from("videos").select("id,music_id,music_start,fx,orig_muted,music_baked,music:music_id(url,title,artist)").in("id", rows.map((r) => r.id)).then(({ data }) => {
         for (const x of data ?? []) {
@@ -874,9 +896,11 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
         ${v.allow_gifts && v.user_id !== S.me.id ? `<button class="act gf"><span class="ic svg gft"><svg viewBox="0 0 24 24"><rect x="3.5" y="9" width="17" height="4" rx="1"/><path d="M5 13v7.5h14V13M12 9v11.5M12 9S10.5 4.3 8 4.9C6 5.4 7 9 12 9zM12 9s1.5-4.7 4-4.1c2 .5 1 4.1-4 4.1z"/></svg></span><span>গিফট</span></button>` : ""}
         <button class="act sh"><span class="ic svg"><svg viewBox="0 0 24 24"><path d="M13.5 4.5 21 11.5l-7.5 7v-4c-5 0-8.3 1.4-10.5 5 .8-5.5 3.6-10 10.5-10.8z"/></svg></span><span class="c">${n(v.shares_count)}</span></button>
         ${setting("downloads_enabled", true) !== false && (!v.is_premium || v.user_id === S.me.id || Number(setting("premium_download_coins", 0)) > 0) ? `<button class="act dl ${v.is_premium ? "pdl" : ""}"><span class="ic svg dlic"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 19.5h14"/></svg></span><span>${v.is_premium && v.user_id !== S.me.id ? `🪙${n(setting("premium_download_coins", 0))}` : "সেভ"}</span></button>` : ""}
+        ${v.user_id === S.me.id && setting("boost_enabled", true) !== false ? `<button class="act bst"><span class="ic">🚀</span><span class="c">বুস্ট</span></button>` : ""}
         ${v.user_id !== S.me.id ? `<button class="act rp"><span class="ic svg sm"><svg viewBox="0 0 24 24"><path d="M5 21V4M5 4.5h12l-2.5 4 2.5 4H5"/></svg></span></button>` : ""}
       </div>
       <div class="info">
+        ${v._boost ? `<span class="boosttag">🚀 প্রমোটেড</span>` : ""}
         <div class="uname"><a href="#u/${v.user_id}">@${esc(v.username)}</a>${v.is_verified ? " ✔️" : ""}${v.is_premium ? `<span class="premtag">👑 ${n(v.premium_coins)}</span>` : ""}
           ${v.user_id !== S.me.id ? `<button class="follow-btn ${v.following ? "on" : ""}">${v.following ? "ফলোয়িং" : "ফলো"}</button>` : ""}</div>
         <div class="cap" translate="no">${rich(v.caption)}</div>
@@ -924,6 +948,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
     el.querySelector(".sh").onclick = () => doShare(el);
     el.querySelector(".dl")?.addEventListener("click", () => downloadVideo(v));
     el.querySelector(".rp")?.addEventListener("click", () => doReport(v));
+    el.querySelector(".bst")?.addEventListener("click", () => boostSheet(v));
     el.querySelector(".follow-btn")?.addEventListener("click", async (e) => {
       const btn = e.currentTarget;
       try {
@@ -948,7 +973,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
     if (!vd.paused || vd.readyState < 2) bgmPlay(x.music.url, x.music_start || 0);
   }
   function setSrc(el, on) {
-    if (!el) return;
+    if (!el || el._sponsor) return;
     const video = el.querySelector("video");
     if (on && !video.getAttribute("src") && el._v.video_url) { video.src = el._v.video_url; video.preload = "auto"; }
     if (!on && video.getAttribute("src")) { video.pause(); video.removeAttribute("src"); video.load(); }
@@ -956,10 +981,16 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
 
   function activate(el) {
     if (st.active === el) return;
-    if (st.active) { st.active.querySelector("video").pause(); st.active.querySelector(".paused-ic")?.remove(); }
+    if (st.active) { st.active.querySelector("video")?.pause(); st.active.querySelector(".paused-ic")?.remove(); }
+    if (el._sponsor) {
+      st.active = el; bgmStop();
+      if (!el._seen) { el._seen = true; rpc("sponsor_event", { p_id: el._sponsor.id, p_kind: "view" }).catch(() => {}); }
+      if (Number(el.dataset.idx) >= st.slides.length - 3) more();
+      return;
+    }
     st.active = el;
     const idx = Number(el.dataset.idx);
-    st.slides.forEach((s, i) => setSrc(s, Math.abs(i - idx) <= 1 || (i === idx + 2)));
+    st.slides.forEach((s, i) => { if (!s._sponsor) setSrc(s, Math.abs(i - idx) <= 1 || (i === idx + 2)); });
     const video = el.querySelector("video");
     video.muted = S.muted || !!el._x?.orig_muted;
     video.currentTime = 0;
@@ -981,7 +1012,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
   // ওয়াচ টাইম: min_watch_ms পূর্ণ হলে একবার ভিউ পাঠানো হয়
   st.timer = setInterval(() => {
     const el = st.active;
-    if (!el || document.hidden) return;
+    if (!el || document.hidden || el._sponsor) return;
     const video = el.querySelector("video");
     if (video.paused || video.readyState < 3) return;
     el._watched += 500;
@@ -1470,9 +1501,143 @@ async function xhrUpload(bucket, path, blob, type, onProg) {
 const TX = {
   view_earning: "ভিউ থেকে আয়", like_earning: "লাইক থেকে আয়", comment_earning: "কমেন্ট থেকে আয়", gift_received: "গিফট পেয়েছেন",
   gift_sent: "গিফট পাঠিয়েছেন", watch_reward: "ভিডিও দেখে পয়েন্ট", ad_reward_viewer: "অ্যাড দেখে পয়েন্ট", ad_reward_creator: "আপনার ভিডিওতে অ্যাড",
-  points_convert: "পয়েন্ট → টাকা", pending_release: "পেন্ডিং থেকে ব্যালেন্সে", cash_in: "ক্যাশ-ইন (কয়েন)", play_purchase: "Google Play থেকে কয়েন কেনা", withdraw_hold: "উইথড্র রিকোয়েস্ট",
+  points_convert: "পয়েন্ট → টাকা", pending_release: "পেন্ডিং থেকে ব্যালেন্সে", cash_in: "ক্যাশ-ইন (কয়েন)", play_purchase: "Google Play থেকে কয়েন কেনা", vip_purchase: "💎 VIP কেনা", vip_daily: "💎 VIP ফ্রি কয়েন", store_purchase: "🎨 দোকান থেকে কেনা", video_boost: "🚀 ভিডিও বুস্ট", reward_pool: "💰 রিওয়ার্ড পুল", upload_reward: "🎬 ভিডিও আপলোড পুরস্কার", withdraw_hold: "উইথড্র রিকোয়েস্ট",
   withdraw_refund: "উইথড্র ফেরত", admin_adjust: "অ্যাডমিন অ্যাডজাস্টমেন্ট", premium_unlock: "প্রিমিয়াম ভিডিও আনলক", welcome_bonus: "নতুন ইউজার বোনাস", jail_release: "জেল থেকে মুক্তি",
 };
+// ================= আয়ের নতুন ফিচার: স্পন্সর, বুস্ট, VIP, দোকান, রিওয়ার্ড পুল =================
+const openLink = (url) => { if (!url) return; if (url.startsWith("#")) location.hash = url; else location.href = url; };
+
+// রিলের ভেতরে স্পন্সর স্লাইড
+function sponsorSlide(ad, idx) {
+  const el = document.createElement("div");
+  el.className = "slide sponsor-slide";
+  el.dataset.idx = idx;
+  el._sponsor = ad;
+  el._v = { id: -ad.id, user_id: S.me.id };
+  el.innerHTML = `<img class="sp-img" src="${esc(ad.image_url)}" alt="">
+    <div class="sp-info"><span class="sp-tag">স্পন্সরড</span><b translate="no">${esc(ad.title)}</b>
+      ${ad.link_url ? `<button class="btn sp-go">আরও জানুন ›</button>` : ""}</div>`;
+  el.querySelector(".sp-go")?.addEventListener("click", () => { rpc("sponsor_event", { p_id: ad.id, p_kind: "click" }).catch(() => {}); openLink(ad.link_url); });
+  return el;
+}
+
+// হোমের উপরে স্পন্সর ব্যানার (একাধিক হলে ৫ সেকেন্ড পরপর বদলায়)
+async function homeSponsors(box) {
+  if (!box) return;
+  const { data } = await sb.from("sponsor_ads").select("*").in("placement", ["all", "home"]).order("sort");
+  if (!data?.length || !box.isConnected) return;
+  let i = 0;
+  const show = () => {
+    const ad = data[i % data.length]; i++;
+    box.innerHTML = `<div class="home-sp"><img src="${esc(ad.image_url)}" alt=""><span class="sp-tag">স্পন্সরড</span><b translate="no">${esc(ad.title)}</b></div>`;
+    box.querySelector(".home-sp").onclick = () => { rpc("sponsor_event", { p_id: ad.id, p_kind: "click" }).catch(() => {}); openLink(ad.link_url); };
+    rpc("sponsor_event", { p_id: ad.id, p_kind: "view" }).catch(() => {});
+  };
+  show();
+  if (data.length > 1) { const t = setInterval(() => { if (!box.isConnected) return clearInterval(t); show(); }, 5000); }
+}
+
+// নিজের ভিডিও বুস্ট
+function boostSheet(v) {
+  const per = Number(setting("boost_coins_per_day", 100)), max = Math.max(1, Number(setting("boost_max_days", 7)));
+  const opts = [1, 3, 7].filter((d) => d <= max);
+  const body = sheet(`<h3 style="margin-top:0">🚀 ভিডিও বুস্ট করুন</h3>
+    <p class="tiny muted">বুস্ট করা ভিডিও অনেক বেশি মানুষের রিলে "🚀 প্রমোটেড" হিসেবে দেখাবে। বেশি ভিউ মানে বেশি আয় আর ফলোয়ার।</p>
+    <div class="boost-opts">${opts.map((d) => `<button data-d="${d}"><b>${n(d)} দিন</b><span>🪙 ${n(d * per)}</span></button>`).join("")}</div>
+    ${v.boost_until && new Date(v.boost_until) > new Date() ? `<p class="tiny">এখন বুস্ট চলছে ${dt(v.boost_until)} পর্যন্ত — কিনলে সময় বাড়বে</p>` : ""}`);
+  body.onclick = async (e) => {
+    const b = e.target.closest("[data-d]"); if (!b) return;
+    const d = Number(b.dataset.d);
+    if (!await ask(`🪙 ${n(d * per)} কয়েন দিয়ে ${n(d)} দিন বুস্ট করবেন?`)) return;
+    try { const r = await rpc("boost_video", { p_video: v.id, p_days: d }); v.boost_until = r.boost_until; closeSheet(); toast(`🚀 বুস্ট চালু — ${dt(r.boost_until)} পর্যন্ত`); }
+    catch (er) { toast(errMsg(er), true); if (String(er.message).includes("INSUFFICIENT_COINS")) setTimeout(() => (location.hash = "#cashin"), 900); }
+  };
+}
+
+// রিওয়ার্ড পুল কার্ড (চালু থাকলে)
+async function poolCard(box) {
+  if (!box || setting("pool_enabled", false) !== true) return;
+  const p = await rpc("pool_today").catch(() => null);
+  if (!p?.enabled || !box.isConnected) return;
+  const y = p.yesterday;
+  box.innerHTML = `<div class="card pool-card"><div class="pc-top"><span>💰 আজকের রিওয়ার্ড পুল</span><b>${tk(p.pool_paisa)}</b></div>
+    <div class="tiny">আজকের কয়েন বিক্রির একটা অংশ পুলে জমা হয়। দিন শেষে সবার পয়েন্ট অনুযায়ী ভাগ হয়ে ব্যালেন্সে আসে।</div>
+    <div class="pc-me"><div><b>⭐ ${n(p.my_points)}</b><span>আজ আপনার পয়েন্ট</span></div><div><b>${tk(p.my_est_paisa)}</b><span>আনুমানিক ভাগ</span></div></div>
+    ${p.my_points < p.min_points ? `<div class="tiny">ভাগ পেতে আজ কমপক্ষে ⭐ ${n(p.min_points)} পয়েন্ট দরকার — ভিডিও পুরো দেখুন</div>` : ""}
+    ${y?.settled_at ? `<div class="tiny muted">গতকাল: পুল ${tk(y.pool_paisa)} · ${n(y.users)} জন পেয়েছেন</div>` : ""}</div>`;
+}
+
+// ---------- 💎 VIP ----------
+R.vip = async () => {
+  screen.innerHTML = `<div class="page">${header("💎 VIP মেম্বারশিপ")}<div class="spinner"></div></div>`;
+  const [{ data: plans }, { data: me }, { data: w }] = await Promise.all([
+    sb.from("vip_plans").select("*").eq("active", true).order("sort"),
+    sb.from("profiles").select("*").eq("id", S.me.id).single(),
+    sb.from("wallets").select("coin_balance").eq("user_id", S.me.id).single()]);
+  S.me = me; S.vipPlans = plans ?? S.vipPlans;
+  const en = window.getLang?.() === "en";
+  const cur = isVip(me) ? vipPlan(me) : null, claimed = me.vip_claimed_on === new Date(Date.now() + 6 * 3600e3).toISOString().slice(0, 10);
+  screen.innerHTML = `<div class="page">${header("💎 VIP মেম্বারশিপ")}
+    <div class="vip-hero">${avatarD(me)}<div><b translate="no">${esc(me.full_name || me.username)}</b> ${vipTag(me)}
+      <div class="tiny" translate="no">${cur ? (en ? `Valid until ${dt(me.vip_until)}` : `মেয়াদ ${dt(me.vip_until)} পর্যন্ত`) : (en ? "Not VIP yet" : "এখনো VIP নন")} · 🪙 ${n(w?.coin_balance)}</div></div></div>
+    ${cur && cur.daily_coins > 0 ? `<button class="btn primary" id="vipClaim" ${claimed ? "disabled" : ""} style="width:100%;margin-bottom:12px">${claimed ? "✅ আজকের ফ্রি কয়েন নেওয়া হয়েছে" : `🎁 আজকের ফ্রি 🪙 ${n(cur.daily_coins)} কয়েন নিন`}</button>` : ""}
+    ${(plans ?? []).map((pl) => `<div class="vip-plan v-${esc(pl.color)}"><div class="vp-head"><span class="vp-b">${esc(pl.badge)}</span><b>${esc(pl.name)}</b><em translate="no">${n(pl.days)} ${en ? "days" : "দিন"}</em></div>
+      <ul><li translate="no">${esc(pl.badge)} ${en ? `${esc(pl.name)} badge on profile, chat and live` : `প্রোফাইল, চ্যাট ও লাইভে ${esc(pl.name)} ব্যাজ`}</li>
+        ${pl.daily_coins > 0 ? `<li>🎁 প্রতিদিন ফ্রি 🪙 ${n(pl.daily_coins)} কয়েন</li>` : ""}
+        ${pl.points_bonus_pct > 0 ? `<li>⭐ ভিডিও দেখার পয়েন্ট +${n(pl.points_bonus_pct)}%</li>` : ""}
+        <li>✨ লাইভে ঢুকলে বিশেষ এন্ট্রি</li><li>🎨 শুধু VIP-দের ফ্রেম ও ইফেক্ট কেনা যাবে</li></ul>
+      <button class="btn vp-buy" data-p="${pl.id}" translate="no">🪙 ${n(pl.price_coins)} ${en ? (cur?.id === pl.id ? "coins — extend" : "coins — get it") : (cur?.id === pl.id ? "কয়েনে মেয়াদ বাড়ান" : "কয়েনে নিন")}</button></div>`).join("") || `<div class="empty">এখন কোনো VIP প্ল্যান নেই</div>`}`;
+  $("#vipClaim")?.addEventListener("click", async (e) => {
+    e.target.disabled = true;
+    try { const r = await rpc("claim_vip_daily"); toast(`🎁 +${n(r.coins)} কয়েন`); R.vip(); } catch (er) { toast(errMsg(er), true); }
+  });
+  screen.querySelectorAll(".vp-buy").forEach((b) => (b.onclick = async () => {
+    const pl = plans.find((x) => x.id === Number(b.dataset.p));
+    if (!await ask(`${pl.name} ${n(pl.days)} দিনের জন্য 🪙 ${n(pl.price_coins)} কয়েন কাটবে। নেবেন?`)) return;
+    try { await rpc("buy_vip", { p_plan: pl.id }); toast(`💎 আপনি এখন ${pl.name}!`); R.vip(); }
+    catch (er) { toast(errMsg(er), true); if (String(er.message).includes("INSUFFICIENT_COINS")) setTimeout(() => (location.hash = "#cashin"), 900); }
+  }));
+};
+
+// ---------- 🎨 দোকান: ফ্রেম / এন্ট্রি / চ্যাট বাবল ----------
+const STORE_TABS = [["frame", "🖼️ ফ্রেম"], ["entry", "✨ এন্ট্রি"], ["bubble", "💬 চ্যাট বাবল"]];
+R.store = async (tab = "frame") => {
+  if (!STORE_TABS.some((t) => t[0] === tab)) tab = "frame";
+  screen.innerHTML = `<div class="page">${header("🎨 প্রোফাইল সাজান")}<div class="spinner"></div></div>`;
+  const [{ data: items }, { data: mine }, { data: me }, { data: w }] = await Promise.all([
+    sb.from("store_items").select("*").eq("active", true).eq("kind", tab).order("sort"),
+    sb.from("user_items").select("*").eq("user_id", S.me.id),
+    sb.from("profiles").select("*").eq("id", S.me.id).single(),
+    sb.from("wallets").select("coin_balance").eq("user_id", S.me.id).single()]);
+  S.me = me;
+  const own = new Map((mine ?? []).filter((x) => !x.expires_at || new Date(x.expires_at) > new Date()).map((x) => [x.item_id, x]));
+  const worn = me.deco?.[tab];
+  const preview = (it) => tab === "frame" ? avatar(me, `av fr fr-${it.style}`)
+    : tab === "entry" ? `<span class="entry e-${it.style}">${ENTRY_IC[it.style] ?? "✨"} <b translate="no">${esc(me.username)}</b> এসেছে</span>`
+    : `<div class="bub mine bb-${it.style}"><span class="bt">হ্যালো! 👋</span></div>`;
+  screen.innerHTML = `<div class="page">${header("🎨 প্রোফাইল সাজান")}
+    <div class="seg">${STORE_TABS.map(([k, l]) => `<button class="${k === tab ? "on" : ""}" onclick="location.hash='#store/${k}'">${l}</button>`).join("")}</div>
+    <div class="tiny muted" style="margin:6px 2px 10px">🪙 আপনার কয়েন: <b>${n(w?.coin_balance)}</b> · কিনলেই সাথে সাথে পরানো হবে</div>
+    <div class="store-grid">${(items ?? []).map((it) => { const o = own.get(it.id), on = o && worn === it.style;
+      return `<div class="st-item ${on ? "on" : ""}"><div class="st-prev">${preview(it)}</div><b>${esc(it.name)}</b>
+        <div class="tiny muted">${it.days ? `${n(it.days)} দিন` : "সারাজীবন"}${it.vip_only ? " · 💎 শুধু VIP" : ""}${o?.expires_at ? ` · ${dt(o.expires_at)} পর্যন্ত` : ""}</div>
+        ${on ? `<button class="btn small" data-off="1">✅ পরা আছে — খুলুন</button>`
+          : o ? `<button class="btn small primary" data-eq="${it.id}">পরুন</button>`
+          : `<button class="btn small primary" data-buy="${it.id}">🪙 ${n(it.price_coins)}</button>`}</div>`; }).join("") || `<div class="empty">এখনো কিছু নেই</div>`}</div>`;
+  screen.querySelector(".store-grid").onclick = async (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    try {
+      if (b.dataset.buy) {
+        const it = items.find((x) => x.id === Number(b.dataset.buy));
+        if (!await ask(`${it.name} — 🪙 ${n(it.price_coins)} কয়েন কাটবে। কিনবেন?`)) return;
+        await rpc("buy_item", { p_item: it.id }); toast("🎉 কেনা হয়েছে, পরানো হলো");
+      } else if (b.dataset.eq) { await rpc("equip_item", { p_kind: tab, p_item: Number(b.dataset.eq) }); toast("পরানো হলো"); }
+      else if (b.dataset.off) { await rpc("equip_item", { p_kind: tab, p_item: null }); toast("খুলে রাখা হলো"); }
+      R.store(tab);
+    } catch (er) { toast(errMsg(er), true); if (String(er.message).includes("INSUFFICIENT_COINS")) setTimeout(() => (location.hash = "#cashin"), 900); }
+  };
+};
+
 R.wallet = async () => {
   screen.innerHTML = `<div class="page">${header("ওয়ালেট")}<div class="spinner"></div></div>`;
   const { data: w } = await sb.from("wallets").select("*").eq("user_id", S.me.id).single();
@@ -1485,9 +1650,11 @@ R.wallet = async () => {
       <div class="menu">
         <a href="#withdraw"><span class="ic">💸</span>উইথড্র<small>bKash / Nagad / Rocket</small></a>
         <a href="#cashin"><span class="ic">🪙</span>কয়েন কিনুন<small>গিফট পাঠাতে</small></a>
-        <button id="conv"><span class="ic">🔁</span>পয়েন্ট → টাকা<small>${n(setting("points_convert_min", 1000))} পয়েন্ট থেকে</small></button>
+        ${setting("pool_enabled", false) === true ? `<a href="#rules"><span class="ic">💰</span>রিওয়ার্ড পুল<small>পয়েন্ট দিয়ে পুলের ভাগ</small></a>`
+          : `<button id="conv"><span class="ic">🔁</span>পয়েন্ট → টাকা<small>${n(setting("points_convert_min", 1000))} পয়েন্ট থেকে</small></button>`}
         ${rew && Native?.showRewarded ? `<button id="rw"><span class="ic">📺</span>অ্যাড দেখে পয়েন্ট<small>+${rew.viewer_points} পয়েন্ট</small></button>` : `<a href="#history"><span class="ic">📜</span>লেনদেন<small>সব হিসাব</small></a>`}
       </div>
+      <div id="poolBox"></div>
       <a class="btn" style="width:100%;margin-bottom:12px" href="#history">📜 লেনদেনের হিসাব</a>
       <div class="card"><b>কীভাবে আয় করবেন</b>
         <div class="list tiny">
@@ -1495,11 +1662,13 @@ R.wallet = async () => {
           <div class="li"><span>প্রতি লাইক / প্রতি কমেন্টকারী</span><b>${tk(setting("like_rate_paisa"))} / ${tk(setting("comment_rate_paisa"))}</b></div>
           <div class="li"><span>গিফট পেলে</span><b>গিফটের দামের বড় অংশ</b></div>
           <div class="li"><span>ভিডিও দেখে (প্রতি ভিডিও, দিনে সর্বোচ্চ ${n(setting("viewer_daily_points_cap"))})</span><b>+${n(setting("watch_points"))} পয়েন্ট</b></div>
-          <div class="li"><span>${n(setting("points_convert_min"))} পয়েন্ট</span><b>${tk(setting("points_convert_min") * setting("point_value_paisa"))}</b></div>
+          ${setting("pool_enabled", false) === true ? `<div class="li"><span>পয়েন্ট</span><b>প্রতিদিনের রিওয়ার্ড পুলের ভাগ</b></div>`
+            : `<div class="li"><span>${n(setting("points_convert_min"))} পয়েন্ট</span><b>${tk(setting("points_convert_min") * setting("point_value_paisa"))}</b></div>`}
           <div class="li"><span>আয় ব্যালেন্সে আসে</span><b>${n(setting("pending_hold_hours"))} ঘণ্টা পরে</b></div>
           <div class="li"><span>সর্বনিম্ন উইথড্র</span><b>${tk(setting("withdraw_min_paisa"))} · ${n(setting("withdraw_cooldown_days"))} দিনে একবার</b></div>
         </div></div></div>`;
-    $("#conv").onclick = async () => {
+    poolCard($("#poolBox")).catch(() => {});
+    if ($("#conv")) $("#conv").onclick = async () => {
       const min = Number(setting("points_convert_min", 1000));
       if (w.points < min) return toast(`কমপক্ষে ${n(min)} পয়েন্ট লাগবে`, true);
       if (!await ask(`${n(w.points)} পয়েন্ট → ${tk(w.points * setting("point_value_paisa", 1))} ব্যালেন্সে যোগ করবেন?`)) return;
@@ -1931,11 +2100,12 @@ R.notifs = async () => {
 
 const TICK = (m) => m.read_at ? `<b class="tk seen">✓✓</b>` : m.delivered_at ? `<b class="tk">✓✓</b>` : `<b class="tk">✓</b>`;
 R.chat = async (uid) => {
-  const { data: o } = await sb.from("profiles").select("id,username,full_name,avatar_url").eq("id", uid).maybeSingle();
+  const { data: o } = await sb.from("profiles").select("id,username,full_name,avatar_url,deco,vip_until,vip_plan_id").eq("id", uid).maybeSingle();
   if (!o) { screen.innerHTML = `<div class="page"><div class="empty">ইউজার পাওয়া যায়নি</div></div>`; return; }
+  const bubCls = (mine) => { const b = (mine ? S.me : o)?.deco?.bubble; return b ? ` bb-${String(b).replace(/[^a-z0-9-]/g, "")}` : ""; };
   screen.classList.add("chatmode");
   screen.innerHTML = `<div class="chat">
-    <div class="chat-top"><button class="back" onclick="history.back()">←</button><a href="#u/${o.id}" style="display:flex;align-items:center;gap:10px">${avatar(o)}<b translate="no">${esc(o.full_name || o.username)}</b></a></div>
+    <div class="chat-top"><button class="back" onclick="history.back()">←</button><a href="#u/${o.id}" style="display:flex;align-items:center;gap:10px">${avatarD(o)}<b translate="no">${esc(o.full_name || o.username)}</b>${vipTag(o)}</a></div>
     <div class="chat-list" id="cl"><div class="spinner"></div></div>
     <div class="reply-bar hidden" id="rbar"><div><b id="rbT"></b><div class="tiny ell" id="rbB" translate="no"></div></div><button type="button" id="rbX">✕</button></div>
     <form class="chat-box" id="cf"><input id="ci" placeholder="মেসেজ লিখুন…" maxlength="1000" autocomplete="off"><button class="btn small primary" style="width:auto;margin:0">পাঠান</button></form></div>`;
@@ -1948,7 +2118,7 @@ R.chat = async (uid) => {
     const q = msgs.get(m.reply_to);
     return `<div class="bq" data-goto="${m.reply_to}"><b>${q ? (q.sender_id === S.me.id ? "আপনি" : esc(o.full_name || o.username)) : "↩️"}</b><span translate="no">${q ? esc(q.body.slice(0, 80)) : "পুরনো মেসেজ"}</span></div>`;
   };
-  const bubble = (m) => `<div class="bub ${m.sender_id === S.me.id ? "mine" : ""}" data-id="${m.id}">${quote(m)}<span class="bt" translate="no">${esc(m.body)}</span>
+  const bubble = (m) => `<div class="bub ${m.sender_id === S.me.id ? "mine" : ""}${bubCls(m.sender_id === S.me.id)}" data-id="${m.id}">${quote(m)}<span class="bt" translate="no">${esc(m.body)}</span>
     <i>${m.edited_at ? "এডিট করা · " : ""}${hm(m.created_at)} ${m.sender_id === S.me.id ? TICK(m) : ""}</i></div>`;
   const put = (m) => { msgs.set(m.id, m); list.querySelector(".empty")?.remove(); list.insertAdjacentHTML("beforeend", bubble(m)); list.scrollTop = list.scrollHeight; };
   const repaint = (m) => { msgs.set(m.id, { ...msgs.get(m.id), ...m }); const el = list.querySelector(`.bub[data-id="${m.id}"]`); if (el) el.outerHTML = bubble(msgs.get(m.id)); };
@@ -2533,16 +2703,22 @@ async function livePip(uid, o) {
 }
 
 // লাইভ ও পার্টির উপরের অংশ, নিয়মের নোটিশ, দর্শক তালিকা
-const roomTopHtml = (hp, host, coins) => `<div class="rt"><div class="rt-host"><a href="#u/${hp.id}">${avatar(hp)}</a>
+const roomTopHtml = (hp, host, coins) => `<div class="rt"><div class="rt-host"><a href="#u/${hp.id}">${avatarD(hp)}</a>
     <div class="rt-n"><b translate="no">${esc(hp.full_name || hp.username)}</b><small>🪙 <span id="lvG">${n(coins)}</span></small></div>
     ${host ? "" : `<button class="rt-fol hidden" id="lvF" type="button">＋</button>`}</div>
   <div class="rt-top" id="rtTop"></div><button class="rt-cnt" id="rtCnt" type="button"><span id="lvV">0</span></button></div>
   <div class="rt-fan hidden" id="rtFan"></div>`;
+const ENTRY_IC = { stars: "✨", fire: "🔥", royal: "👑", rocket: "🚀", vip: "💎" };
+function entryHtml(m) {
+  const [, style, vip] = String(m.body).split(":"), st = String(style || "vip").replace(/[^a-z0-9-]/g, "");
+  return `<span class="entry e-${st}">${ENTRY_IC[st] ?? "✨"} ${vip === "vip" ? `<i class="vipmini">VIP</i>` : ""}<b translate="no">${esc(m.username || "")}</b> এসেছে</span>`;
+}
 const roomMsgHtml = (m, hp) => m.kind === "rules" ? `<span class="rules" translate="no">📢 ${esc(m.body)}</span>`
   : m.kind === "fol" ? `${avatar(hp)}<span>আমাকে ফলো করুন</span><i>＋</i>`
   : m.kind === "chat" ? `<b translate="no">${esc(m.username || "")}</b> <span translate="no">${esc(m.body)}</span>`
   : m.kind === "gift" ? `🎁 <b translate="no">${esc(m.username || "")}</b> পাঠিয়েছে <span>${esc(m.body)}</span>`
   : m.kind === "like" ? `❤️ <b translate="no">${esc(m.username || "")}</b>`
+  : m.kind === "join" && String(m.body || "").startsWith("fx:") ? entryHtml(m)
   : m.kind === "join" ? `<b translate="no">${esc(m.username || "")}</b> রুমে যোগ দিয়েছে`
   : `<b translate="no">${esc(m.username || "")}</b> ${esc(m.body || "")}`;
 async function audienceSheet(id) {
@@ -2647,7 +2823,7 @@ R.live = async (rid) => {
   try { needMedia(); info = await rpc("live_join", { p_room: id }); }
   catch (e) { document.body.classList.remove("story-open"); toast(errMsg(e), true); location.replace("#home"); return; }
   const host = info.host_id === S.me.id;
-  const { data: hp } = await sb.from("profiles").select("id,username,full_name,avatar_url,user_no,account_type,calls_on,call_video_rate,call_audio_rate").eq("id", info.host_id).single();
+  const { data: hp } = await sb.from("profiles").select("id,username,full_name,avatar_url,user_no,account_type,calls_on,call_video_rate,call_audio_rate,deco,vip_until,vip_plan_id").eq("id", info.host_id).single();
   screen.innerHTML = `<div class="lvroom">
     <div class="lv-main" id="lvMain"><div class="lv-wait">${avatar(hp)}<div>লাইভ লোড হচ্ছে…</div></div></div>
     <div class="lv-guest hidden" id="lvGuest"></div><div class="lv-pk2 hidden" id="lvPk2"></div>
@@ -2929,7 +3105,7 @@ R.party = async (rid) => {
   catch (e) { document.body.classList.remove("story-open"); toast(errMsg(e), true); location.replace("#home"); return; }
   const host = info.host_id === S.me.id;
   const [{ data: hp }, { data: room }] = await Promise.all([
-    sb.from("profiles").select("id,username,full_name,avatar_url,user_no,account_type").eq("id", info.host_id).single(),
+    sb.from("profiles").select("id,username,full_name,avatar_url,user_no,account_type,deco,vip_until,vip_plan_id").eq("id", info.host_id).single(),
     sb.from("live_rooms").select("id,kind,seats,free_seats,title").eq("id", id).single(),
   ]);
   if (room?.kind !== "party") { location.replace(`#live/${id}`); return; }
@@ -3490,6 +3666,7 @@ R.home = (tab = "video") => {
       </div>
     </div>
     ${notice() ? `<div style="padding:0 10px">${notice()}</div>` : ""}
+    ${tab === "video" ? `<div id="homeSp" style="padding:0 10px"></div>` : ""}
     ${tab === "video" ? `<div class="st-row hidden" id="stRow"></div>` : ""}
     ${tab === "video" || tab === "photo" ? `<div class="trend-row hidden" id="trend"></div>` : ""}
     <div class="disc-grid"><div class="disc-col" id="c0"></div><div class="disc-col" id="c1"></div></div>
@@ -3500,6 +3677,7 @@ R.home = (tab = "video") => {
   $("#fLang").onchange = (e) => { S.disc.lang = e.target.value; save(); R.home(tab); };
   $("#fCountry").onchange = (e) => { S.disc.country = e.target.value; save(); R.home(tab); };
   storyRow($("#stRow"));
+  homeSponsors($("#homeSp")).catch(() => {});
   if ($("#trend")) rpc("trending_tags", { p_days: 7, p_limit: 12 }).then((tr) => {
     if (!tr?.length || !$("#trend")) return;
     $("#trend").innerHTML = `<a class="tr-all" href="#tags">🔥 ট্রেন্ডিং</a>${tr.map((t) => `<a href="#tag/${encodeURIComponent(t.tag)}" translate="no">#${esc(t.tag)}</a>`).join("")}`;
@@ -3613,8 +3791,8 @@ R.me = async () => {
   const host = p.account_type === "host";
   screen.innerHTML = `<div class="me">
     <div class="me-head" ${p.cover_url ? `style="background:linear-gradient(180deg,rgba(184,178,255,.25),#f7f6fb 96%),url('${esc(p.cover_url)}') center/cover"` : ""}>
-      <div class="me-av">${avatar(p)}</div>
-      <h2 translate="no">${esc(p.full_name || p.username)} ${p.is_verified ? "✔️" : ""}</h2>
+      <div class="me-av">${avatarD(p)}</div>
+      <h2 translate="no">${esc(p.full_name || p.username)} ${p.is_verified ? "✔️" : ""}</h2>${vipTag(p)}
       <div class="me-sub">@${esc(p.username)} · <span data-copy="${p.user_no}">ID ${p.user_no} ⧉</span>${host ? ` · 🎤 হোস্ট` : ""}</div>
       <div class="chips"><span>${flagOf(cc)} ${cc ? (COUNTRY_NAMES[cc] ?? cc) : "দেশ জানা নেই"}</span><span>🅰️ ${esc(langName(p.language))}</span></div>
       <div class="me-counts"><a href="#u/${p.id}"><b>${n(p.videos_count)}</b><span>ভিডিও</span></a><div><b>${n(p.following_count)}</b><span>ফলোয়িং</span></div><div><b>${n(p.followers_count)}</b><span>ফলোয়ার</span></div></div>
@@ -3625,6 +3803,8 @@ R.me = async () => {
     </div>
     <div class="me-create"><b>＋ পোস্ট করুন</b><div><a href="#upload"><i>🎬</i>ভিডিও</a><a href="#newphoto"><i>📷</i>ফটো</a><a href="#newstory"><i>📖</i>স্টোরি</a>
       <a href="#texts" onclick="setTimeout(()=>document.getElementById('newT')?.click(),300)"><i>✍️</i>লেখা</a></div></div>
+    <div class="me-promo">${setting("vip_enabled", true) !== false ? `<a href="#vip" class="vipb"><b>💎 VIP</b><span>${isVip(p) ? `${new Date(p.vip_until).toLocaleDateString("bn-BD")} পর্যন্ত` : "বাড়তি পয়েন্ট, ফ্রি কয়েন"}</span></a>` : ""}
+      ${setting("store_enabled", true) !== false ? `<a href="#store" class="storeb"><b>🎨 সাজান</b><span>ফ্রেম · এন্ট্রি · বাবল</span></a>` : ""}</div>
     ${p.coin_seller ? `<a href="#seller" class="me-banner seller"><span>💰 কয়েন সেলার প্যানেল</span><b>বিক্রি করুন ›</b></a>` : ""}
     ${!p.referred_by && refDaysLeft(p) > 0 ? `<div class="me-ref"><span>🎁 বন্ধুর রেফার কোড দিন</span><input id="meRef" inputmode="numeric" maxlength="12" placeholder="ID নম্বর"><button id="meRefOk">যুক্ত করুন</button></div>` : ""}
     <a href="#invite" class="me-banner"><span>রেফার করে আয় করুন</span><b>${tk(refs?.earned_paisa ?? 0)} ›</b></a>
@@ -3851,6 +4031,7 @@ R.rules = async () => {
   const rew = S.ads.rewarded_points;
   screen.innerHTML = `<div class="page">${header("📋 আমার টাস্ক ও আয়ের নিয়ম")}
     ${S.ads.rewarded_points && Native?.showRewarded ? `<div class="card hero"><b>🎬 অ্যাড দেখে পয়েন্ট নিন</b><div class="tiny" style="margin:4px 0 10px">প্রতি অ্যাডে ⭐ ${n(S.ads.rewarded_points.viewer_points)} · দিনে ${n(S.ads.rewarded_points.daily_cap)} বার</div><a class="btn" href="#wallet" style="background:#fff;color:#5b2bd0;border:0">ওয়ালেটে গিয়ে অ্যাড দেখুন</a></div>` : ""}
+    <div id="poolBox2"></div>
     ${mine && !mine.qualified && !mine.blocked ? `<a class="card ref-mine" href="#invite" style="display:block"><b>🎯 রেফার টাস্ক — ⭐ ${n(setting("referral_welcome_points"))} পয়েন্ট পাবেন</b>
       <div class="tiny muted" style="margin:2px 0 8px">⏳ ${refLeft(mine.end)}</div>${refTaskList(mine, true)}</a>` : ""}
     <div class="card"><b>✅ প্রতিদিনের টাস্ক</b><div class="list tiny">
@@ -3875,6 +4056,7 @@ R.rules = async () => {
       <div class="li"><span>সর্বনিম্ন উইথড্র</span><b>${tk(setting("withdraw_min_paisa"))}</b></div>
       <div class="li"><span>কত দিন পরপর</span><b>${n(setting("withdraw_cooldown_days"))} দিন</b></div>
       <div class="li"><span>আয় ব্যালেন্সে আসে</span><b>${n(setting("pending_hold_hours"))} ঘণ্টা পরে</b></div></div></div></div>`;
+  poolCard($("#poolBox2")).catch(() => {});
 };
 R.u = async (id) => {
   const mine = id === S.me.id;
@@ -3902,7 +4084,7 @@ R.u = async (id) => {
   const lv = levelOf(p.followers_count);
   screen.innerHTML = `<div class="cover${seller ? " seller" : host ? " host" : ""}" ${p.cover_url ? `style="background-image:url('${esc(p.cover_url)}')"` : ""}><button class="back" onclick="history.back()">←</button></div>
     <div class="page${host ? " hostpage" : ""}${seller ? " sellerpage" : ""}" style="padding-top:0">
-    <div class="prof${host ? " host" : ""}${seller ? " seller" : ""}">${host ? `<div class="avwrap" id="pAv">${avatar(p)}<span class="crown">👑</span></div>` : `<div class="avplain" id="pAv">${avatar(p)}</div>`}<h2 translate="no">${esc(p.full_name ?? "")} ${p.is_verified ? "✔️" : ""}</h2><div class="muted">@${esc(p.username)}</div>
+    <div class="prof${host ? " host" : ""}${seller ? " seller" : ""}">${host ? `<div class="avwrap" id="pAv">${avatarD(p)}<span class="crown">👑</span></div>` : `<div class="avplain" id="pAv">${avatarD(p)}</div>`}${vipTag(p)}<h2 translate="no">${esc(p.full_name ?? "")} ${p.is_verified ? "✔️" : ""}</h2><div class="muted">@${esc(p.username)}</div>
       <div class="rbadges">${host ? `<span class="rbadge host">👑 HOST</span>` : `<span class="rbadge user">👤 ইউজার</span>`}${seller && helpersAllowed() ? `<span class="rbadge seller">💰 কয়েন সেলার</span>` : ""}<span class="rbadge lv">Lv${lv}</span>${p.country_code ? `<span class="rbadge">${flagOf(p.country_code)}</span>` : ""}</div>
       <div class="idtag" data-copy="${p.user_no}">ID: ${p.user_no} ⧉</div>
       <div class="counts"><div><b>${n(p.videos_count)}</b><span>ভিডিও</span></div><div><b id="fc">${n(p.followers_count)}</b><span>ফলোয়ার</span></div><div><b>${n(p.following_count)}</b><span>ফলোয়িং</span></div></div>

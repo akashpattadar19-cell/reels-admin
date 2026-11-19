@@ -199,6 +199,21 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   checks account id, `grant_play_purchase` idempotent per token, consumes) ; `playRestore()` on start re-sends unfinished purchases.
   Needs (owner TODO after Play account approval): create the app + in-app products in Play Console, Google Cloud service account with
   Play Console "View financial data / Manage orders" permission, put its JSON key in private_config. Refunds are not reversed yet.
+- Monetization (040, admin "💎 আয়ের ফিচার" `#monetize/<pool|vip|store|boost|sponsor>`, `admin_monetize_stats`):
+  - Reward pool: `pool_enabled` (default off) → daily `pool_pct` % of real new money (`_pool_revenue`: approved cash-in + Play purchases × coin price ×
+    `play_net_pct`) + admin `admin_pool_extra` is split at 00:10 BD (cron `pool-settle` → `pool_settle()`) among viewers by that day's
+    `viewer_daily_points` (≥ `pool_min_points`, cap `pool_user_cap_paisa`) as pending (`reward_pool`); table `reward_pools`. While on,
+    `convert_points` raises POOL_MODE. App: `poolCard()` on #wallet and #rules (`pool_today`).
+  - VIP: `vip_plans` (days, price_coins, daily_coins, points_bonus_pct, badge, color) bought with coins (`buy_vip`), `profiles.vip_until/vip_plan_id`,
+    `claim_vip_daily` (free coins once a day), `_vip_bonus_pct` adds % in `claim_watch_reward`; badge `vipTag(p)`, app `#vip`.
+  - Store: `store_items` (kind frame|entry|bubble, style = preset CSS key, price, days 0 = forever, vip_only) + `user_items`; `buy_item` (auto-equips),
+    `equip_item`; equipped styles in `profiles.deco` {frame, entry, bubble}; cron `deco-expire` hourly. App `#store/<kind>`; `avatarD(p)` draws
+    `.av.fr.fr-<style>` (Me, profile, chat, live host chip); chat bubbles `.bb-<style>`; `live_join` writes join body `fx:<style>[:vip]` →
+    `entryHtml()` banner. New designs = add CSS + `STYLE_OPTS` in admin app.js.
+  - Video boost: own published video 🚀 in feed → `boost_video(video, days)` (`boost_coins_per_day`, `boost_max_days`) sets `videos.boost_until`;
+    `boosted_feed()` mixed into the main feed every `boost_every_n` slides with "🚀 প্রমোটেড".
+  - Sponsor ads (direct deals): `sponsor_ads` (image in `photos` bucket, link, placement all|home|feed, ends_at, impressions/clicks via
+    `sponsor_event`), admin CRUD `admin_save_sponsor/admin_delete_sponsor`; app: Home banner (`homeSponsors`) + feed slide every `sponsor_every_n`.
 - Not built on purpose: Chamet "BIG WIN"/"City PK" coin games (betting).
 - Declined: real-money betting games in live (coins are bought with money and earnings withdraw → gambling, illegal in BD/KSA,
   banned by Play). Offer free point games instead. Call moderation must cover the whole call, not only the first minutes.
