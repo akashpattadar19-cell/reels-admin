@@ -43,7 +43,7 @@ alter table profiles add column if not exists deletion_requested_at timestamptz;
 insert into settings (key, value, description, is_public) values
   ('support_enabled', 'true', 'লাইভ সাপোর্ট চালু', true),
   ('support_telegram', '""', 'ইউজারদের জন্য সাপোর্ট টেলিগ্রাম (যেমন @ReelsEnjoySupport)', true),
-  ('support_email', '"mdakashpattadar19@gmail.com"', 'সাপোর্ট/পলিসির ইমেইল', true),
+  ('support_email', '"akashpattadar19@gmail.com"', 'সাপোর্ট/পলিসির ইমেইল', true),
   ('support_hours', to_jsonb('সাধারণত ১২ ঘণ্টার মধ্যে উত্তর দেওয়া হয়'::text), 'সাপোর্টে উত্তরের সময়', true)
 on conflict (key) do nothing;
 

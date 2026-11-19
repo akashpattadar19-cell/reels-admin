@@ -1172,3 +1172,6 @@ html, body, .auth, .auth-card { overflow-x: clip; }
 .ask-yes { color: #fff; background: linear-gradient(135deg, #e34cf0, #8b5cf6); }
 .ask-yes.danger { background: linear-gradient(135deg, #ff6b6b, #ef4444); }
 @keyframes askIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* স্ট্যাটাস বারের নিচে লেখা যেন না দেখায় (edge-to-edge APK) */
+.sbar { position: fixed; top: 0; left: 0; right: 0; height: var(--safe-t); background: var(--bg); z-index: 30; pointer-events: none; }

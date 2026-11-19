@@ -725,7 +725,8 @@ function ask(msg, { ok = "ঠিক আছে", cancel = "বাতিল", dang
     document.body.appendChild(d);
   });
 }
-const header = (title, showBack = true) => `<h1>${showBack ? `<button class="back" onclick="history.back()">←</button>` : ""}${title}</h1>`;
+// sbar: স্ক্রল করলে লেখা যেন স্ট্যাটাস বারের নিচে না যায়
+const header = (title, showBack = true) => `<div class="sbar"></div><h1>${showBack ? `<button class="back" onclick="history.back()">←</button>` : ""}${title}</h1>`;
 const notice = () => (settingL("app_notice", "") ? `<div class="notice" translate="no">📢 ${esc(settingL("app_notice", ""))}</div>` : "");
 
 // ---------------- FEED ----------------
