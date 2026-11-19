@@ -1574,9 +1574,71 @@ routes.monetize = async (tab = "pool") => {
   }));
 };
 
+// ---------- 🧑‍💼 এজেন্ট (আবেদন, অনুমোদন, নিয়ম) ----------
+routes.agents = async (tab = "pending") => {
+  if (!["pending", "approved", "rejected", "all", "rules"].includes(tab)) tab = "pending";
+  loading();
+  const [d, { data: st }] = await Promise.all([rpc("admin_agents", { p_status: tab === "rules" ? "pending" : tab }), sb.from("settings").select("key,value").like("key", "agent_%")]);
+  const S2 = Object.fromEntries((st ?? []).map((x) => [x.key, x.value]));
+  const c = d.counts || {};
+  const tabs = `<div class="tabs">${[["pending", `⏳ আবেদন (${num(c.pending)})`], ["approved", `✅ এজেন্ট (${num(c.approved)})`], ["rejected", `❌ বাতিল (${num(c.rejected)})`], ["all", "সব"], ["rules", "⚙️ নিয়ম"]]
+    .map(([k, l]) => `<a class="btn sm ${k === tab ? "on" : ""}" href="#agents/${k}">${l}</a>`).join("")}</div>`;
+  const row = (key, label, kind) => {
+    const v = S2[key];
+    return `<div class="item" data-key="${key}" data-kind="${kind}"><div class="top"><b>${label}</b></div><div class="row" style="flex-wrap:nowrap">${kind === "bool"
+      ? `<select name="v"><option value="true" ${v === true ? "selected" : ""}>চালু</option><option value="false" ${v === false ? "selected" : ""}>বন্ধ</option></select>`
+      : kind === "text" ? `<textarea name="v" rows="3" style="width:100%">${esc(v ?? "")}</textarea>`
+      : `<input name="v" type="number" step="${kind === "taka" ? "0.01" : "1"}" min="0" value="${esc(kind === "taka" ? Number(v ?? 0) / 100 : v ?? 0)}">${kind === "taka" ? '<span class="muted">৳</span>' : ""}`}
+      <button class="btn sm good" data-save>সেভ</button></div></div>`;
+  };
+  let body;
+  if (tab === "rules") {
+    body = `<div class="card small" style="margin-bottom:12px">এজেন্ট অনুমোদন পাওয়ার পর তার কোড/লিংক দিয়ে যারা আসবে, তাদের এই কঠিন টাস্কগুলো শেষ করতে হবে (সাধারণ রেফারের নিয়ম আলাদা — <a href="#referrals">🎁 রেফার</a> পেজে)।
+      "প্রতিদিন" টাস্ক মানে: অন্তত যত দিন লেখা আছে, প্রতিটি দিনে ওই সংখ্যক পোস্ট।</div>
+      <h2>সাধারণ</h2><div class="list">${row("agent_enabled", "এজেন্ট আবেদন চালু", "bool")}${row("agent_auto_approve", "আবেদন অটো অনুমোদন (বন্ধ = আপনি দেখে অনুমোদন দেবেন)", "bool")}
+        ${row("agent_ref_bonus_paisa", "এজেন্ট প্রতি সফল রেফারে পাবে", "taka")}${row("agent_target_refs", "টার্গেট: কতজন সফল রেফার (০ = টার্গেট নেই)", "num")}
+        ${row("agent_target_bonus_paisa", "প্রতিবার টার্গেট পূরণে বাড়তি বোনাস", "taka")}</div>
+      <h2>এজেন্টের আনা ইউজারের টাস্ক</h2><div class="list">${row("agent_window_days", "কত দিনের মধ্যে সব শেষ করতে হবে", "num")}
+        ${row("agent_req_active_days", "কত দিন অ্যাপ ব্যবহার", "num")}${row("agent_req_minutes_per_day", "প্রতিদিন কমপক্ষে কত মিনিট", "num")}
+        ${row("agent_req_post_days", "কত দিন দৈনিক পোস্ট টাস্ক পূরণ করবে", "num")}${row("agent_req_photo_per_day", "প্রতিদিন ফটো পোস্ট (০ = নেই)", "num")}
+        ${row("agent_req_text_per_day", "প্রতিদিন লেখা পোস্ট (০ = নেই)", "num")}${row("agent_req_video_per_day", "প্রতিদিন ভিডিও পোস্ট (০ = নেই)", "num")}
+        ${row("agent_req_full_watch", "অন্যদের ভিডিও পুরো দেখা (মোট)", "num")}${row("agent_req_likes", "লাইক (মোট)", "num")}
+        ${row("agent_req_comments", "কমেন্ট (মোট)", "num")}${row("agent_req_shares", "শেয়ার (মোট)", "num")}</div>
+      <h2>নিয়মের নোটিশ</h2><div class="list">${row("agent_rules_text", "এজেন্ট পেজে দেখাবে", "text")}${row("agent_rules_text_en", "English", "text")}</div>`;
+  } else {
+    body = `<div class="list">${(d.list || []).map((a) => `<div class="item">
+      <div class="top"><b><a href="#lookup/${a.user_no}">${esc(a.full_name || a.username)}</a> <span class="muted small">@${esc(a.username)} · ${a.user_no}</span></b>
+        <span class="pill ${a.status === "approved" ? "active" : a.status === "pending" ? "pending" : "rejected"}">${a.status === "approved" ? "✅ এজেন্ট" : a.status === "pending" ? "⏳ আবেদন" : "❌ বাতিল"}</span></div>
+      <div class="meta">আবেদন ${a.applied_at ? new Date(a.applied_at).toLocaleString("bn-BD") : "—"} · ফলোয়ার ${num(a.followers_count)} · ভিডিও ${num(a.videos_count)} · অ্যাকাউন্ট ${new Date(a.created_at).toLocaleDateString("bn-BD")}</div>
+      ${a.note ? `<div class="small" style="margin-bottom:6px">📝 ${esc(a.note)}</div>` : ""}
+      ${a.status === "approved" ? `<div class="small">👥 আনা ${num(a.total)} · ⏳ চলছে ${num(a.running)} · ✅ সফল ${num(a.qualified)} · ❌ ব্যর্থ ${num(a.failed)}${a.same_device ? ` <span style="color:var(--warn)">(একই মোবাইল ${num(a.same_device)})</span>` : ""}</div>` : ""}
+      ${a.shared_device ? `<div class="small" style="color:var(--warn)">⚠️ এই এজেন্টের মোবাইলে অন্য অ্যাকাউন্টও আছে</div>` : ""}
+      <div class="actions">${a.status !== "approved" ? `<button class="btn sm good" data-ag="approve" data-u="${a.id}">✅ অনুমোদন</button>` : ""}
+        ${a.status === "pending" ? `<button class="btn sm bad" data-ag="reject" data-u="${a.id}">❌ বাতিল</button>` : ""}
+        ${a.status === "approved" ? `<button class="btn sm bad" data-ag="remove" data-u="${a.id}">🚫 এজেন্ট পদ সরান</button>` : ""}</div></div>`).join("")
+      || `<div class="empty">কেউ নেই</div>`}</div>`;
+  }
+  view.innerHTML = `<h1>🧑‍💼 এজেন্ট</h1>${tabs}${body}`;
+  view.querySelectorAll("[data-ag]").forEach((b) => (b.onclick = async () => {
+    const act2 = b.dataset.ag;
+    let note = null;
+    if (act2 === "reject") { note = prompt("কারণ (ইউজার দেখবে, খালি রাখা যায়)", ""); if (note === null) return; }
+    if (act2 === "remove" && !confirm("এই ইউজারের এজেন্ট পদ সরাবেন? আগের রেফারগুলো এজেন্ট নিয়মেই চলবে।")) return;
+    await act(() => rpc("admin_agent_action", { p_user: b.dataset.u, p_action: act2, p_note: note }), act2 === "approve" ? "✅ এজেন্ট করা হয়েছে" : act2 === "reject" ? "বাতিল করা হয়েছে" : "সরানো হয়েছে");
+    routes.agents(tab);
+  }));
+  view.querySelectorAll("[data-save]").forEach((b) => (b.onclick = async () => {
+    const it = b.closest(".item"), raw = it.querySelector("[name=v]").value, kind = it.dataset.kind;
+    const value = kind === "bool" ? raw === "true" : kind === "text" ? raw.trim() : kind === "taka" ? Math.round(Number(raw) * 100) : Math.round(Number(raw));
+    if (kind !== "bool" && kind !== "text" && (isNaN(value) || value < 0)) return toast("সঠিক সংখ্যা দিন", true);
+    await act(() => rpc("admin_set_setting", { p_key: it.dataset.key, p_value: value }), "সেভ হয়েছে");
+  }));
+};
+
 // ---------- 🎁 রেফার (নিয়ম, টাস্ক, অফার, বোনাস ধাপ, তালিকা) ----------
 const REF_TASK = { full_watch: "🎬 ভিডিও পুরো দেখা", likes: "❤️ লাইক", comments: "💬 কমেন্ট", shares: "↗️ শেয়ার",
-  active_days: "📱 অ্যাপ ব্যবহারের দিন", video_posts: "🎥 ভিডিও পোস্ট (অনুমোদিত)", text_posts: "✍️ টেক্সট পোস্ট" };
+  active_days: "📱 অ্যাপ ব্যবহারের দিন", video_posts: "🎥 ভিডিও পোস্ট (অনুমোদিত)", text_posts: "✍️ টেক্সট পোস্ট",
+  photo_days: "📷 দৈনিক ফটো (দিন)", text_days: "✍️ দৈনিক লেখা (দিন)", video_days: "🎥 দৈনিক ভিডিও (দিন)" };
 routes.referrals = async (tab = "running") => {
   loading();
   const [{ data: st }, { data: tiers }, info] = await Promise.all([

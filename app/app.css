@@ -1330,3 +1330,20 @@ html, body, .auth, .auth-card { overflow-x: clip; }
 .off-card .off-k { font-size: 11.5px; color: var(--purple); font-weight: 700; margin-bottom: 2px; }
 .off-card > b { font-size: 17px; display: block; }
 .off-card p { margin: 6px 0; white-space: pre-line; font-size: 14px; }
+.rbadge.agent { background: linear-gradient(135deg, #0ea5e9, #6366f1); color: #fff; }
+.ag-hero { text-align: center; color: #fff; border-radius: 20px; padding: 18px 14px; margin-bottom: 12px; background: radial-gradient(circle at 80% 0, rgba(255,255,255,.25), transparent 50%), linear-gradient(150deg, #0ea5e9, #6366f1 55%, #a855f7); display: grid; justify-items: center; gap: 2px; }
+.ag-hero .ag-ic { font-size: 42px; line-height: 1; }
+.ag-hero > b { font-size: 19px; }
+.ag-hero > span { font-size: 13px; opacity: .95; }
+.ag-code { font-size: 30px; font-weight: 800; letter-spacing: 2px; cursor: pointer; }
+.ag-link { font-size: 11.5px; background: rgba(0,0,0,.18); border-radius: 10px; padding: 4px 10px; word-break: break-all; cursor: pointer; }
+.ag-perks, .ag-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.ag-perks div, .ag-stats div { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 10px 6px; display: grid; justify-items: center; text-align: center; }
+.ag-perks b, .ag-stats b { font-size: 17px; color: #4f46e5; } .ag-perks span, .ag-stats span { font-size: 11px; color: var(--muted); }
+.ag-u { border-bottom: 1px solid var(--line); padding: 10px 0; }
+.ag-uh { display: flex; align-items: center; gap: 10px; }
+.ag-uh .av { width: 38px; height: 38px; flex: none; }
+.ag-uh span { flex: 1; min-width: 0; display: grid; } .ag-uh small { color: var(--muted); font-size: 11.5px; }
+.ag-uh em { font-style: normal; font-size: 12px; font-weight: 700; color: #b45309; } .ag-uh em.ok { color: #16a34a; } .ag-uh em.bad { color: #dc2626; }
+.ag-cta { display: flex; align-items: center; gap: 12px; background: linear-gradient(135deg, #e0f2fe, #ede9fe); border-color: #c7d2fe; }
+.ag-cta > span { font-size: 30px; } .ag-cta div { flex: 1; display: grid; } .ag-cta small { color: #4f46e5; font-size: 12px; } .ag-cta em { font-style: normal; font-size: 22px; color: #6366f1; }

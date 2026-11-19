@@ -131,6 +131,27 @@
     tasks.push(`<li>${L(`সব কাজ শেষ করার সময়: ${num(S.ref_window_days)} দিন`, `Time to finish everything: ${num(S.ref_window_days)} days`)}</li>`);
     $("#refTasks").innerHTML = tasks.join("");
 
+
+    // এজেন্ট
+    if (S.agent_enabled !== false && S.agent_enabled !== undefined) {
+      const pd = Number(S.agent_req_post_days || 0);
+      const t = [
+        Number(S.agent_req_active_days) > 0 && L(`${num(S.agent_req_active_days)} দিন অ্যাপ ব্যবহার (প্রতিদিন কমপক্ষে ${num(S.agent_req_minutes_per_day)} মিনিট)`, `Uses the app on ${num(S.agent_req_active_days)} days (${num(S.agent_req_minutes_per_day)}+ min a day)`),
+        Number(S.agent_req_photo_per_day) > 0 && L(`${num(pd)} দিন — প্রতিদিন ${num(S.agent_req_photo_per_day)}টি ফটো পোস্ট`, `${num(pd)} days — ${num(S.agent_req_photo_per_day)} photo posts a day`),
+        Number(S.agent_req_text_per_day) > 0 && L(`${num(pd)} দিন — প্রতিদিন ${num(S.agent_req_text_per_day)}টি লেখা পোস্ট`, `${num(pd)} days — ${num(S.agent_req_text_per_day)} text posts a day`),
+        Number(S.agent_req_video_per_day) > 0 && L(`${num(pd)} দিন — প্রতিদিন ${num(S.agent_req_video_per_day)}টি ভিডিও পোস্ট`, `${num(pd)} days — ${num(S.agent_req_video_per_day)} video posts a day`),
+        Number(S.agent_req_full_watch) > 0 && L(`অন্যদের ${num(S.agent_req_full_watch)}টি ভিডিও পুরো দেখা`, `Watches ${num(S.agent_req_full_watch)} full videos by others`),
+        L(`${num(S.agent_req_likes)}টি লাইক, ${num(S.agent_req_comments)}টি কমেন্ট, ${num(S.agent_req_shares)}টি শেয়ার`, `${num(S.agent_req_likes)} likes, ${num(S.agent_req_comments)} comments, ${num(S.agent_req_shares)} shares`),
+        L(`সব কাজ ${num(S.agent_window_days)} দিনের মধ্যে`, `Everything within ${num(S.agent_window_days)} days`),
+      ].filter(Boolean);
+      $("#agentBox").innerHTML = `<div class="two" style="margin-top:0"><div class="card"><h3>${L("এজেন্ট যা পাবেন", "What agents get")}</h3><div class="rules-grid" style="grid-template-columns:1fr">
+          ${row("💰", "প্রতি সফল রেফার", "Each successful referral", v(tk(S.agent_ref_bonus_paisa)))}
+          ${Number(S.agent_target_refs) > 0 && Number(S.agent_target_bonus_paisa) > 0 ? row("🎯", `প্রতি ${num(S.agent_target_refs)} জন সফল রেফারে`, `Every ${num(S.agent_target_refs)} successful referrals`, v("+" + tk(S.agent_target_bonus_paisa)), L("বারবার পাওয়া যায়", "Repeats every time")) : ""}
+          ${row("🧑‍💼", "প্রোফাইলে এজেন্ট ব্যাজ", "Agent badge on profile", v(L("হ্যাঁ", "Yes")))}</div></div>
+        <div class="card"><h3>${L("এজেন্টের আনা ইউজারকে যা করতে হবে", "What an agent's new user must do")}</h3><ul class="checks">${t.map((x) => `<li>${x}</li>`).join("")}</ul>
+          <p class="note">${L("একই মোবাইলে একাধিক অ্যাকাউন্ট গোনা হয় না। ভুয়া অ্যাকাউন্ট আনলে এজেন্ট পদ বাতিল।", "Several accounts on one phone don't count. Fake accounts cancel the agent role.")}</p></div></div>`;
+      $("#agent").classList.remove("hidden");
+    }
     // বিজয়ী
     if (I.winners?.length) {
       $("#winList").innerHTML = I.winners.map((w) => `<div class="w"><span class="rk">${w.rank <= 3 ? RK[w.rank - 1] : "#" + num(w.rank)}</span>
