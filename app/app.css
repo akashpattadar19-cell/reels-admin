@@ -1175,3 +1175,5 @@ html, body, .auth, .auth-card { overflow-x: clip; }
 
 /* স্ট্যাটাস বারের নিচে লেখা যেন না দেখায় (edge-to-edge APK) */
 .sbar { position: fixed; top: 0; left: 0; right: 0; height: var(--safe-t); background: var(--bg); z-index: 30; pointer-events: none; }
+.up-rule { background: linear-gradient(135deg, #fff7e0, #ffeef8); border: 1px solid #fde2a6; border-radius: 14px; padding: 10px 12px; margin: 10px 0; font-size: 13px; color: #5b4a2a; display: grid; gap: 3px; }
+.up-rule b { color: #b45309; font-size: 14.5px; }

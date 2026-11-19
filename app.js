@@ -429,8 +429,31 @@ routes.user = async (id) => {
 };
 
 // ---------- videos ----------
+// রিজেক্টের কারণ দ্রুত বাছাই (ক্রিয়েটর নোটিফিকেশনে দেখবে)
+const REJECT_REASONS = ["ভিডিওতে ওয়াটারমার্ক / অন্য অ্যাপ বা পেজের লোগো আছে", "TikTok / অন্য পেজের ভিডিও — নিজের তোলা আসল ভিডিও দিন",
+  "অশ্লীল বা খারাপ কনটেন্ট", "ভিডিও অস্পষ্ট / ভাঙা", "কপিরাইট গান বা সিনেমার অংশ"];
+function pickReason() {
+  return new Promise((res) => {
+    const d = document.createElement("div");
+    d.className = "otp-modal";
+    d.innerHTML = `<div class="card otp-card"><h3 style="margin-top:0">রিজেক্টের কারণ</h3>
+      ${REJECT_REASONS.map((r, i) => `<button class="btn" data-r="${i}" style="display:block;width:100%;text-align:left;margin-bottom:8px">${r}</button>`).join("")}
+      <textarea id="rrO" rows="2" placeholder="অন্য কারণ লিখুন…"></textarea>
+      <div class="row" style="gap:8px;margin-top:8px"><button class="btn" data-x>বাতিল</button><button class="btn bad" data-o>এই কারণে রিজেক্ট</button></div></div>`;
+    const done = (v) => { d.remove(); res(v); };
+    d.onclick = (e) => {
+      const b = e.target.closest("button"); if (!b) { if (e.target === d) done(null); return; }
+      if (b.dataset.r != null) done(REJECT_REASONS[Number(b.dataset.r)]);
+      else if (b.hasAttribute("data-o")) { const v = d.querySelector("#rrO").value.trim(); if (v) done(v); else toast("কারণ লিখুন", true); }
+      else done(null);
+    };
+    document.body.appendChild(d);
+  });
+}
+let rewardCoins = 0;
 routes.videos = async (arg = "published") => {
   const userFilter = arg.startsWith("user:") ? arg.slice(5) : null;
+  { const { data: rc } = await sb.from("settings").select("value").eq("key", "upload_reward_coins").maybeSingle(); rewardCoins = Number(rc?.value ?? 0); }
   const status = userFilter ? null : arg;
   const tabs = [["pending", "পেন্ডিং"], ["published", "প্রকাশিত"], ["featured", "ফিচার্ড"], ["rejected", "রিজেক্টেড"], ["deleted", "ডিলিট"]];
   view.innerHTML = `<h1>ভিডিও</h1>
@@ -454,7 +477,8 @@ routes.videos = async (arg = "published") => {
         <div class="body">
           <div><a href="#user/${v.user_id}">@${esc(v.profiles?.username)}</a> <span class="pill">${CAT_NAME[v.category] ?? ""}</span> ${v.is_featured ? "⭐" : ""} ${v.uploaded_by_admin ? '<span class="pill">অ্যাডমিন</span>' : ""} ${v.is_premium ? `<span class="pill pending">👑 প্রিমিয়াম ${num(v.premium_coins)} কয়েন</span>` : ""}</div>
           ${v.is_premium && v.status === "pending" ? `<div class="small" style="color:var(--warn)">প্রিমিয়াম ভিডিও অটো-অ্যাপ্রুভ হয় না — দেখে অ্যাপ্রুভ করুন। অশ্লীল কিছু থাকলে রিজেক্ট করুন।</div>` : ""}
-          ${v.status === "pending" ? `<div class="small" style="color:var(--warn)">⏳ পেন্ডিং · ${dt(v.created_at)}</div>` : ""}
+          ${v.status === "pending" ? `<div class="small" style="color:var(--warn)">⏳ পেন্ডিং · ${dt(v.created_at)}</div>
+            <div class="small muted">দেখে নিন: ওয়াটারমার্ক, TikTok/পেজের লোগো বা নাম নেই, নিজের আসল ভিডিও।${Number(rewardCoins) > 0 && v.reward_coins == null ? ` অ্যাপ্রুভ করলে আপলোডার 🪙 ${rewardCoins} কয়েন পাবে।` : ""}</div>` : ""}
           <div class="cap" translate="no">${esc(v.caption ?? "")}</div>
           <div class="muted small">👁 ${num(v.views_count)} ❤️ ${num(v.likes_count)} 💬 ${num(v.comments_count)} 🎁 ${num(v.gifts_coins_total)} · ${dt(v.created_at)}</div>
           ${v.reject_reason ? `<div class="small err">${esc(v.reject_reason)}</div>` : ""}
@@ -473,8 +497,8 @@ routes.videos = async (arg = "published") => {
     if (!b) return;
     const id = Number(b.closest(".vcard").dataset.id), a = b.dataset.a;
     let reason = null;
-    if (a === "reject" || a === "delete") { reason = prompt("কারণ (ক্রিয়েটর দেখবে):"); if (!reason) return; }
-    await act(() => rpc("admin_video_action", { p_id: id, p_action: a, p_reason: reason }), "হয়েছে");
+    if (a === "reject" || a === "delete") { reason = await pickReason(); if (!reason) return; }
+    await act(() => rpc("admin_video_action", { p_id: id, p_action: a, p_reason: reason }), a === "approve" && Number(rewardCoins) > 0 ? `অ্যাপ্রুভ হয়েছে — আপলোডার 🪙 ${rewardCoins} কয়েন পেয়েছে` : "হয়েছে");
     b.closest(".vcard").remove();
     refreshBadges();
   };
@@ -996,6 +1020,10 @@ routes.rules = async (kind = "user") => {
       ${row("comment_rate_paisa", "প্রতি কমেন্টকারীতে", "taka")}
       ${row("creator_daily_view_cap_paisa", "ভিউ থেকে দিনে সর্বোচ্চ আয়", "taka")}
       <div class="item"><b>গিফট থেকে</b><div class="muted small">প্রতিটা গিফটের ক্রিয়েটর % <a href="#gifts">গিফট পেজে</a> সেট করুন</div></div>
+    </div>
+    <h2>🎬 ভিডিও আপলোড পুরস্কার</h2><div class="list">
+      ${row("upload_reward_coins", "এডমিন ভিডিও অ্যাপ্রুভ করলে আপলোডার কত কয়েন পাবে (০ = বন্ধ)", "num")}
+      ${row("auto_approve_minutes", "অটো-অ্যাপ্রুভ (মিনিট, ০ = শুধু এডমিন দেখে অ্যাপ্রুভ)", "num")}
     </div>
     <h2>👀 দর্শক (ভিডিও পুরো দেখলে)</h2><div class="list">
       ${row("watch_points", "প্রতিটা ভিডিও পুরো দেখলে পয়েন্ট", "num")}
@@ -1831,7 +1859,9 @@ routes.ads = async () => {
   const label = { feed_interstitial: "রিলের মাঝে ফুল-স্ক্রিন অ্যাড", rewarded_points: "অ্যাড দেখে পয়েন্ট (Rewarded)", profile_banner: "প্রোফাইল/ওয়ালেট ব্যানার" };
   view.innerHTML = `<h1>অ্যাড কনফিগারেশন</h1>
     <div class="card small muted" style="margin-bottom:12px">
-      এখন Google-এর <b>টেস্ট অ্যাড</b> চলছে। AdMob অ্যাকাউন্ট খুলে আসল Ad Unit ID নিচে বসান।<br>
+      অ্যাড না দেখালে নিচে <b>"অ্যাড না আসার কারণ"</b> দেখুন (অ্যাপ v1.0.19 বা নতুন থেকে আসে)। কোড বোঝার জন্য সেখানে ব্যাখ্যা আছে।<br>
+      কোড ঠিক আছে কিনা পরীক্ষা করতে Google-এর টেস্ট ID বসিয়ে দেখতে পারেন — Interstitial: ${copyable("ca-app-pub-3940256099942544/1033173712")}
+      Rewarded: ${copyable("ca-app-pub-3940256099942544/5224354917")} (পরীক্ষা শেষে আসল ID ফেরত বসাবেন)।<br>
       Rewarded অ্যাডের SSV কলব্যাক URL (AdMob-এ বসাবেন): ${copyable(SUPABASE_URL + "/functions/v1/admob-ssv")}<br>
       AdMob <b>App ID</b> বদলাতে APK নতুন করে বিল্ড করতে হবে — আমাকে App ID দিলে আমি করে দেব।
     </div>
@@ -1857,6 +1887,14 @@ routes.ads = async () => {
     if (error) return toast(errMsg(error), true);
     toast("সেভ হয়েছে — অ্যাপ পরের বার খুললে কার্যকর");
   };
+  const { data: errs } = await sb.from("ad_errors").select("*").order("id", { ascending: false }).limit(40);
+  const MEAN = { 0: "Google-এর ভেতরের সমস্যা — পরে আবার চেষ্টা করবে", 1: "Ad Unit ID বা App ID ভুল / মেলে না", 2: "ফোনের ইন্টারনেট সমস্যা",
+    3: "No fill — এখন দেখানোর মতো অ্যাড নেই। নতুন AdMob অ্যাকাউন্ট/অ্যাপ অনুমোদনের অপেক্ষায় থাকলে বা অ্যাপ Play Store-এ না থাকলে এমন হয়",
+    8: "অ্যাপ AdMob-এ ঠিকমতো যুক্ত নয় (App ID)", 9: "মিডিয়েশন: কোনো অ্যাড নেই" };
+  view.insertAdjacentHTML("beforeend", `<h2>⚠️ অ্যাড না আসার কারণ (শেষ ১৪ দিন)</h2>${(errs ?? []).length ? `<div class="table-wrap"><table>
+    <tr><th>সময়</th><th>কোথায়</th><th>কোড</th><th>মানে</th><th>Google-এর বার্তা</th></tr>
+    ${errs.map((x) => `<tr><td>${dt(x.created_at)}</td><td>${esc(x.placement ?? "")}</td><td>${x.code ?? ""}</td><td class="small">${MEAN[x.code] ?? ""}</td><td class="small">${esc(x.message ?? "")}</td></tr>`).join("")}</table></div>`
+    : `<div class="empty">কোনো ত্রুটি আসেনি। অ্যাপ v1.0.19-এর আগের ভার্সনে কারণ পাঠানো হয় না।</div>`}`);
 };
 
 // ---------- income reports ----------
@@ -1914,7 +1952,7 @@ routes.settings = async () => {
     ["ক্যাশ-ইন (ইউজার এই নম্বরে টাকা পাঠাবে)", ["bkash_number", "nagad_number", "rocket_number", "min_cash_in_taka", "coin_price_paisa"]],
     ["ক্রিয়েটর ইনকাম", ["earnings_enabled", "view_rate_paisa_per_1000", "like_rate_paisa", "comment_rate_paisa", "creator_daily_view_cap_paisa", "pending_hold_hours", "min_watch_ms"]],
     ["দর্শক পয়েন্ট (পুরো ভিডিও দেখলে)", ["watch_points", "watch_full_pct", "viewer_daily_points_cap", "point_value_paisa", "points_convert_min"]],
-    ["ভিডিও ও লক ফোল্ডার", ["auto_approve_minutes", "max_video_sec", "vault_quota_mb"]],
+    ["ভিডিও ও লক ফোল্ডার", ["upload_reward_coins", "auto_approve_minutes", "max_video_sec", "vault_quota_mb"]],
     ["অন্যান্য", ["app_notice", "app_notice_en"]],
   ];
   const byKey = Object.fromEntries(data.map((s) => [s.key, s]));

@@ -1790,7 +1790,16 @@
 "অফার: ঠিক ৳": "Offer: send exactly ৳",
 "ঠিক আছে": "OK",
 "⭐ পুরো ভিডিও দেখেছেন:": "⭐ Watched the full video:",
-"ভিডিও পুরোটা দেখুন (ছোট-বড় যেকোনো ভিডিও)": "Watch a video to the end (any length)"
+"ভিডিও পুরোটা দেখুন (ছোট-বড় যেকোনো ভিডিও)": "Watch a video to the end (any length)",
+"📋 ভিডিও আপলোডের নিয়ম": "📋 Video upload rules",
+"✅ নিজের তোলা আসল ভিডিও দিন": "✅ Upload your own real videos",
+"❌ ওয়াটারমার্ক, TikTok / অন্য অ্যাপের লোগো, কোনো পেজের নাম থাকলে বাতিল হবে": "❌ Videos with a watermark, TikTok / other app logo or any page name will be rejected",
+"👀 এডমিন দেখে অনুমোদন করলে তবেই সবাই দেখতে পাবে": "👀 Everyone can see it after an admin approves it",
+"🪙 প্রতিটা ভিডিও অনুমোদন হলে +": "🪙 +",
+"কয়েন!": "coins for every approved video!",
+"কয়েন পুরস্কার পেয়েছেন": "coins reward received",
+"ভিডিওতে ওয়াটারমার্ক / অন্য অ্যাপ বা পেজের লোগো আছে": "The video has a watermark / another app's or page's logo",
+"TikTok / অন্য পেজের ভিডিও — নিজের তোলা আসল ভিডিও দিন": "TikTok / another page's video — upload your own real video"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });

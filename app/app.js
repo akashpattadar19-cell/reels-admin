@@ -525,6 +525,12 @@ async function start() {
   } catch { /* */ }
   S.settings = Object.fromEntries((settings ?? []).map((s) => [s.key, s.value]));
   S.ads = Object.fromEntries((ads ?? []).map((a) => [a.key, a]));
+  // এডমিন রেট (কয়েনের দাম ইত্যাদি) বদলালে অ্যাপ খোলা থাকলেও কিছুক্ষণের মধ্যে নতুনটা দেখাবে
+  if (!S.setTimer) {
+    const reload = async () => { try { const { data } = await sb.from("settings").select("key,value"); if (data?.length) S.settings = Object.fromEntries(data.map((s) => [s.key, s.value])); } catch { /* */ } };
+    S.setTimer = setInterval(reload, 120000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) reload(); });
+  }
   $("#auth").classList.add("hidden");
   $("#main").classList.remove("hidden");
   try { Native?.onLogin?.(me.id); } catch { /* old APK */ }
@@ -1141,6 +1147,10 @@ R.upload = () => {
     <label class="pick" id="pickL"><input type="file" id="vf" accept="video/*" class="hidden"><div class="ic">🎬</div>
       <b>ভিডিও বেছে নিন</b><div class="muted tiny">${pro ? `লম্বা ভিডিও কেটে ${maxSec} সেকেন্ডের মধ্যে আনা যাবে` : `সর্বোচ্চ ${maxSec} সেকেন্ড`} · খাড়া (9:16) ভিডিও সবচেয়ে ভালো দেখায়</div></label>
     ${pro ? "" : `<p class="notice tiny">✂️ ভিডিও কাটা, ক্রপ, স্টিকার ও নিজের গান যোগ করতে অ্যাপ আপডেট করুন।</p>`}
+    <div class="up-rule">${Number(setting("upload_reward_coins", 0)) > 0 ? `<b>🪙 প্রতিটা ভিডিও অনুমোদন হলে +${n(setting("upload_reward_coins", 0))} কয়েন!</b>` : `<b>📋 ভিডিও আপলোডের নিয়ম</b>`}
+      <div>✅ নিজের তোলা আসল ভিডিও দিন</div>
+      <div>❌ ওয়াটারমার্ক, TikTok / অন্য অ্যাপের লোগো, কোনো পেজের নাম থাকলে বাতিল হবে</div>
+      <div>👀 এডমিন দেখে অনুমোদন করলে তবেই সবাই দেখতে পাবে</div></div>
     <div id="ved"></div>
     <video id="pv" class="preview hidden" controls playsinline></video>
     <div id="mtools" class="hidden"></div>
@@ -1576,6 +1586,11 @@ const ciCard = (attrs, coins, base, price, level, best) => `<button type="button
   <span class="ci-price">${price}</span></button>`;
 
 // Play কেনার ফলাফল — অ্যাপ যেকোনো পেজে থাকলেও কাজ করে (অসম্পূর্ণ কেনাও অ্যাপ খুললে আবার আসে)
+// অ্যাড লোড/দেখাতে ব্যর্থ হলে কারণ সার্ভারে (এডমিন অ্যাড পেজে দেখা যায়) — APK ≥ v1.0.19
+window.onAdFail = (placement, code, msg) => {
+  if (!S.me) return;
+  rpc("log_ad_error", { p_placement: String(placement || ""), p_code: Number(code), p_message: String(msg || ""), p_build: Number(Native?.appBuild?.() || 0) || null }).catch(() => {});
+};
 window.onPlayPurchase = async (raw) => {
   let r; try { r = typeof raw === "string" ? JSON.parse(raw) : raw; } catch { return; }
   if (!r || !S.me) return;
