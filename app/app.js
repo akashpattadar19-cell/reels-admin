@@ -726,7 +726,7 @@ function route() {
 window.addEventListener("hashchange", route);
 const back = () => (history.length > 1 ? history.back() : (location.hash = "#home"));
 // এডমিনের লেখা নোটিশ: English বেছে নিলে <key>_en থাকলে সেটা দেখায়
-const settingL = (k, d = "") => (window.getLang?.() === "en" && setting(k + "_en", "")) || setting(k, d);
+const settingL = (k, d = "") => window.getLang?.() === "en" ? (setting(k + "_en", "") || "") : setting(k, d);
 // লঞ্চ অফার: অ্যাডমিন যে আয় লক করেছে সেখানে "শীঘ্রই আসছে"
 const locked = (k) => (setting("income_locks", {}) || {})[k] === true;
 const soon = () => `<b class="soon">🔒 শীঘ্রই আসছে</b>`;
@@ -1623,9 +1623,10 @@ let OFFERS = null, OFFERS_AT = 0;
 async function offersData(force) {
   if (!force && OFFERS_AT && Date.now() - OFFERS_AT < 120000) return OFFERS;
   OFFERS = await rpc("app_offers").catch(() => []); OFFERS_AT = Date.now();
+  if (window.getLang?.() === "en") OFFERS = (OFFERS || []).filter((x) => x.title_en);
   return OFFERS || [];
 }
-const offT = (x, k) => (window.getLang?.() === "en" && x[k + "_en"]) || x[k] || "";
+const offT = (x, k) => (window.getLang?.() === "en" ? x[k + "_en"] : x[k]) || "";
 function offerGo(x) {
   if (!x.link_url) return;
   if (x.link_url.startsWith("#")) location.hash = x.link_url; else openLink(x.link_url);

@@ -10,7 +10,7 @@
   const num = (x) => { const s = Number(x || 0).toLocaleString("en-IN"); return lang === "en" ? s : s.replace(/\d/g, (d) => BN_DIG[d]); };
   const tk = (paisa) => "৳" + num(Math.round(Number(paisa || 0)) / 100);
   const date = (iso) => new Date(iso).toLocaleDateString(lang === "en" ? "en-GB" : "bn-BD", { day: "numeric", month: "long", year: "numeric" });
-  const T = (x, k) => (lang === "en" && x[k + "_en"]) || x[k] || "";
+  const T = (x, k) => (lang === "en" ? (x[k + "_en"] || (k === "title" || k === "season" ? x[k] : "")) : x[k]) || "";
 
   function applyLang() {
     document.documentElement.lang = lang;
@@ -42,14 +42,14 @@
       if (T[k]) el.dataset.bn = T[k];
       if (T[k + "_en"]) el.dataset.en = T[k + "_en"];
     });
-    const rib = $("#ribbon"), rt = lang === "en" ? (T.notice_en || T.notice) : T.notice;
+    const rib = $("#ribbon"), rt = lang === "en" ? T.notice_en : T.notice;
     if (rt) { rib.textContent = rt; rib.classList.remove("hidden"); } else rib.classList.add("hidden");
     const soc = [["facebook", "📘 Facebook"], ["youtube", "▶️ YouTube"], ["tiktok", "🎵 TikTok"], ["instagram", "📸 Instagram"]]
       .filter(([k]) => /^https:\/\//.test(T[k] || "")).map(([k, l]) => `<a href="${esc(T[k])}" target="_blank" rel="noopener">${l}</a>`);
     const wa = String(T.whatsapp || "").replace(/[^0-9]/g, "");
     if (wa) soc.unshift(`<a href="https://wa.me/${wa}" target="_blank" rel="noopener">💬 WhatsApp</a>`);
     $("#socials").innerHTML = soc.join(" · ");
-    $("#footNote").textContent = (lang === "en" ? (T.footer_en || T.footer) : T.footer) || "";
+    $("#footNote").textContent = (lang === "en" ? T.footer_en : T.footer) || "";
     document.body.className = "t-c";
   }
   function extraFaq(S) {
@@ -109,7 +109,7 @@
         <p>${esc(T(S, "ref_offer_text")) || L(`বন্ধু ${num(S.ref_window_days)} দিনের মধ্যে কাজগুলো শেষ করলে বোনাস পাবেন।`, `You get the bonus when your friend finishes the tasks within ${num(S.ref_window_days)} days.`)}</p></div>`);
     (I.coin_offers || []).forEach((o) => cards.push(`<div class="oc">${o.badge ? `<span class="badge">${esc(o.badge)}</span>` : ""}<span class="ic">🪙</span><b>${esc(o.title)}</b>
       <div class="big">🪙 ${num(o.coins)}</div><p>${L(`মাত্র ৳${num(o.price_taka)}-এ (অ্যাপের কয়েন পেজে)`, `for only ৳${num(o.price_taka)} (in the app's coin page)`)}</p>${o.ends_at ? `<div class="when">⏳ ${L("শেষ", "Ends")} ${date(o.ends_at)}</div>` : ""}</div>`));
-    (I.posts || []).forEach((x) => cards.push(`<div class="oc">${x.image_url ? `<img src="${esc(x.image_url)}" alt="">` : `<span class="ic">${x.kind === "news" ? "📢" : "🎁"}</span>`}
+    (I.posts || []).filter((x) => lang !== "en" || x.title_en).forEach((x) => cards.push(`<div class="oc">${x.image_url ? `<img src="${esc(x.image_url)}" alt="">` : `<span class="ic">${x.kind === "news" ? "📢" : "🎁"}</span>`}
       ${x.pinned ? `<span class="badge">📌</span>` : ""}<b>${esc(T(x, "title"))}</b>${T(x, "body") ? `<p>${esc(T(x, "body"))}</p>` : ""}
       <div class="when">${date(x.starts_at || x.created_at)}${x.ends_at ? ` · ⏳ ${L("শেষ", "Ends")} ${date(x.ends_at)}` : ""}</div>
       ${x.link_url && /^https?:/.test(x.link_url) ? `<a class="btn small" style="margin-top:10px" href="${esc(x.link_url)}" target="_blank" rel="noopener">${L("দেখুন", "Open")} →</a>` : ""}</div>`));
