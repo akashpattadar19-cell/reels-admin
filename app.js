@@ -1859,7 +1859,7 @@ routes.ads = async () => {
   const label = { feed_interstitial: "রিলের মাঝে ফুল-স্ক্রিন অ্যাড", rewarded_points: "অ্যাড দেখে পয়েন্ট (Rewarded)", profile_banner: "প্রোফাইল/ওয়ালেট ব্যানার" };
   view.innerHTML = `<h1>অ্যাড কনফিগারেশন</h1>
     <div class="card small muted" style="margin-bottom:12px">
-      অ্যাড না দেখালে নিচে <b>"অ্যাড না আসার কারণ"</b> দেখুন (অ্যাপ v1.0.19 বা নতুন থেকে আসে)। কোড বোঝার জন্য সেখানে ব্যাখ্যা আছে।<br>
+      অ্যাড না দেখালে নিচে <b>"অ্যাড না আসার কারণ"</b> দেখুন (অ্যাপ v1.0.20 বা নতুন থেকে আসে)। কোড বোঝার জন্য সেখানে ব্যাখ্যা আছে।<br>
       কোড ঠিক আছে কিনা পরীক্ষা করতে Google-এর টেস্ট ID বসিয়ে দেখতে পারেন — Interstitial: ${copyable("ca-app-pub-3940256099942544/1033173712")}
       Rewarded: ${copyable("ca-app-pub-3940256099942544/5224354917")} (পরীক্ষা শেষে আসল ID ফেরত বসাবেন)।<br>
       Rewarded অ্যাডের SSV কলব্যাক URL (AdMob-এ বসাবেন): ${copyable(SUPABASE_URL + "/functions/v1/admob-ssv")}<br>
@@ -1894,7 +1894,7 @@ routes.ads = async () => {
   view.insertAdjacentHTML("beforeend", `<h2>⚠️ অ্যাড না আসার কারণ (শেষ ১৪ দিন)</h2>${(errs ?? []).length ? `<div class="table-wrap"><table>
     <tr><th>সময়</th><th>কোথায়</th><th>কোড</th><th>মানে</th><th>Google-এর বার্তা</th></tr>
     ${errs.map((x) => `<tr><td>${dt(x.created_at)}</td><td>${esc(x.placement ?? "")}</td><td>${x.code ?? ""}</td><td class="small">${MEAN[x.code] ?? ""}</td><td class="small">${esc(x.message ?? "")}</td></tr>`).join("")}</table></div>`
-    : `<div class="empty">কোনো ত্রুটি আসেনি। অ্যাপ v1.0.19-এর আগের ভার্সনে কারণ পাঠানো হয় না।</div>`}`);
+    : `<div class="empty">কোনো ত্রুটি আসেনি। অ্যাপ v1.0.20-এর আগের ভার্সনে কারণ পাঠানো হয় না।</div>`}`);
 };
 
 // ---------- income reports ----------

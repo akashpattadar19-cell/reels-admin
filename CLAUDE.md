@@ -39,7 +39,7 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
 - Uploads start as `pending`; cron `auto_approve_videos` publishes them after `auto_approve_minutes` (0 = manual only — owner's choice since 038). Admin approves/rejects in Videos → Pending
   (reject reason picker: watermark/logo, TikTok/other page, …). Upload reward (038): `admin_video_action('approve')` pays the uploader
   `upload_reward_coins` (10) coins once per video (`videos.reward_coins`, ledger `upload_reward`); rule card on `#upload` (own real video, no watermark/logo/page name).
-- Ad diagnostics (038, APK ≥ v1.0.19): native `onAdFail(placement, code, msg)` → `log_ad_error` → `ad_errors`, shown on admin Ads page with code meanings.
+- Ad diagnostics (038, APK ≥ v1.0.20; v1.0.19 = Play Billing bridge): native `onAdFail(placement, code, msg)` → `log_ad_error` → `ad_errors`, shown on admin Ads page with code meanings.
 - App re-reads `settings` every 2 min and when it returns to the foreground, so rate changes (coin price etc.) show everywhere without a restart.
 - Locked folder (`vault` private bucket + `vault_files`): per-user quota `vault_quota_mb` (enforced in `vault_add` and the storage insert policy); only the owner and admins can read.
 - Language: `i18n.js` (shared by admin and app) translates Bengali UI text to English at runtime from a phrase map when `localStorage.lang = 'en'`.

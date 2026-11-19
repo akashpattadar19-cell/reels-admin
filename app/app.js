@@ -1586,7 +1586,7 @@ const ciCard = (attrs, coins, base, price, level, best) => `<button type="button
   <span class="ci-price">${price}</span></button>`;
 
 // Play কেনার ফলাফল — অ্যাপ যেকোনো পেজে থাকলেও কাজ করে (অসম্পূর্ণ কেনাও অ্যাপ খুললে আবার আসে)
-// অ্যাড লোড/দেখাতে ব্যর্থ হলে কারণ সার্ভারে (এডমিন অ্যাড পেজে দেখা যায়) — APK ≥ v1.0.19
+// অ্যাড লোড/দেখাতে ব্যর্থ হলে কারণ সার্ভারে (এডমিন অ্যাড পেজে দেখা যায়) — APK ≥ v1.0.20
 window.onAdFail = (placement, code, msg) => {
   if (!S.me) return;
   rpc("log_ad_error", { p_placement: String(placement || ""), p_code: Number(code), p_message: String(msg || ""), p_build: Number(Native?.appBuild?.() || 0) || null }).catch(() => {});
