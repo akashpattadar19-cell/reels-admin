@@ -1581,20 +1581,12 @@ R.agent = async () => {
       ${notice ? `<p class="tiny" style="margin:8px 0 0;white-space:pre-line" translate="no">${esc(notice)}</p>` : ""}</div>`;
   const perks = `<div class="ag-perks"><div><b>${tk(per)}</b><span>প্রতি সফল রেফার</span></div>${tgt > 0 && tb > 0 ? `<div><b>+${tk(tb)}</b><span>প্রতি ${n(tgt)} জন পূরণে</span></div>` : ""}<div><b>🧑‍💼</b><span>প্রোফাইলে এজেন্ট ব্যাজ</span></div></div>`;
   if (a.status !== "approved") {
+    const site = "https://akashpattadar19-cell.github.io/reels-admin/site/#agent";
     screen.innerHTML = `<div class="page">${header("🧑‍💼 এজেন্ট")}
-      <div class="ag-hero"><div class="ag-ic">🧑‍💼</div><b>Reels Enjoy এজেন্ট হন</b><span>নিজের লিংক দিয়ে নতুন মানুষ আনুন, অ্যাপ বড় করুন — প্রতি সফল রেফারে বোনাস আর টার্গেট পূরণে বাড়তি পুরস্কার</span></div>
-      ${perks}
-      ${a.status === "pending" ? `<div class="card" style="text-align:center"><b>⏳ আপনার আবেদন যাচাই হচ্ছে</b><div class="tiny muted">অনুমোদন হলে নোটিফিকেশন পাবেন। সাধারণত ২৪ ঘণ্টার মধ্যে।</div></div>`
-        : `<div class="card">${a.status === "rejected" ? `<div class="tiny" style="color:#b45309;margin-bottom:6px">আগের আবেদন গ্রহণ হয়নি — আবার আবেদন করতে পারেন</div>` : ""}
-          <b>✍️ আবেদন করুন</b>
-          <textarea id="agNote" rows="3" placeholder="কোথায় প্রচার করবেন? (যেমন: ফেসবুক গ্রুপ, এলাকা, বন্ধুদের মধ্যে)" style="width:100%;margin:8px 0"></textarea>
-          <button class="btn primary" id="agApply" style="width:100%">🧑‍💼 এজেন্ট হতে আবেদন</button></div>`}
-      ${rules}</div>`;
-    $("#agApply")?.addEventListener("click", async (e) => {
-      e.target.disabled = true;
-      try { const st = await rpc("agent_apply", { p_note: $("#agNote").value }); toast(st === "approved" ? "🎉 আপনি এখন এজেন্ট!" : "✅ আবেদন জমা হয়েছে"); R.agent(); }
-      catch (er) { toast(errMsg(er), true); e.target.disabled = false; }
-    });
+      <div class="ag-hero"><div class="ag-ic">🧑‍💼</div><b>${a.status === "pending" ? "⏳ আপনার আবেদন যাচাই হচ্ছে" : "আপনি এখনো এজেন্ট নন"}</b>
+        <span>${a.status === "pending" ? "অনুমোদন হলে নোটিফিকেশন পাবেন, তখন এখানে আপনার এজেন্ট পেজ খুলবে।" : "এজেন্ট হতে আমাদের ওয়েবসাইটে আবেদন করুন। আবেদনে আপনার Reels Enjoy ID লাগবে:"}</span>
+        ${a.status === "pending" ? "" : `<div class="ag-code" data-copy="${a.code}">ID ${a.code} ⧉</div>`}</div>
+      ${a.status === "pending" ? "" : `<a class="btn primary" href="${site}" target="_blank" rel="noopener" style="width:100%">🌐 ওয়েবসাইটে আবেদন করুন</a>`}</div>`;
     return;
   }
   const link = agentLink();
@@ -1609,7 +1601,14 @@ R.agent = async () => {
     ${tgt > 0 ? `<div class="card"><b>🎯 টার্গেট: ${n(tgt)} জন সফল রেফার${tb > 0 ? ` → +${tk(tb)}` : ""}</b>
       <div class="progress" style="margin:8px 0 4px"><div style="width:${Math.round(done / tgt * 100)}%"></div></div>
       <div class="tiny muted">${n(done)}/${n(tgt)} · আর ${n(a.target_left)} জন বাকি${a.qualified >= tgt ? ` · এ পর্যন্ত ${n(Math.floor(a.qualified / tgt))} বার পূরণ ✅` : ""}</div></div>` : ""}
-    ${perks}
+    <div class="card"><b>💰 আপনার আয়ের নিয়ম</b><div class="list tiny">
+      <div class="li"><span>প্রতিটি সফল রেফার (আনা ইউজার সব টাস্ক শেষ করলে)</span><b>${tk(per)}</b></div>
+      ${tgt > 0 && tb > 0 ? `<div class="li"><span>প্রতি ${n(tgt)} জন সফল হলে বাড়তি (বারবার)</span><b>+${tk(tb)}</b></div>
+      <div class="li"><span>উদাহরণ: ${n(tgt)} জন সফল হলে মোট</span><b>${tk(per * tgt + tb)}</b></div>
+      <div class="li"><span>উদাহরণ: ${n(tgt * 2)} জন সফল হলে মোট</span><b>${tk(per * tgt * 2 + tb * 2)}</b></div>` : ""}
+      <div class="li"><span>আয় প্রথমে পেন্ডিং থাকে, তারপর ব্যালেন্সে আসে</span><b>${n(setting("pending_hold_hours", 48))} ঘণ্টা পর</b></div>
+      <div class="li"><span>সর্বনিম্ন উইথড্র</span><b>${tk(setting("withdraw_min_paisa"))}</b></div>
+      <div class="li"><span>একই মোবাইলের অ্যাকাউন্ট বা ভুয়া অ্যাকাউন্ট</span><b>❌ বোনাস নেই</b></div></div></div>
     <div class="card"><b>👥 আপনার আনা ইউজার</b>
       ${(a.list || []).map((x) => `<div class="ag-u"><div class="ag-uh">${avatar(x)}<span translate="no"><b>${esc(x.full_name || x.username)}</b><small>@${esc(x.username)} · ${dt(x.created_at)}</small></span>
         <em class="${x.qualified ? "ok" : x.blocked ? "bad" : ""}">${x.qualified ? "✅ সফল" : x.blocked === "same_device" ? "❌ একই মোবাইল" : x.blocked ? "⌛ সময় শেষ" : "⏳ চলছে"}</em></div>
@@ -3998,7 +3997,7 @@ R.me = async () => {
       <a href="#creator"><i class="mi c4"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></i>ক্রিয়েটর ড্যাশবোর্ড<em>›</em></a>
       <a href="#level"><i class="mi c2"><svg viewBox="0 0 24 24"><path d="M3.5 8l4.2 3.6L12 5l4.3 6.6L20.5 8l-1.8 10.5H5.3z"/><path d="M6 21h12"/></svg></i>আমার লেভেল<em>Lv${levelOf(p.followers_count)} ›</em></a>
       <a href="#invite"><i class="mi c3"><svg viewBox="0 0 24 24"><rect x="3.5" y="8.5" width="17" height="4" rx="1"/><path d="M5 12.5v8h14v-8M12 8.5v12M12 8.5S10.5 4 8 4.6C6 5.1 7 8.5 12 8.5zM12 8.5s1.5-4.5 4-3.9c2 .5 1 3.9-4 3.9z"/></svg></i>আমার রেফার<em>পুরস্কার নিন <b class="red"></b> ›</em></a>
-      ${setting("agent_enabled", true) !== false ? `<a href="#agent"><i class="mi c5"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c2 .7 3.2 2.5 3.6 5.2"/></svg></i>${p.agent_status === "approved" ? "এজেন্ট ড্যাশবোর্ড" : "এজেন্ট হন"}<em>${p.agent_status === "pending" ? "⏳ যাচাই হচ্ছে " : p.agent_status === "approved" ? "🧑‍💼 " : "নতুন "}›</em></a>` : ""}
+      ${p.agent_status === "approved" ? `<a href="#agent"><i class="mi c5"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c2 .7 3.2 2.5 3.6 5.2"/></svg></i>${p.agent_status === "approved" ? "এজেন্ট ড্যাশবোর্ড" : "এজেন্ট হন"}<em>${p.agent_status === "pending" ? "⏳ যাচাই হচ্ছে " : p.agent_status === "approved" ? "🧑‍💼 " : "নতুন "}›</em></a>` : ""}
       <a href="#rules"><i class="mi c4"><svg viewBox="0 0 24 24"><rect x="5" y="4.5" width="14" height="16.5" rx="2"/><path d="M9 3.5h6v3H9zM8.5 11.5l2 2 4-4M8.5 17h7"/></svg></i>আমার টাস্ক<em>›</em></a>
       <a href="#u/${p.id}"><i class="mi c5"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.2-4 4.2-5.5 7.5-5.5s6.3 1.5 7.5 5.5"/></svg></i>আমার প্রোফাইল<em>›</em></a>
       <a href="#settings"><i class="mi c6"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></i>সেটিংস<em>›</em></a>
@@ -4181,7 +4180,7 @@ R.invite = async () => {
   const rules = refRuleItems();
   screen.innerHTML = `<div class="page">${header("🎁 আমার রেফার")}
     ${offer ? `<div class="ref-offer"><span>🔥</span><div translate="no">${esc(offer)}</div></div>` : ""}
-    ${setting("agent_enabled", true) !== false ? `<a class="card ag-cta" href="#agent"><span>🧑‍💼</span><div><b>${S.me?.agent_status === "approved" ? "এজেন্ট ড্যাশবোর্ড" : "এজেন্ট হয়ে বেশি বোনাস নিন"}</b><small>নিজের লিংক · প্রতি ${n(setting("agent_target_refs", 20))} জনে বাড়তি পুরস্কার</small></div><em>›</em></a>` : ""}
+    ${S.me?.agent_status === "approved" ? `<a class="card ag-cta" href="#agent"><span>🧑‍💼</span><div><b>${S.me?.agent_status === "approved" ? "এজেন্ট ড্যাশবোর্ড" : "এজেন্ট হয়ে বেশি বোনাস নিন"}</b><small>নিজের লিংক · প্রতি ${n(setting("agent_target_refs", 20))} জনে বাড়তি পুরস্কার</small></div><em>›</em></a>` : ""}
     ${mine && !mine.qualified && !mine.blocked ? `<div class="card ref-mine"><b>🎯 আপনার টাস্ক (@${esc(mine.referrer)}-এর রেফারে যুক্ত)</b>
       <div class="tiny muted" style="margin:2px 0 8px">⏳ ${refLeft(mine.end)} · সব শেষ করলে আপনি পাবেন ⭐ ${n(setting("referral_welcome_points"))} পয়েন্ট</div>${refTaskList(mine)}</div>` : ""}
     <div class="card hero" style="text-align:center"><div class="k">আপনার রেফার কোড</div>

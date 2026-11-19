@@ -15,7 +15,7 @@
 <link rel="icon" href="img/icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="site.css?v=202611191710">
+<link rel="stylesheet" href="site.css?v=202611191723">
 </head>
 <body>
 <header class="nav" id="top">
@@ -125,8 +125,19 @@
 <section id="agent" class="sec hidden">
   <div class="in">
     <h2 data-en="🧑‍💼 Become an agent">🧑‍💼 এজেন্ট হন</h2>
-    <p class="sub" data-en="Bring new people with your own link. Apply inside the app: Me → Become an agent.">নিজের লিংক দিয়ে নতুন মানুষ আনুন। আবেদন অ্যাপের ভেতর থেকে: আমি → এজেন্ট হন।</p>
+    <p class="sub" data-en="Bring new people with your own link and earn agent bonuses. Apply below — after admin approval the Agent page opens in your app.">নিজের লিংক দিয়ে নতুন মানুষ আনুন, এজেন্ট বোনাস নিন। নিচের ফর্মে আবেদন করুন — অ্যাডমিন অনুমোদন দিলে আপনার অ্যাপে এজেন্ট পেজ খুলে যাবে।</p>
     <div id="agentBox"></div>
+    <form class="card agform" id="agForm">
+      <h3 data-en="✍️ Agent application">✍️ এজেন্ট আবেদন</h3>
+      <label><span data-en="Your Reels Enjoy ID (in the app: Me → ID)">আপনার Reels Enjoy ID (অ্যাপে: আমি → ID নম্বর)</span><input id="agNo" inputmode="numeric" required placeholder="100001"></label>
+      <label><span data-en="Full name">পুরো নাম</span><input id="agName" required maxlength="80"></label>
+      <label><span data-en="Phone / WhatsApp number">ফোন / WhatsApp নম্বর</span><input id="agPhone" inputmode="tel" required placeholder="+8801…"></label>
+      <label><span data-en="District / area">জেলা / এলাকা</span><input id="agArea" maxlength="120"></label>
+      <label><span data-en="Where will you promote? How many people can you bring?">কোথায় প্রচার করবেন? কতজন আনতে পারবেন?</span><textarea id="agPlan" rows="3" maxlength="500"></textarea></label>
+      <button class="btn big" type="submit" style="justify-content:center" data-en="Send application">আবেদন পাঠান</button>
+      <p class="note" id="agMsg"></p>
+      <p class="note" data-en="Don't have the app yet? Download it first, open it and note your ID.">অ্যাপ না থাকলে আগে ডাউনলোড করে খুলুন, তারপর ID নম্বর নিয়ে আবেদন করুন।</p>
+    </form>
   </div>
 </section>
 
@@ -206,7 +217,7 @@
   </div>
 </footer>
 
-<script src="../config.js?v=202611191710"></script>
-<script src="site.js?v=202611191710"></script>
+<script src="../config.js?v=202611191723"></script>
+<script src="site.js?v=202611191723"></script>
 </body>
 </html>

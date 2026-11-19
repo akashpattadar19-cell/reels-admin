@@ -241,12 +241,16 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   (`#launch/posts|pnew|p<id>`, `admin_site_posts/admin_save_site_post/admin_delete_site_post`, optional `admin_broadcast`).
   App: `app_offers()` → Home strip (`homeOffers`) + `#offers`; Settings links to #offers and the website; `get/` links to the site.
   No own domain/repo yet (session can't create repos) — a custom domain would improve trust.
-- Agents (044): users apply in app `#agent` (`agent_apply`, Me menu + #invite card) → admin "🧑‍💼 এজেন্ট" `#agents/<pending|approved|rejected|all|rules>`
+- Agents (044/045): owner wants NO apply option inside the app. People apply on the website (`site/#agent` form → `agent_web_apply(user_no, name,
+  phone, area, plan)`, anon allowed, rate-limited, table `agent_applications`; `agent_apply` revoked). Admin "🧑‍💼 এজেন্ট" `#agents/<pending|approved|rejected|all|rules>`
   (`admin_agents`, `admin_agent_action` approve|reject|remove, agent_* settings). `profiles.agent_status/agent_since/ref_agent`; trigger `tg_ref_agent`
   marks a referral as agent-type when the referrer is an approved agent at that moment. `_referral_progress` then uses agent_* rules
   (window, active days + minutes, per-day photo/text/video posts on `agent_req_post_days` days, full watch/likes/comments/shares).
   `_check_referral` pays `agent_ref_bonus_paisa` and every `agent_target_refs` successes `agent_target_bonus_paisa` (`agent_target_bonus`).
-  App: `my_agent()` dashboard (code, link `get/?ref=<no>&agent=1`, stats, target bar, people + progress), profile badge 🧑‍💼; website shows agent rules.
+  Admin `#agents/pending` lists web applications (`admin_agent_applications`, `admin_agent_application_action` → approve calls `admin_agent_action`).
+  App: Me menu / #invite card only for approved agents; `#agent` for others only points to the website; approved = `my_agent()` dashboard
+  (income rules with examples, code, link `get/?ref=<no>&agent=1`, stats, target bar, people + progress), profile badge 🧑‍💼.
+- Declined: stock/AI photos of attractive women/men presented as app users (misleading fake users). Use only real, consenting people's photos.
 - Not built on purpose: Chamet "BIG WIN"/"City PK" coin games (betting).
 - Declined: real-money betting games in live (coins are bought with money and earnings withdraw → gambling, illegal in BD/KSA,
   banned by Play). Offer free point games instead. Call moderation must cover the whole call, not only the first minutes.
@@ -267,4 +271,4 @@ so phones load the new files immediately. APK ≥ v1.0.7 also opens the app URL 
 
 ## Security
 RLS on every table; clients can only SELECT. All writes go through SECURITY DEFINER RPCs that check `auth.uid()`;
-admin RPCs call `_require_admin()`. `anon` cannot execute any function except `site_info()` (read-only public info for the website).
+admin RPCs call `_require_admin()`. `anon` cannot execute any function except `site_info()` (read-only public info for the website) and `agent_web_apply()` (website agent form).

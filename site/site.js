@@ -194,6 +194,32 @@
       $("#earnList").innerHTML = "";
     }
   }
+
+  // এজেন্ট আবেদন (লগইন ছাড়া)
+  const AG_ERR = { NO_SUCH_ID: ["এই ID-র কোনো অ্যাকাউন্ট নেই — অ্যাপে আমি পেজে ID দেখে নিন", "No account with this ID — check the ID on the app's Me page"],
+    PHONE: ["সঠিক ফোন নম্বর দিন", "Enter a valid phone number"], NAME: ["পুরো নাম লিখুন", "Enter your full name"],
+    ACCOUNT_BLOCKED: ["এই অ্যাকাউন্ট এখন আবেদন করতে পারবে না", "This account can't apply right now"],
+    TRY_LATER: ["অনেক আবেদন এসেছে — কিছুক্ষণ পরে আবার চেষ্টা করুন", "Too many applications — please try again later"],
+    AGENT_OFF: ["এখন এজেন্ট আবেদন বন্ধ আছে", "Agent applications are closed right now"] };
+  $("#agForm").onsubmit = async (e) => {
+    e.preventDefault();
+    const msg = $("#agMsg"), btn = e.submitter || $("#agForm button");
+    const no = Number(($("#agNo").value || "").replace(/\D/g, ""));
+    if (!no) { msg.className = "note err"; msg.textContent = L("ID নম্বর দিন", "Enter your ID"); return; }
+    btn.disabled = true; msg.className = "note"; msg.textContent = L("পাঠানো হচ্ছে…", "Sending…");
+    try {
+      const r = await fetch(`${CFG.SUPABASE_URL}/rest/v1/rpc/agent_web_apply`, { method: "POST", headers: { apikey: CFG.SUPABASE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ p_user_no: no, p_name: $("#agName").value, p_phone: $("#agPhone").value, p_area: $("#agArea").value, p_plan: $("#agPlan").value }) });
+      const j = await r.json();
+      if (!r.ok) { const k = Object.keys(AG_ERR).find((x) => String(j.message || "").includes(x)); throw new Error(k ? L(...AG_ERR[k]) : L("পাঠানো যায়নি — আবার চেষ্টা করুন", "Couldn't send — please try again")); }
+      msg.className = "note ok";
+      msg.textContent = j === "already_agent" ? L("আপনি আগে থেকেই এজেন্ট — অ্যাপে এজেন্ট পেজ দেখুন", "You're already an agent — see the Agent page in the app")
+        : j === "already_pending" ? L("আপনার আবেদন আগেই জমা আছে, যাচাই চলছে", "Your application is already in and being checked")
+        : L("✅ আবেদন জমা হয়েছে! অ্যাডমিন যাচাই করে অনুমোদন দিলে অ্যাপে নোটিফিকেশন পাবেন।", "✅ Application sent! You'll get a notification in the app once the admin approves it.");
+      if (j === "ok") $("#agForm").reset();
+    } catch (er) { msg.className = "note err"; msg.textContent = er.message; }
+    btn.disabled = false;
+  };
   applyLang();
   load();
 })();

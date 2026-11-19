@@ -1578,7 +1578,8 @@ routes.monetize = async (tab = "pool") => {
 routes.agents = async (tab = "pending") => {
   if (!["pending", "approved", "rejected", "all", "rules"].includes(tab)) tab = "pending";
   loading();
-  const [d, { data: st }] = await Promise.all([rpc("admin_agents", { p_status: tab === "rules" ? "pending" : tab }), sb.from("settings").select("key,value").like("key", "agent_%")]);
+  const [d, { data: st }, apps] = await Promise.all([rpc("admin_agents", { p_status: tab === "rules" ? "pending" : tab }), sb.from("settings").select("key,value").like("key", "agent_%"),
+    tab === "pending" || tab === "rejected" ? rpc("admin_agent_applications", { p_status: tab }) : Promise.resolve([])]);
   const S2 = Object.fromEntries((st ?? []).map((x) => [x.key, x.value]));
   const c = d.counts || {};
   const tabs = `<div class="tabs">${[["pending", `⏳ আবেদন (${num(c.pending)})`], ["approved", `✅ এজেন্ট (${num(c.approved)})`], ["rejected", `❌ বাতিল (${num(c.rejected)})`], ["all", "সব"], ["rules", "⚙️ নিয়ম"]]
@@ -1595,7 +1596,7 @@ routes.agents = async (tab = "pending") => {
   if (tab === "rules") {
     body = `<div class="card small" style="margin-bottom:12px">এজেন্ট অনুমোদন পাওয়ার পর তার কোড/লিংক দিয়ে যারা আসবে, তাদের এই কঠিন টাস্কগুলো শেষ করতে হবে (সাধারণ রেফারের নিয়ম আলাদা — <a href="#referrals">🎁 রেফার</a> পেজে)।
       "প্রতিদিন" টাস্ক মানে: অন্তত যত দিন লেখা আছে, প্রতিটি দিনে ওই সংখ্যক পোস্ট।</div>
-      <h2>সাধারণ</h2><div class="list">${row("agent_enabled", "এজেন্ট আবেদন চালু", "bool")}${row("agent_auto_approve", "আবেদন অটো অনুমোদন (বন্ধ = আপনি দেখে অনুমোদন দেবেন)", "bool")}
+      <h2>সাধারণ</h2><div class="list">${row("agent_enabled", "এজেন্ট আবেদন চালু", "bool")}
         ${row("agent_ref_bonus_paisa", "এজেন্ট প্রতি সফল রেফারে পাবে", "taka")}${row("agent_target_refs", "টার্গেট: কতজন সফল রেফার (০ = টার্গেট নেই)", "num")}
         ${row("agent_target_bonus_paisa", "প্রতিবার টার্গেট পূরণে বাড়তি বোনাস", "taka")}</div>
       <h2>এজেন্টের আনা ইউজারের টাস্ক</h2><div class="list">${row("agent_window_days", "কত দিনের মধ্যে সব শেষ করতে হবে", "num")}
@@ -1605,6 +1606,21 @@ routes.agents = async (tab = "pending") => {
         ${row("agent_req_full_watch", "অন্যদের ভিডিও পুরো দেখা (মোট)", "num")}${row("agent_req_likes", "লাইক (মোট)", "num")}
         ${row("agent_req_comments", "কমেন্ট (মোট)", "num")}${row("agent_req_shares", "শেয়ার (মোট)", "num")}</div>
       <h2>নিয়মের নোটিশ</h2><div class="list">${row("agent_rules_text", "এজেন্ট পেজে দেখাবে", "text")}${row("agent_rules_text_en", "English", "text")}</div>`;
+  } else if (tab === "pending" || tab === "rejected") {
+    body = `<div class="card small" style="margin-bottom:12px">এজেন্ট আবেদন আসে শুধু <a href="https://akashpattadar19-cell.github.io/reels-admin/site/#agent" target="_blank" rel="noopener">ওয়েবসাইট</a> থেকে।
+      আবেদনের ID দিয়ে ইউজারকে দেখে নিন (🔎), দরকার হলে ফোনে কথা বলুন, তারপর অনুমোদন দিন। অনুমোদনের পর তার অ্যাপে এজেন্ট পেজ আর আয়ের নিয়ম খুলে যাবে।</div>
+      <div class="list">${apps.map((a) => `<div class="item">
+      <div class="top"><b>${esc(a.name)} <span class="muted small">ID <a href="#lookup/${a.user_no}">${a.user_no}</a>${a.username ? ` · @${esc(a.username)}` : ""}</span></b>
+        <span class="pill ${a.status === "pending" ? "pending" : "rejected"}">${a.status === "pending" ? "⏳ নতুন" : "❌ বাতিল"}</span></div>
+      <div class="meta">📞 <a href="tel:${esc(a.phone)}">${esc(a.phone)}</a> · <a href="https://wa.me/${esc(a.phone.replace(/[^0-9]/g, ""))}" target="_blank" rel="noopener">WhatsApp</a>${a.area ? ` · 📍 ${esc(a.area)}` : ""} · ${new Date(a.created_at).toLocaleString("bn-BD")}</div>
+      ${a.plan ? `<div class="small" style="margin-bottom:6px">📝 ${esc(a.plan)}</div>` : ""}
+      <div class="small">অ্যাপে নাম: <b>${esc(a.full_name || "—")}</b> · ফলোয়ার ${num(a.followers_count)} · ভিডিও ${num(a.videos_count)} · অ্যাকাউন্ট ${a.joined_at ? new Date(a.joined_at).toLocaleDateString("bn-BD") : "—"} · আগে রেফার ${num(a.referred)} (সফল ${num(a.referred_ok)})</div>
+      ${a.shared_device ? `<div class="small" style="color:var(--warn)">⚠️ এই ইউজারের মোবাইলে অন্য অ্যাকাউন্টও আছে</div>` : ""}
+      ${!a.has_device ? `<div class="small" style="color:var(--warn)">⚠️ এখনো অ্যাপ (APK) থেকে লগইন করেনি</div>` : ""}
+      ${a.account_status && a.account_status !== "active" ? `<div class="small" style="color:var(--bad)">⛔ অ্যাকাউন্ট ${esc(a.account_status)}</div>` : ""}
+      ${a.admin_note ? `<div class="muted small">নোট: ${esc(a.admin_note)}</div>` : ""}
+      ${a.status === "pending" ? `<div class="actions"><button class="btn sm good" data-app="approve" data-id="${a.id}">✅ এজেন্ট বানান</button><button class="btn sm bad" data-app="reject" data-id="${a.id}">❌ বাতিল</button><a class="btn sm" href="#lookup/${a.user_no}">🔎 ID দেখুন</a></div>` : ""}</div>`).join("")
+      || `<div class="empty">কোনো আবেদন নেই</div>`}</div>`;
   } else {
     body = `<div class="list">${(d.list || []).map((a) => `<div class="item">
       <div class="top"><b><a href="#lookup/${a.user_no}">${esc(a.full_name || a.username)}</a> <span class="muted small">@${esc(a.username)} · ${a.user_no}</span></b>
@@ -1619,6 +1635,14 @@ routes.agents = async (tab = "pending") => {
       || `<div class="empty">কেউ নেই</div>`}</div>`;
   }
   view.innerHTML = `<h1>🧑‍💼 এজেন্ট</h1>${tabs}${body}`;
+  view.querySelectorAll("[data-app]").forEach((b) => (b.onclick = async () => {
+    const ap = b.dataset.app;
+    let note = null;
+    if (ap === "reject") { note = prompt("কারণ (ইউজার নোটিফিকেশনে দেখবে, খালি রাখা যায়)", ""); if (note === null) return; }
+    else if (!confirm("এই ইউজারকে এজেন্ট বানাবেন? তার অ্যাপে এজেন্ট পেজ খুলে যাবে।")) return;
+    await act(() => rpc("admin_agent_application_action", { p_id: Number(b.dataset.id), p_action: ap, p_note: note }), ap === "approve" ? "✅ এজেন্ট বানানো হয়েছে" : "বাতিল করা হয়েছে");
+    routes.agents(tab);
+  }));
   view.querySelectorAll("[data-ag]").forEach((b) => (b.onclick = async () => {
     const act2 = b.dataset.ag;
     let note = null;
