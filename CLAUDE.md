@@ -263,6 +263,12 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   Admin `#agents/pending` lists web applications (`admin_agent_applications`, `admin_agent_application_action` → approve calls `admin_agent_action`).
   App: Me menu / #invite card only for approved agents; `#agent` for others only points to the website; approved = `my_agent()` dashboard
   (income rules with examples, code, link `get/?ref=<no>&agent=1`, stats, target bar, people + progress), profile badge 🧑‍💼.
+- Growth (047): coins-only rewards (never withdrawable). Daily check-in `daily_checkins` + `checkin_status/daily_checkin` (7-day cycle
+  `checkin_rewards`, streak resets after a missed BD day; popup once a day on app start before the offer popup, card on Me (only until done) and #rules).
+  New-user checklist `starter_claims` + `starter_status/starter_claim(task)` (avatar, first published video, follow `starter_follow_need`, done bonus;
+  shown for `starter_days` after signup). `bonus_need_device` (default on) = APK device required and one reward per phone (`_my_device`).
+  Admin "🚀 লঞ্চ অফার" → `#launch/grow` (settings + `admin_growth_stats`). Video share page `v/?id=&ref=&lang=` (anon `public_video(id)`:
+  published, non-premium only) plays a 15 s preview, then "watch in the app" → `get/`; app `videoLink(v)` builds it from `share_link` (get/ → v/).
 - Declined: stock/AI photos of attractive women/men presented as app users (misleading fake users). Use only real, consenting people's photos.
 - Not built on purpose: Chamet "BIG WIN"/"City PK" coin games (betting).
 - Declined: real-money betting games in live (coins are bought with money and earnings withdraw → gambling, illegal in BD/KSA,
@@ -284,4 +290,4 @@ so phones load the new files immediately. APK ≥ v1.0.7 also opens the app URL 
 
 ## Security
 RLS on every table; clients can only SELECT. All writes go through SECURITY DEFINER RPCs that check `auth.uid()`;
-admin RPCs call `_require_admin()`. `anon` cannot execute any function except `site_info()` (read-only public info for the website) and `agent_web_apply()` (website agent form).
+admin RPCs call `_require_admin()`. `anon` cannot execute any function except `site_info()` (read-only public info for the website), `agent_web_apply()` (website agent form) and `public_video(id)` (share page).

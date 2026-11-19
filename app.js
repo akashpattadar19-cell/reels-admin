@@ -1124,10 +1124,57 @@ async function launchPosts(arg, tabs) {
   $("#pDel")?.addEventListener("click", async () => { if (!confirm("এটা মুছবেন?")) return; await act(() => rpc("admin_delete_site_post", { p_id: x.id }), "মুছে ফেলা হয়েছে"); location.hash = "#launch/posts"; });
 }
 
+// 📅 প্রতিদিন চেক-ইন ও নতুনদের কাজ (পুরস্কার কয়েন — উইথড্র হয় না)
+async function launchGrow(tabs) {
+  const [st, { data: rows }] = await Promise.all([rpc("admin_growth_stats"),
+    sb.from("settings").select("key,value").in("key", ["checkin_enabled", "checkin_rewards", "bonus_need_device", "starter_enabled", "starter_days", "starter_follow_need", "starter_rewards"])]);
+  const S0 = Object.fromEntries((rows ?? []).map((r) => [r.key, r.value]));
+  const cr = Array.isArray(S0.checkin_rewards) ? S0.checkin_rewards : [2, 3, 5, 5, 8, 10, 20];
+  const sr = S0.starter_rewards || {};
+  const sc = st.starter || {};
+  const TASKS = [["avatar", "🖼️ প্রোফাইল ছবি"], ["video", "🎬 প্রথম ভিডিও (অনুমোদিত)"], ["follow", "👥 ফলো করা"], ["done", "🏆 সব শেষের বোনাস"]];
+  view.innerHTML = `<h1>🚀 লঞ্চ অফার</h1>${tabs("grow")}
+    <div class="card small" style="margin-bottom:12px">পুরস্কার শুধু <b>কয়েন</b> — উইথড্র হয় না, গিফট/VIP/বুস্ট/ফ্রেমে খরচ হয়। "এক মোবাইলে এক অ্যাকাউন্ট" চালু থাকলে
+      পুরস্কার শুধু APK-তে আর একই মোবাইলের দ্বিতীয় অ্যাকাউন্ট একই পুরস্কার পাবে না।</div>
+    <div class="grid">
+      <div class="card stat"><div class="k">আজ চেক-ইন</div><div class="v">${num(st.today?.users)}</div><div class="muted small">🪙 ${num(st.today?.coins)}</div></div>
+      <div class="card stat"><div class="k">টানা ৭ দিন পূর্ণ (আজ)</div><div class="v">${num(st.streak7)}</div></div>
+      <div class="card stat"><div class="k">৭ দিনে নতুন ইউজার</div><div class="v">${num(st.new_users_7d)}</div><div class="muted small">ভিডিও দিয়েছে ${num(st.new_with_video_7d)}</div></div>
+    </div>
+    <h2>📅 প্রতিদিন চেক-ইন</h2>
+    <div class="card">
+      <label class="row" style="gap:8px"><input type="checkbox" id="gChk" ${S0.checkin_enabled !== false ? "checked" : ""} style="width:auto"> চেক-ইন চালু</label>
+      <label class="small">৭ দিনের কয়েন (দিন ১ থেকে ৭)</label>
+      <div class="row" style="gap:4px">${cr.map((c, i) => `<input type="number" min="0" class="gD" value="${Number(c)}" title="দিন ${i + 1}" style="flex:1;min-width:0;padding:8px 4px;text-align:center">`).join("")}</div>
+      <div class="table-wrap" style="margin-top:10px"><table><tr><th>দিন</th><th>চেক-ইন</th><th>কয়েন</th></tr>${(st.days ?? []).map((d) => `<tr><td>${esc(d.day)}</td><td>${num(d.users)}</td><td>🪙 ${num(d.coins)}</td></tr>`).join("")}</table></div>
+    </div>
+    <h2>🎯 নতুনদের কাজ</h2>
+    <div class="card">
+      <label class="row" style="gap:8px"><input type="checkbox" id="gSt" ${S0.starter_enabled !== false ? "checked" : ""} style="width:auto"> নতুনদের চেকলিস্ট চালু</label>
+      <div class="row" style="gap:8px"><div style="flex:1"><label class="small">অ্যাকাউন্ট খোলার কত দিন দেখাবে</label><input type="number" min="1" id="gDays" value="${Number(S0.starter_days ?? 7)}"></div>
+        <div style="flex:1"><label class="small">কতজনকে ফলো</label><input type="number" min="1" id="gFol" value="${Number(S0.starter_follow_need ?? 3)}"></div></div>
+      <div class="table-wrap"><table><tr><th>কাজ</th><th>কয়েন</th><th>নিয়েছে</th></tr>${TASKS.map(([k, t]) => `<tr><td>${t}</td><td><input type="number" min="0" class="gS" data-k="${k}" value="${Number(sr[k] ?? 0)}" style="width:80px;margin:0"></td><td>${num(sc[k]?.users ?? 0)} জন · 🪙 ${num(sc[k]?.coins ?? 0)}</td></tr>`).join("")}</table></div>
+    </div>
+    <div class="card"><label class="row" style="gap:8px"><input type="checkbox" id="gDev" ${S0.bonus_need_device !== false ? "checked" : ""} style="width:auto"> এক মোবাইলে এক অ্যাকাউন্ট (শুধু APK-তে পুরস্কার) — প্রতারণা রোধে চালু রাখুন</label></div>
+    <div class="toolbar"><button class="btn good" id="gSave">💾 সেভ করুন</button></div>`;
+  $("#gSave").onclick = async () => {
+    const days = [...view.querySelectorAll(".gD")].map((x) => Math.max(0, Math.round(Number(x.value) || 0)));
+    const strw = Object.fromEntries([...view.querySelectorAll(".gS")].map((x) => [x.dataset.k, Math.max(0, Math.round(Number(x.value) || 0))]));
+    const set = (k, v) => rpc("admin_set_setting", { p_key: k, p_value: v });
+    await act(async () => {
+      await set("checkin_enabled", $("#gChk").checked); await set("checkin_rewards", days);
+      await set("starter_enabled", $("#gSt").checked); await set("starter_days", Math.max(1, Number($("#gDays").value) || 7));
+      await set("starter_follow_need", Math.max(1, Number($("#gFol").value) || 3)); await set("starter_rewards", strw);
+      await set("bonus_need_device", $("#gDev").checked);
+    }, "✅ সেভ হয়েছে");
+    launchGrow(tabs);
+  };
+}
 routes.launch = async (arg = "locks") => {
-  const tabs = (on) => `<div class="tabs"><a class="btn sm ${on === "locks" ? "on" : ""}" href="#launch/locks">🔒 ইনকাম লক</a><a class="btn sm ${on === "season" ? "on" : ""}" href="#launch/season">🏆 সিজন প্রতিযোগিতা</a><a class="btn sm ${on === "posts" ? "on" : ""}" href="#launch/posts">📢 অফার ও খবর</a></div>`;
+  const tabs = (on) => `<div class="tabs"><a class="btn sm ${on === "locks" ? "on" : ""}" href="#launch/locks">🔒 ইনকাম লক</a><a class="btn sm ${on === "season" ? "on" : ""}" href="#launch/season">🏆 সিজন প্রতিযোগিতা</a><a class="btn sm ${on === "posts" ? "on" : ""}" href="#launch/posts">📢 অফার ও খবর</a><a class="btn sm ${on === "grow" ? "on" : ""}" href="#launch/grow">📅 চেক-ইন ও নতুনদের কাজ</a></div>`;
   loading();
   if (arg === "posts" || /^p(new|\d+)$/.test(arg)) return launchPosts(arg, tabs);
+  if (arg === "grow") return launchGrow(tabs);
   if (arg === "locks") {
     const { data } = await sb.from("settings").select("value").eq("key", "income_locks").maybeSingle();
     const L = data?.value || {};

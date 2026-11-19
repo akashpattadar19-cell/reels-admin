@@ -2226,7 +2226,22 @@
 "🎉 বিজয়ী ঘোষণা হয়েছে": "🎉 Winners announced",
 "🏁 শেষ — শীঘ্রই ফলাফল": "🏁 Ended — results soon",
 "সফল রেফার": "Successful referrals",
-"কয়েন নীতিমালা": "Coin policy"
+"কয়েন নীতিমালা": "Coin policy",
+"এই পুরস্কার আগেই নিয়েছেন": "You already took this reward",
+"এই পুরস্কার শুধু Reels Enjoy অ্যাপে (APK) পাওয়া যায়": "This reward is only available in the Reels Enjoy app (APK)",
+"এই মোবাইলে অন্য একটি অ্যাকাউন্ট এই পুরস্কার আগেই নিয়েছে": "Another account on this phone already took this reward",
+"আগে কাজটা শেষ করুন": "Finish the task first",
+"সময় শেষ হয়ে গেছে": "Time is over",
+"এটা এখন বন্ধ আছে": "This is turned off right now",
+"📅 চেক-ইন পুরস্কার": "📅 Check-in reward",
+"🎯 নতুনদের কাজের পুরস্কার": "🎯 Starter task reward",
+"📅 প্রতিদিন চেক-ইন": "📅 Daily check-in",
+"টানা ৭ দিন এলে ৭ম দিনে সবচেয়ে বড় পুরস্কার। একদিন বাদ গেলে আবার দিন ১ থেকে শুরু। কয়েন দিয়ে গিফট, VIP, বুস্ট ও ফ্রেম কেনা যায়।": "Come 7 days in a row for the biggest reward on day 7. Miss a day and you start again from day 1. Use coins for gifts, VIP, boosts and frames.",
+"প্রোফাইল ছবি দিন": "Add a profile photo",
+"প্রথম ভিডিও পোস্ট করুন (অনুমোদন হলে)": "Post your first video (once approved)",
+"সব কাজ শেষ — বড় বোনাস": "All tasks done — big bonus",
+"🎯 নতুনদের কাজ — কয়েন নিন": "🎯 Starter tasks — get coins",
+"করুন ›": "Do it ›"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });
@@ -2240,6 +2255,17 @@
   var D = "([\\d০-৯][\\d০-৯,.]*)";
   var KIND = { "ফটো": "photo", "লেখা": "text", "ভিডিও": "video" };
   var PRE = [
+    [new RegExp("^দিন " + D + "$", "g"), "Day $1"],
+    [new RegExp("🔥 টানা " + D + " দিন", "g"), "🔥 $1-day streak"],
+    [new RegExp("আজ পাবেন 🪙 " + D, "g"), "Today: 🪙 $1"],
+    [new RegExp("✅ আজকের পুরস্কার নেওয়া হয়েছে — কাল আবার আসুন, পাবেন 🪙 " + D, "g"), "✅ Today's reward collected — come back tomorrow for 🪙 $1"],
+    [new RegExp("🎁 চেক-ইন করে 🪙 " + D + " নিন", "g"), "🎁 Check in and get 🪙 $1"],
+    [new RegExp(D + " জনকে ফলো করুন \\(" + D + "/" + D + "\\)", "g"), "Follow $1 people ($2/$3)"],
+    [new RegExp("^🪙 " + D + " নিন$", "g"), "Get 🪙 $1"],
+    [new RegExp("🪙 " + D + " কয়েন পেয়েছেন!", "g"), "You got 🪙 $1 coins!"],
+    [new RegExp("📅 চেক-ইন দিন " + D, "g"), "📅 Check-in day $1"],
+    [/🎯 নতুনদের কাজ: (\w+)/g, "🎯 Starter task: $1"],
+    [/^⏳ (.+?) পর্যন্ত$/g, "⏳ until $1"],
     [new RegExp("ভিডিও " + D + " সেকেন্ড — সর্বোচ্চ " + D + " সেকেন্ড", "g"), "The video is $1 s — max $2 s"],
     [new RegExp("আপলোড হয়েছে ✅ " + D + " মিনিটের মধ্যে প্রকাশিত হবে", "g"), "Uploaded ✅ It will be published within $1 minutes"],
     [/🚀 বুস্ট চালু — (.+?) পর্যন্ত/g, "🚀 Boost on until $1"],

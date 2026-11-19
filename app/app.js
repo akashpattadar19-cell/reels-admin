@@ -201,7 +201,8 @@ const ERR = {
   INSUFFICIENT_COINS: "কয়েন যথেষ্ট নেই — আগে কয়েন কিনুন",
   INCOME_LOCKED: "এই সুবিধা শীঘ্রই চালু হবে 🔒", NOT_ENDED: "সিজন এখনো শেষ হয়নি",
   POOL_MODE: "এখন রিওয়ার্ড পুল চালু — পয়েন্ট দিয়ে প্রতিদিন পুলের ভাগ পাবেন", VIP_OFF: "VIP এখন বন্ধ", NOT_VIP: "এটা শুধু VIP-দের জন্য",
-  ALREADY_CLAIMED: "আজকের ফ্রি কয়েন আগেই নিয়েছেন", ALREADY_OWNED: "এটা আপনার কাছে আগেই আছে", STORE_OFF: "দোকান এখন বন্ধ",
+  ALREADY_CLAIMED: "এই পুরস্কার আগেই নিয়েছেন", NEED_APP: "এই পুরস্কার শুধু Reels Enjoy অ্যাপে (APK) পাওয়া যায়",
+  DEVICE_USED: "এই মোবাইলে অন্য একটি অ্যাকাউন্ট এই পুরস্কার আগেই নিয়েছে", NOT_DONE: "আগে কাজটা শেষ করুন", EXPIRED: "সময় শেষ হয়ে গেছে", DISABLED: "এটা এখন বন্ধ আছে", ALREADY_OWNED: "এটা আপনার কাছে আগেই আছে", STORE_OFF: "দোকান এখন বন্ধ",
   BOOST_OFF: "বুস্ট এখন বন্ধ", NOT_PUBLISHED: "ভিডিও অনুমোদনের পরে বুস্ট করা যাবে",
   NOT_SELLER: "আপনি কয়েন সেলার নন",
   SELLER_OFF: "কয়েন বিক্রি এখন বন্ধ আছে",
@@ -560,7 +561,7 @@ async function start() {
     if (di.id) rpc("register_device", { p_device_id: di.id, p_brand: di.brand, p_model: di.model, p_os: di.os, p_app: di.app })
       .then((r) => { if (r?.welcome_paisa > 0) showWelcome(r.welcome_paisa); }).catch(() => {});
   } catch { /* old APK */ }
-  if (!checkUpdate()) { requireLocation(); setTimeout(offerPopup, 2500); }
+  if (!checkUpdate()) { requireLocation(); setTimeout(async () => { if (!(await checkinPopup())) offerPopup(); }, 2500); }
   setTimeout(() => { try { if (isPlay()) Native?.playRestore?.(); } catch { /* old APK */ } }, 3000);
 }
 
@@ -1183,9 +1184,15 @@ function shareLink() {
   const base = String(setting("share_link", "") || "https://akashpattadar19-cell.github.io/reels-admin/get/");
   return `${base}?ref=${S.me?.user_no ?? ""}${isEn() ? "&lang=en" : ""}`;
 }
+// ভিডিওর নিজের পেজ (লিংক খুললেই ভিডিও চলে, তারপর অ্যাপ ডাউনলোড) — প্রিমিয়াম হলে সাধারণ ডাউনলোড পেজ
+function videoLink(v) {
+  if (v.is_premium) return shareLink();
+  const base = String(setting("share_link", "") || "https://akashpattadar19-cell.github.io/reels-admin/get/").replace(/get\/?(index\.html)?$/, "v/");
+  return `${base}?id=${v.id}&ref=${S.me?.user_no ?? ""}${isEn() ? "&lang=en" : ""}`;
+}
 async function doShare(el) {
   const v = el._v;
-  const text = `${v.caption ? v.caption + "\n\n" : ""}${L(`🎬 @${v.username}-এর ভিডিও দেখুন Reels Enjoy অ্যাপে — দেখুন আর আয় করুন!\n\n📲 অ্যাপ ডাউনলোড করুন: `, `🎬 Watch @${v.username}'s video on the Reels Enjoy app — watch and earn!\n\n📲 Download the app: `)}${shareLink()}`;
+  const text = `${v.caption ? v.caption + "\n\n" : ""}${L(`🎬 @${v.username}-এর ভিডিওটা দেখুন 👇\n`, `🎬 Watch @${v.username}'s video 👇\n`)}${videoLink(v)}`;
   try {
     if (Native?.share) Native.share(text);
     else if (navigator.share) await navigator.share({ text });
@@ -1543,7 +1550,7 @@ async function xhrUpload(bucket, path, blob, type, onProg) {
 const TX = {
   view_earning: "ভিউ থেকে আয়", like_earning: "লাইক থেকে আয়", comment_earning: "কমেন্ট থেকে আয়", gift_received: "গিফট পেয়েছেন",
   gift_sent: "গিফট পাঠিয়েছেন", watch_reward: "ভিডিও দেখে পয়েন্ট", ad_reward_viewer: "অ্যাড দেখে পয়েন্ট", ad_reward_creator: "আপনার ভিডিওতে অ্যাড",
-  points_convert: "পয়েন্ট → টাকা", pending_release: "পেন্ডিং থেকে ব্যালেন্সে", cash_in: "ক্যাশ-ইন (কয়েন)", play_purchase: "Google Play থেকে কয়েন কেনা", vip_purchase: "💎 VIP কেনা", vip_daily: "💎 VIP ফ্রি কয়েন", store_purchase: "🎨 দোকান থেকে কেনা", video_boost: "🚀 ভিডিও বুস্ট", reward_pool: "💰 রিওয়ার্ড পুল", upload_reward: "🎬 ভিডিও আপলোড পুরস্কার", season_prize: "🏆 প্রতিযোগিতার পুরস্কার", admin_coin_grant: "🎁 অ্যাডমিন থেকে কয়েন", agent_target_bonus: "🧑‍💼 এজেন্ট টার্গেট বোনাস", withdraw_hold: "উইথড্র রিকোয়েস্ট",
+  points_convert: "পয়েন্ট → টাকা", pending_release: "পেন্ডিং থেকে ব্যালেন্সে", cash_in: "ক্যাশ-ইন (কয়েন)", play_purchase: "Google Play থেকে কয়েন কেনা", vip_purchase: "💎 VIP কেনা", vip_daily: "💎 VIP ফ্রি কয়েন", store_purchase: "🎨 দোকান থেকে কেনা", video_boost: "🚀 ভিডিও বুস্ট", reward_pool: "💰 রিওয়ার্ড পুল", upload_reward: "🎬 ভিডিও আপলোড পুরস্কার", season_prize: "🏆 প্রতিযোগিতার পুরস্কার", admin_coin_grant: "🎁 অ্যাডমিন থেকে কয়েন", checkin_reward: "📅 চেক-ইন পুরস্কার", starter_reward: "🎯 নতুনদের কাজের পুরস্কার", agent_target_bonus: "🧑‍💼 এজেন্ট টার্গেট বোনাস", withdraw_hold: "উইথড্র রিকোয়েস্ট",
   withdraw_refund: "উইথড্র ফেরত", admin_adjust: "অ্যাডমিন অ্যাডজাস্টমেন্ট", premium_unlock: "প্রিমিয়াম ভিডিও আনলক", welcome_bonus: "নতুন ইউজার বোনাস", jail_release: "জেল থেকে মুক্তি",
 };
 // ================= আয়ের নতুন ফিচার: স্পন্সর, বুস্ট, VIP, দোকান, রিওয়ার্ড পুল =================
@@ -1936,6 +1943,77 @@ const offerCard = (o, price) => {
     <div class="of-c">🪙 ${n(o.coins)}</div>${extra > 0 ? `<s class="tiny">🪙 ${n(normal)}</s>` : ""}<div class="of-t" translate="no">${esc(o.title)}</div>
     <div class="of-p">৳${n(o.price_taka)}</div>${o.ends_at ? `<div class="of-l">⏰ ${offerLeft(o)}</div>` : ""}</button>`;
 };
+// ---------------- প্রতিদিন চেক-ইন ও নতুনদের কাজ (পুরস্কার কয়েন) ----------------
+let CHK = null;
+async function loadCheckin() { try { CHK = await rpc("checkin_status"); } catch { CHK = null; } return CHK; }
+const chkDays = (c) => (c.rewards || []).map((coins, i) => {
+  const day = i + 1, got = c.done_today ? day <= c.cycle_day : day < c.cycle_day, today = day === c.cycle_day && !c.done_today;
+  return `<div class="chk-d${got ? " got" : ""}${today ? " today" : ""}${day === 7 ? " big" : ""}"><small>দিন ${n(day)}</small><i>${got ? "✅" : day === 7 ? "🎁" : "🪙"}</i><b>${n(coins)}</b></div>`;
+}).join("");
+function checkinCard(c, compact = false) {
+  if (!c?.enabled || (compact && c.done_today)) return "";
+  return `<div class="card chk-card"><div class="chk-h"><b>📅 প্রতিদিন চেক-ইন</b><span>${c.done_today ? `🔥 টানা ${n(c.streak)} দিন` : `আজ পাবেন 🪙 ${n(c.next_coins)}`}</span></div>
+    <div class="chk-row">${chkDays(c)}</div>
+    ${c.done_today ? `<div class="chk-done">✅ আজকের পুরস্কার নেওয়া হয়েছে — কাল আবার আসুন, পাবেন 🪙 ${n(c.next_coins)}</div>`
+      : `<button class="btn primary chk-go">🎁 চেক-ইন করে 🪙 ${n(c.next_coins)} নিন</button>`}
+    ${compact ? "" : `<p class="tiny muted" style="margin:8px 0 0">টানা ৭ দিন এলে ৭ম দিনে সবচেয়ে বড় পুরস্কার। একদিন বাদ গেলে আবার দিন ১ থেকে শুরু। কয়েন দিয়ে গিফট, VIP, বুস্ট ও ফ্রেম কেনা যায়।</p>`}</div>`;
+}
+function wireCheckin(box, after) {
+  box?.querySelector(".chk-go")?.addEventListener("click", async (e) => {
+    const b = e.currentTarget; b.disabled = true;
+    try { const r = await rpc("daily_checkin"); toast(`🎉 🪙 ${n(r.coins)} কয়েন পেয়েছেন!`); await loadCheckin(); after?.(); }
+    catch (er) { toast(errMsg(er), true); b.disabled = false; }
+  });
+}
+const STARTER = { avatar: ["🖼️", "প্রোফাইল ছবি দিন", "#edit"], video: ["🎬", "প্রথম ভিডিও পোস্ট করুন (অনুমোদন হলে)", "#upload"],
+  follow: ["👥", "", "#home"], done: ["🏆", "সব কাজ শেষ — বড় বোনাস", null] };
+function starterCard(st) {
+  if (!st?.enabled) return "";
+  const items = st.items || [];
+  if (!items.length || items.every((x) => x.claimed)) return "";
+  const doneN = items.filter((x) => x.k !== "done" && x.done).length;
+  return `<div class="card st-card"><div class="chk-h"><b>🎯 নতুনদের কাজ — কয়েন নিন</b><span>${n(doneN)}/৩</span></div>
+    ${items.map((x) => {
+      const t = STARTER[x.k] || ["⭐", x.k, null];
+      const label = x.k === "follow" ? `${n(x.need)} জনকে ফলো করুন (${n(x.have)}/${n(x.need)})` : t[1];
+      const right = x.claimed ? `<em class="st-ok">✅</em>` : x.done ? `<button class="btn small primary" data-st="${x.k}">🪙 ${n(x.coins)} নিন</button>`
+        : t[2] ? `<a class="btn small" href="${t[2]}">করুন ›</a>` : `<em class="st-lock">🔒</em>`;
+      return `<div class="st-i${x.claimed ? " ok" : ""}"><span class="st-ic">${t[0]}</span><div><b>${label}</b><small>🪙 ${n(x.coins)} কয়েন</small></div>${right}</div>`;
+    }).join("")}
+    <p class="tiny muted" style="margin:6px 0 0">⏳ ${dt(st.ends_at)} পর্যন্ত</p></div>`;
+}
+function wireStarter(box, after) {
+  box?.querySelectorAll("[data-st]").forEach((b) => (b.onclick = async () => {
+    b.disabled = true;
+    try { const r = await rpc("starter_claim", { p_task: b.dataset.st }); toast(`🎉 🪙 ${n(r.coins)} কয়েন পেয়েছেন!`); after?.(); }
+    catch (er) { toast(errMsg(er), true); b.disabled = false; }
+  }));
+}
+// Me / টাস্ক পেজে বসানো
+async function growBox(box, compact, after) {
+  if (!box) return;
+  const [st, c] = await Promise.all([rpc("starter_status").catch(() => null), loadCheckin()]);
+  if (!box.isConnected) return;
+  box.innerHTML = starterCard(st) + checkinCard(c, compact);
+  wireStarter(box, after); wireCheckin(box, after);
+}
+// অ্যাপ খুললে দিনে একবার চেক-ইন পপআপ (দেখালে true)
+async function checkinPopup() {
+  try {
+    const c = await loadCheckin();
+    if (!c?.enabled || c.done_today || (c.need_device && !c.has_device)) return false;
+    const key = "chkpop_" + new Date().toDateString();
+    if (localStorage.getItem(key)) return false;
+    localStorage.setItem(key, "1");
+    const d = document.createElement("div");
+    d.className = "upd-gate soft";
+    d.innerHTML = `<div class="upd-card chkpop">${checkinCard(c)}<button class="btn" id="chkX" style="margin-top:8px">পরে</button></div>`;
+    document.body.appendChild(d);
+    wireCheckin(d, () => setTimeout(() => d.remove(), 900));
+    d.querySelector("#chkX").onclick = () => d.remove();
+    return true;
+  } catch { return false; }
+}
 // অ্যাপ খুললে দিনে একবার নতুন অফার পপআপ
 async function offerPopup() {
   try {
@@ -4022,6 +4100,7 @@ R.me = async () => {
       <a href="#cashin" class="mc coins"><span>আমার কয়েন</span><b>${n(w?.coin_balance)}</b><svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="gm1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9f0ff"/><stop offset="1" stop-color="#5aa9ff"/></linearGradient><linearGradient id="gm2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd3ff"/><stop offset="1" stop-color="#3b82f6"/></linearGradient></defs><path d="M14 22 24 10h16l10 12-18 30z" fill="url(#gm1)"/><path d="M14 22h36L32 52z" fill="url(#gm2)" opacity=".9"/><path d="M24 10l-4 12 12 30 12-30-4-12" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.5"/><path d="M14 22h36" stroke="#fff" stroke-opacity=".8" stroke-width="1.5"/></svg></a>
       <a href="#wallet" class="mc money"><span>আমার ব্যালেন্স</span><b>${tk(w?.earning_paisa)}</b><svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="cn1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset="1" stop-color="#f5a524"/></linearGradient></defs><ellipse cx="34" cy="46" rx="20" ry="7" fill="#e08c14"/><rect x="14" y="36" width="40" height="10" fill="#f0a020"/><ellipse cx="34" cy="36" rx="20" ry="7" fill="url(#cn1)"/><circle cx="26" cy="24" r="15" fill="url(#cn1)" stroke="#e8961a" stroke-width="2"/><text x="26" y="30" text-anchor="middle" font-size="16" font-weight="700" fill="#c06a00" font-family="sans-serif">৳</text></svg></a>
     </div>
+    <div id="meGrow"></div>
     <div class="me-create"><b>＋ পোস্ট করুন</b><div><a href="#upload"><i>🎬</i>ভিডিও</a><a href="#newphoto"><i>📷</i>ফটো</a><a href="#newstory"><i>📖</i>স্টোরি</a>
       <a href="#texts" onclick="setTimeout(()=>document.getElementById('newT')?.click(),300)"><i>✍️</i>লেখা</a></div></div>
     <div class="me-promo">${setting("vip_enabled", true) !== false ? `<a href="#vip" class="vipb"><b>💎 VIP</b><span>${isVip(p) ? `${new Date(p.vip_until).toLocaleDateString(window.getLang?.() === "en" ? "en-GB" : "bn-BD")} পর্যন্ত` : "বাড়তি পয়েন্ট, ফ্রি কয়েন"}</span></a>` : ""}
@@ -4041,6 +4120,7 @@ R.me = async () => {
       <a href="#u/${p.id}"><i class="mi c5"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.2-4 4.2-5.5 7.5-5.5s6.3 1.5 7.5 5.5"/></svg></i>আমার প্রোফাইল<em>›</em></a>
       <a href="#settings"><i class="mi c6"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></i>সেটিংস<em>›</em></a>
     </div></div>`;
+  growBox($("#meGrow"), true, () => growBox($("#meGrow"), true)).catch(() => {});
   $("#meRefOk")?.addEventListener("click", async (e) => {
     const v = $("#meRef").value.replace(/\D/g, "");
     if (!v) return toast("বন্ধুর ID নম্বর দিন", true);
@@ -4256,6 +4336,7 @@ R.rules = async () => {
   const [{ data: tiers }, mine] = await Promise.all([sb.from("referral_tiers").select("*").eq("is_active", true).order("referrals"), rpc("my_referral_tasks").catch(() => null)]);
   const rew = S.ads.rewarded_points;
   screen.innerHTML = `<div class="page">${header("📋 আমার টাস্ক ও আয়ের নিয়ম")}
+    <div id="growBox2"></div>
     <div id="ssnBox2"></div>
     ${S.ads.rewarded_points && Native?.showRewarded && !locked("ads") ? `<div class="card hero"><b>🎬 অ্যাড দেখে পয়েন্ট নিন</b><div class="tiny" style="margin:4px 0 10px">প্রতি অ্যাডে ⭐ ${n(S.ads.rewarded_points.viewer_points)} · দিনে ${n(S.ads.rewarded_points.daily_cap)} বার</div><a class="btn" href="#wallet" style="background:#fff;color:#5b2bd0;border:0">ওয়ালেটে গিয়ে অ্যাড দেখুন</a></div>` : ""}
     <div id="poolBox2"></div>
@@ -4286,6 +4367,7 @@ R.rules = async () => {
       <div class="li"><span>আয় ব্যালেন্সে আসে</span><b>${n(setting("pending_hold_hours"))} ঘণ্টা পরে</b></div></div></div></div>`;
   poolCard($("#poolBox2")).catch(() => {});
   seasonBanner($("#ssnBox2")).catch(() => {});
+  growBox($("#growBox2"), false, () => growBox($("#growBox2"), false)).catch(() => {});
 };
 R.u = async (id) => {
   const mine = id === S.me.id;
