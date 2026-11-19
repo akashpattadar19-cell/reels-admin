@@ -3,6 +3,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const { SUPABASE_URL, SUPABASE_KEY } = window.REELS_CONFIG;
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
 const Native = window.ReelsAndroid || null; // APK-এর ভেতরে থাকলে অ্যাড/শেয়ার ব্রিজ
+try { Native?.setLang?.(window.getLang?.() === "en" ? "en" : "bn"); } catch { /* */ }
 const $ = (s, el = document) => el.querySelector(s);
 const screen = $("#screen");
 
@@ -68,7 +69,7 @@ function pickMusic(cur) {
     const all = data ?? [];
     const cats = [...new Set(all.map((m) => m.category).filter(Boolean))];
     let cat = "", playing = null;
-    $("#mcat", body).innerHTML = cats.length ? [["", "সব"], ...cats.map((c) => [c, c])].map(([k, l]) => `<a href="javascript:void 0" data-c="${esc(k)}" class="${k === cat ? "on" : ""}" translate="no">${esc(l)}</a>`).join("") : "";
+    $("#mcat", body).innerHTML = cats.length ? [["", "সব"], ...cats.map((c) => [c, c])].map(([k, l]) => `<a href="javascript:void 0" data-c="${esc(k)}" class="${k === cat ? "on" : ""}"${k ? ' translate="no"' : ""}>${esc(l)}</a>`).join("") : "";
     const draw = () => {
       const q = ($("#mq", body)?.value || "").trim().toLowerCase();
       const list = all.filter((m) => (!cat || m.category === cat) && (!q || `${m.title} ${m.artist ?? ""}`.toLowerCase().includes(q)));
@@ -285,6 +286,11 @@ function errMsg(e) {
   for (const k of Object.keys(ERR)) if (m.includes(k)) return ERR[k];
   return m;
 }
+const isEn = () => window.getLang?.() === "en";
+const L = (bn, en) => (isEn() ? en : bn);
+const trx = (x) => (isEn() && window.t ? window.t(String(x ?? "")) : x); // DOM-এর বাইরের লেখা (নেটিভ নোটিফিকেশন)
+// অ্যাডমিনের লেখা (যার _en নেই): English মোডে অনুবাদ পুরো হলে দেখাও, নইলে লুকাও — ভাষা মিশবে না
+const admTxt = (x) => { x = String(x ?? ""); if (!isEn() || !/[\u0980-\u09FF]/.test(x)) return x; const t = window.t ? window.t(x) : x; return /[\u0980-\u09FF]/.test(t) ? "" : t; };
 function toast(msg, bad = false) {
   const t = $("#toast");
   t.textContent = msg;
@@ -664,13 +670,13 @@ function realtime() {
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${S.me.id}` }, (p) => {
       S.unread++; paintUnread();
       if (["gift", "withdraw", "cash_in"].includes(p.new.type)) toast(p.new.title);
-      if (document.hidden && notifOn()) { try { Native?.notify?.(p.new.title, p.new.body || ""); } catch { /* */ } }
+      if (document.hidden && notifOn()) { try { Native?.notify?.(trx(p.new.title), trx(p.new.body || "")); } catch { /* */ } }
     })
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `receiver_id=eq.${S.me.id}` }, (p) => {
       if (S.chatWith === p.new.sender_id) { document.dispatchEvent(new CustomEvent("chatmsg", { detail: p.new })); return; }
       rpc("mark_delivered").catch(() => {});
       S.msgUnread = (S.msgUnread || 0) + 1; paintUnread();
-      if (document.hidden && notifOn()) { try { Native?.notify?.("💬 নতুন মেসেজ", p.new.body); } catch { /* */ } }
+      if (document.hidden && notifOn()) { try { Native?.notify?.(L("💬 নতুন মেসেজ", "💬 New message"), p.new.body); } catch { /* */ } }
       else toast("💬 নতুন মেসেজ");
     })
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: `sender_id=eq.${S.me.id}` }, (p) => {
@@ -1143,11 +1149,11 @@ async function openGifts(el, isPost = false, liveRoom = null, toUser = null) {
 // শেয়ার লিংক: অ্যাপ ডাউনলোড পেজ + আমার রেফার কোড
 function shareLink() {
   const base = String(setting("share_link", "") || "https://akashpattadar19-cell.github.io/reels-admin/get/");
-  return `${base}?ref=${S.me?.user_no ?? ""}`;
+  return `${base}?ref=${S.me?.user_no ?? ""}${isEn() ? "&lang=en" : ""}`;
 }
 async function doShare(el) {
   const v = el._v;
-  const text = `${v.caption ? v.caption + "\n\n" : ""}🎬 @${v.username}-এর ভিডিও দেখুন Reels Enjoy অ্যাপে — দেখুন আর আয় করুন!\n\n📲 অ্যাপ ডাউনলোড করুন: ${shareLink()}`;
+  const text = `${v.caption ? v.caption + "\n\n" : ""}${L(`🎬 @${v.username}-এর ভিডিও দেখুন Reels Enjoy অ্যাপে — দেখুন আর আয় করুন!\n\n📲 অ্যাপ ডাউনলোড করুন: `, `🎬 Watch @${v.username}'s video on the Reels Enjoy app — watch and earn!\n\n📲 Download the app: `)}${shareLink()}`;
   try {
     if (Native?.share) Native.share(text);
     else if (navigator.share) await navigator.share({ text });
@@ -1411,7 +1417,7 @@ function videoEditor(box, url, maxSec, onValid) {
         const f = e.target.files[0]; if (!f) return;
         if (f.size > 20 * 1048576) return toast("গানের ফাইল 20MB-এর বেশি", true);
         const a = new Audio(URL.createObjectURL(f));
-        a.onloadedmetadata = () => { E.music = { local: true, title: (f.name || "আমার গান").replace(/\.[^.]+$/, "").slice(0, 60), url: a.src, duration_sec: Math.round(a.duration || 0) }; E.mS = 0; panel(); v.currentTime = E.s; v.play().catch(() => {}); };
+        a.onloadedmetadata = () => { E.music = { local: true, title: (f.name || L("আমার গান", "My song")).replace(/\.[^.]+$/, "").slice(0, 60), url: a.src, duration_sec: Math.round(a.duration || 0) }; E.mS = 0; panel(); v.currentTime = E.s; v.play().catch(() => {}); };
         a.onerror = () => toast("এই গানের ফাইল চালানো যায়নি", true);
       };
       $("#mRm", box)?.addEventListener("click", () => { E.music = null; bgmStop(); panel(); });
@@ -1590,7 +1596,7 @@ R.agent = async () => {
     return;
   }
   const link = agentLink();
-  const shareText = `Reels Enjoy অ্যাপে যোগ দিন — ভিডিও দেখুন, বানান, প্রতিযোগিতায় পুরস্কার জিতুন!\n\n📲 ডাউনলোড: ${link}\n🧑‍💼 এজেন্ট কোড: ${a.code}`;
+  const shareText = L(`Reels Enjoy অ্যাপে যোগ দিন — ভিডিও দেখুন, বানান, প্রতিযোগিতায় পুরস্কার জিতুন!\n\n📲 ডাউনলোড: ${link}\n🧑‍💼 এজেন্ট কোড: ${a.code}`, `Join the Reels Enjoy app — watch and make videos, win contest prizes!\n\n📲 Download: ${link}\n🧑‍💼 Agent code: ${a.code}`);
   const done = tgt > 0 ? (a.qualified % tgt) : 0;
   screen.innerHTML = `<div class="page">${header("🧑‍💼 এজেন্ট ড্যাশবোর্ড")}
     <div class="ag-hero"><div class="ag-ic">🧑‍💼</div><b>আপনি Reels Enjoy এজেন্ট</b><span>এজেন্ট কোড</span>
@@ -1663,7 +1669,7 @@ async function seasonData(force) {
   SSN = await rpc("season_current").catch(() => null); SSN_AT = Date.now();
   return SSN;
 }
-const ssnTitle = (s) => (window.getLang?.() === "en" && s.title_en) || s.title;
+const ssnTitle = (s) => (isEn() ? s.title_en || admTxt(s.title) || "Season contest" : s.title);
 function ssnLeft(s) {
   const en = window.getLang?.() === "en";
   const t = new Date(s.state === "upcoming" ? s.starts_at : s.ends_at) - Date.now();
@@ -1726,7 +1732,7 @@ R.season = async (tab) => {
       ${s.require_device ? `<div class="li"><span>শুধু অ্যাপ (APK) থেকে লগইন করা ইউজার গোনা হয়</span><b>📱</b></div>` : ""}
       <div class="li"><span>বিজয়ীরা পাবেন</span><b>৳ ব্যালেন্সে${s.frame_days > 0 ? ` + 👑 ফ্রেম ${n(s.frame_days)} দিন` : ""}</b></div>
       <div class="li"><span>সময়</span><b>${dt(s.starts_at)} – ${dt(s.ends_at)}</b></div></div>
-      ${s.notice ? `<p class="tiny" style="margin:10px 0 0;white-space:pre-line" translate="no">${esc((en && s.notice_en) || s.notice)}</p>` : ""}
+      ${(en ? s.notice_en : s.notice) ? `<p class="tiny" style="margin:10px 0 0;white-space:pre-line" translate="no">${esc(en ? s.notice_en : s.notice)}</p>` : ""}
       <p class="tiny muted" style="margin:8px 0 0">স্কোর প্রতি কয়েক মিনিটে আপডেট হয়। ভুয়া কাজ পেলে অ্যাডমিন পুরস্কার বাতিল করতে পারেন।</p></div></div>`;
   const tick = setInterval(() => { const c = $("#ssnClock"); if (!c) return clearInterval(tick); c.textContent = ssnLeft(s); }, 30000);
   cleanup = () => clearInterval(tick);
@@ -2430,7 +2436,7 @@ function bindPost(el, v) {
   el.querySelector(".cm").onclick = () => openPostComments(el);
   el.querySelector(".sh").onclick = async () => {
     const first = (v.body || "").split("\n")[0].slice(0, 60);
-    const text = `${first ? first + "…\n\n" : ""}✨ @${v.username}-এর ${v.kind === "text" ? "লেখা" : "ছবি"} দেখুন Reels Enjoy অ্যাপে!\n\n📲 অ্যাপ ডাউনলোড করুন: ${shareLink()}`;
+    const text = `${first ? first + "…\n\n" : ""}${L(`✨ @${v.username}-এর ${v.kind === "text" ? "লেখা" : "ছবি"} দেখুন Reels Enjoy অ্যাপে!\n\n📲 অ্যাপ ডাউনলোড করুন: `, `✨ See @${v.username}'s ${v.kind === "text" ? "post" : "photo"} on the Reels Enjoy app!\n\n📲 Download the app: `)}${shareLink()}`;
     try {
       if (Native?.share) Native.share(text); else if (navigator.share) await navigator.share({ text }); else { await navigator.clipboard.writeText(text); toast("কপি হয়েছে"); }
       await rpc("record_post_share", { p_post: v.id }); v.shares_count++; el.querySelector(".sh span").textContent = n(v.shares_count);
@@ -3295,7 +3301,7 @@ R.party = async (rid) => {
   Object.assign(hp, hpx ?? {});
   screen.innerHTML = `<div class="pty">
     ${roomTopHtml(hp, host, info.gift_coins)}
-    <div class="pty-title" translate="no">🎉 ${esc(room.title || "পার্টি রুম")}</div>
+    <div class="pty-title" translate="no">🎉 ${esc(room.title || L("পার্টি রুম", "Party room"))}</div>
     <div class="pty-grid" id="pySeats"></div>
     <div class="lv-msgs pty-msgs" id="lvM"></div>
     <div class="lv-hearts" id="lvH"></div>
@@ -3490,7 +3496,7 @@ function ringStop() { clearInterval(ringT); ringT = null; try { ringCtx?.close()
 async function incomingCall(c) {
   if (c.status !== "ringing" || S.inCall) return;
   const { data: p } = await sb.from("profiles").select("id,username,full_name,avatar_url").eq("id", c.caller_id).single();
-  if (document.hidden) { try { Native?.notify?.(c.kind === "video" ? "📹 ভিডিও কল আসছে" : "📞 কল আসছে", "@" + (p?.username ?? "")); } catch { /* */ } }
+  if (document.hidden) { try { Native?.notify?.(c.kind === "video" ? L("📹 ভিডিও কল আসছে", "📹 Incoming video call") : L("📞 কল আসছে", "📞 Incoming call"), "@" + (p?.username ?? "")); } catch { /* */ } }
   document.getElementById("incall")?.remove();
   const d = document.createElement("div");
   d.id = "incall"; d.className = "incall";
@@ -3946,7 +3952,7 @@ R.jail = async () => {
   const fee = Number(p.jail_fee_coins ?? 0), bal = Number(w?.coin_balance ?? 0);
   screen.innerHTML = `<div class="page jail"><div class="ic">🚫</div><h2>আপনার অ্যাকাউন্ট জেলে আছে</h2>
     <div class="card" style="text-align:left"><div class="list">
-      <div class="li"><span>কারণ</span><b translate="no">${esc(p.jail_reason || "নিয়ম ভঙ্গ")}</b></div>
+      <div class="li"><span>কারণ</span><b translate="no">${esc(p.jail_reason || L("নিয়ম ভঙ্গ", "Rule violation"))}</b></div>
       <div class="li"><span>তারিখ</span><span>${p.jailed_at ? dt(p.jailed_at) : "-"}</span></div>
       <div class="li"><span>মুক্তির জন্য লাগবে</span><b>🪙 ${n(fee)} কয়েন</b></div>
       <div class="li"><span>আপনার কয়েন</span><b>🪙 ${n(bal)}</b></div></div></div>
@@ -4111,7 +4117,7 @@ R.delacct = async () => {
       <button class="btn" id="doDel" style="width:100%;background:#e5484d;color:#fff;border:0">🗑️ আমার অ্যাকাউন্ট ডিলিট করুন</button>`}
     <p class="tiny muted" style="margin-top:12px">বিস্তারিত: <a href="#policy/delete-account">অ্যাকাউন্ট ডিলিট নীতি</a></p></div>`;
   $("#doDel")?.addEventListener("click", async () => {
-    if (!await ask("সত্যিই অ্যাকাউন্ট ডিলিট করবেন? ৭ দিন পর সব তথ্য স্থায়ীভাবে মুছে যাবে।")) return;
+    if (!await ask(L("সত্যিই অ্যাকাউন্ট ডিলিট করবেন? ৭ দিন পর সব তথ্য স্থায়ীভাবে মুছে যাবে।", "Really delete your account? All data will be permanently erased after 7 days."))) return;
     try { await rpc("request_account_deletion", { p_cancel: false }); toast("ডিলিটের অনুরোধ নেওয়া হয়েছে"); R.delacct(); } catch (e) { toast(errMsg(e), true); }
   });
   $("#cancelDel")?.addEventListener("click", async () => {
@@ -4125,7 +4131,7 @@ R.support = async () => {
   screen.classList.add("chatmode");
   const tgUser = String(setting("support_telegram", "") || "").replace(/^@/, "");
   screen.innerHTML = `<div class="chat">
-    <div class="chat-top"><button class="back" onclick="history.back()">←</button><span class="sic">🎧</span><span style="flex:1"><b>${host ? "হোস্ট সাপোর্ট" : "লাইভ সাপোর্ট"}</b><div class="tiny muted" translate="no">${esc(setting("support_hours", ""))}</div></span>
+    <div class="chat-top"><button class="back" onclick="history.back()">←</button><span class="sic">🎧</span><span style="flex:1"><b>${host ? "হোস্ট সাপোর্ট" : "লাইভ সাপোর্ট"}</b><div class="tiny muted" translate="no">${esc(admTxt(setting("support_hours", "")))}</div></span>
       ${tgUser ? `<a class="btn small" href="https://t.me/${esc(tgUser)}" target="_blank" rel="noopener">✈️ Telegram</a>` : ""}</div>
     <div class="chat-list" id="cl"><div class="spinner"></div></div>
     <form class="chat-box" id="cf"><input id="ci" placeholder="আপনার সমস্যা লিখুন…" maxlength="2000" autocomplete="off"><button class="btn small primary" style="width:auto;margin:0">পাঠান</button></form></div>`;
@@ -4176,7 +4182,8 @@ R.invite = async () => {
   screen.innerHTML = `<div class="page">${header("🎁 আমার রেফার")}<div class="spinner"></div></div>`;
   const [r, mine] = await Promise.all([rpc("my_referrals").catch((e) => ({ error: e })), rpc("my_referral_tasks").catch(() => null)]);
   if (r.error) { screen.innerHTML = `<div class="page">${header("🎁 আমার রেফার")}<div class="empty">${esc(errMsg(r.error))}</div></div>`; return; }
-  const shareText = `Reels Enjoy অ্যাপে ভিডিও দেখে ও বানিয়ে আয় করুন!${Number(setting("welcome_bonus_paisa", 0)) > 0 && setting("welcome_bonus_enabled", true) !== false ? ` নতুন ইউজাররা পাবেন ৳${Math.round(Number(setting("welcome_bonus_paisa")) / 100)} বোনাস 🎁` : ""}\n\n📲 ডাউনলোড: ${shareLink()}\n🎟️ রেজিস্টার করার সময় আমার রেফার কোড দিন: ${r.code}`;
+  const wb = Number(setting("welcome_bonus_paisa", 0)) > 0 && setting("welcome_bonus_enabled", true) !== false ? Math.round(Number(setting("welcome_bonus_paisa")) / 100) : 0;
+  const shareText = L(`Reels Enjoy অ্যাপে ভিডিও দেখে ও বানিয়ে আয় করুন!${wb ? ` নতুন ইউজাররা পাবেন ৳${wb} বোনাস 🎁` : ""}\n\n📲 ডাউনলোড: ${shareLink()}\n🎟️ রেজিস্টার করার সময় আমার রেফার কোড দিন: ${r.code}`, `Watch and make videos on Reels Enjoy and earn!${wb ? ` New users get a ৳${wb} bonus 🎁` : ""}\n\n📲 Download: ${shareLink()}\n🎟️ Enter my referral code when you sign up: ${r.code}`);
   const days = Number(setting("ref_window_days", 3)), offer = settingL("ref_offer_text", "");
   const rules = refRuleItems();
   screen.innerHTML = `<div class="page">${header("🎁 আমার রেফার")}

@@ -179,7 +179,11 @@ function route() {
   try { window.__leave?.(); } catch { /* */ } window.__leave = null;
   const act = document.querySelector(`#nav a[href="#${name}"], #nav a[href^="#${name}/"]`);
   act?.closest(".ng")?.classList.remove("closed");
-  Promise.resolve((routes[name] ?? routes.dashboard)(arg)).then(() => setTimeout(quickFilter, 50)).catch(() => {});
+  let run; try { run = (routes[name] ?? routes.dashboard)(arg); } catch (e) { run = Promise.reject(e); }
+  Promise.resolve(run).then(() => setTimeout(quickFilter, 50)).catch((e) => {
+    console.error("route " + name, e);
+    if (!view.querySelector(".card, .list, table, form")) view.innerHTML = `<div class="card"><b>⚠️ পেজটি খোলা যায়নি</b><p class="muted">${esc(e?.message || String(e))}</p><button class="btn" onclick="location.reload()">🔄 আবার চেষ্টা</button></div>`;
+  });
   window.scrollTo(0, 0);
 }
 window.addEventListener("hashchange", () => me && route());
