@@ -712,8 +712,34 @@ setInterval(() => { if (S.me && !document.hidden) rpc("track_time", { p_sec: 60 
 // ---------------- router ----------------
 const R = {};
 let cleanup = null;
+// পেজ মনে রাখা: আগে দেখা পেজে ফিরলে সাথে সাথে আগের চেহারা ও স্ক্রল দেখায়, নতুন ডাটা পেছনে লোড হয়ে চুপচাপ বসে
+const PAGE_CACHE = new Map();
+const CACHEABLE = new Set(["home", "me", "u", "rules", "wallet", "invite", "notifs", "inbox", "history", "level", "creator", "settings", "season", "vip", "store", "offers", "texts", "tags", "tag", "top", "myprofile", "agent", "cashin", "withdraw", "callprice", "contest", "at", "support"]);
+let keepPage = null, lastPage = null;
+(() => {
+  const d = Object.getOwnPropertyDescriptor(Element.prototype, "innerHTML");
+  Object.defineProperty(screen, "innerHTML", {
+    get() { return d.get.call(this); },
+    set(v) {
+      if (keepPage && keepPage.hash === location.hash) {
+        const html = String(v);
+        if (html.length < 900 && html.includes('class="spinner"')) return; // লোড হওয়ার সময় পুরনো পেজই থাকুক
+        const y = keepPage.scroll; keepPage = null;
+        d.set.call(this, v);
+        this.scrollTop = y; requestAnimationFrame(() => { if (this.scrollTop < y) this.scrollTop = y; });
+        return;
+      }
+      d.set.call(this, v);
+    },
+  });
+})();
 function route() {
   if (!S.me) return;
+  if (lastPage && CACHEABLE.has(lastPage.name) && !screen.querySelector(":scope > .page > .spinner:only-child")) {
+    PAGE_CACHE.set(lastPage.hash, { html: screen.innerHTML, scroll: screen.scrollTop });
+    if (PAGE_CACHE.size > 25) PAGE_CACHE.delete(PAGE_CACHE.keys().next().value);
+  }
+  keepPage = null;
   if (cleanup) { try { cleanup(); } catch { /* */ } cleanup = null; }
   closeSheet();
   bgmStop();
@@ -726,7 +752,13 @@ function route() {
   screen.classList.remove("full");
   $(".tabbar").classList.toggle("dark", TABS.feed.includes(name));
   try { Native?.setDarkBars?.(TABS.feed.includes(name)); } catch { /* old APK */ }
-  screen.scrollTop = 0;
+  lastPage = { name, hash: location.hash };
+  const cached = CACHEABLE.has(name) && PAGE_CACHE.get(location.hash);
+  if (cached) {
+    keepPage = { hash: location.hash, scroll: cached.scroll };
+    Object.getOwnPropertyDescriptor(Element.prototype, "innerHTML").set.call(screen, cached.html);
+    screen.scrollTop = cached.scroll;
+  } else screen.scrollTop = 0;
   R[name](a, b, c);
 }
 window.addEventListener("hashchange", route);
