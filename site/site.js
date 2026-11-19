@@ -19,6 +19,15 @@
       el.textContent = lang === "en" ? el.dataset.en : el.dataset.bn;
     });
     $("#lang").textContent = lang === "en" ? "বাংলা" : "EN";
+    document.querySelectorAll("[data-src-en]").forEach((el) => {
+      if (el.dataset.srcBn === undefined) { el.dataset.srcBn = el.getAttribute("src"); el.dataset.posterBn = el.getAttribute("poster") || ""; }
+      const src = lang === "en" ? el.dataset.srcEn : el.dataset.srcBn;
+      if (el.getAttribute("src") !== src) {
+        if (el.dataset.posterEn) el.setAttribute("poster", lang === "en" ? el.dataset.posterEn : el.dataset.posterBn);
+        el.setAttribute("src", src);
+        if (el.tagName === "VIDEO") { el.load(); el.play().catch(() => {}); }
+      }
+    });
     if (INFO) render();
   }
   $("#lang").onclick = () => { lang = lang === "en" ? "bn" : "en"; try { localStorage.setItem("lang", lang); } catch { /* */ } applyLang(); };
@@ -41,9 +50,7 @@
     if (wa) soc.unshift(`<a href="https://wa.me/${wa}" target="_blank" rel="noopener">💬 WhatsApp</a>`);
     $("#socials").innerHTML = soc.join(" · ");
     $("#footNote").textContent = (lang === "en" ? (T.footer_en || T.footer) : T.footer) || "";
-    const q = new URLSearchParams(location.search).get("theme");
-    const th = /^[abc]$/.test(q || "") ? q : (/^[abc]$/.test(S.site_theme || "") ? S.site_theme : "a");
-    document.body.className = "t-" + th;
+    document.body.className = "t-c";
   }
   function extraFaq(S) {
     const T = S.site_texts || {};
@@ -249,7 +256,6 @@
     } catch (er) { msg.className = "note err"; msg.textContent = er.message; }
     btn.disabled = false;
   };
-  { const q = new URLSearchParams(location.search).get("theme"); if (/^[abc]$/.test(q || "")) document.body.className = "t-" + q; }
   applyLang();
   load();
 })();

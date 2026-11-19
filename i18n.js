@@ -2125,7 +2125,68 @@
 "সব শেষ করলে তবেই রেফার সফল হবে আর বোনাস পাবেন": "The referral succeeds and you get the bonus only when all are done",
 "❌ একই মোবাইলে একাধিক অ্যাকাউন্ট গোনা হয় না · 📱 অ্যাপ (APK) থেকে লগইন লাগবে": "❌ Several accounts on one phone don't count · 📱 Must log in from the app (APK)",
 "এজেন্ট হয়ে বেশি বোনাস নিন": "Become an agent for bigger bonuses",
-"🧑‍💼 এজেন্ট টার্গেট বোনাস": "🧑‍💼 Agent target bonus"
+"🧑‍💼 এজেন্ট টার্গেট বোনাস": "🧑‍💼 Agent target bonus",
+"প্রতিটি সফল রেফার (আনা ইউজার সব টাস্ক শেষ করলে)": "Each successful referral (when your user finishes all tasks)",
+"আয় প্রথমে পেন্ডিং থাকে, তারপর ব্যালেন্সে আসে": "Earnings stay pending first, then move to your balance",
+"একই মোবাইলের অ্যাকাউন্ট বা ভুয়া অ্যাকাউন্ট": "Same-phone or fake accounts",
+"📋 আপনার আনা ইউজারদের টাস্ক": "📋 Tasks for the people you bring",
+"💰 আপনার আয়ের নিয়ম": "💰 How you earn",
+"আপনি এখনো এজেন্ট নন": "You're not an agent yet",
+"অনুমোদন হলে নোটিফিকেশন পাবেন, তখন এখানে আপনার এজেন্ট পেজ খুলবে।": "You'll get a notification when approved; your agent page will open here then.",
+"এজেন্ট হতে আমাদের ওয়েবসাইটে আবেদন করুন। আবেদনে আপনার Reels Enjoy ID লাগবে:": "Apply on our website to become an agent. You'll need your Reels Enjoy ID:",
+"🌐 ওয়েবসাইটে আবেদন করুন": "🌐 Apply on the website",
+"⏳ যাচাই হচ্ছে": "⏳ Being checked",
+"অশ্লীল বা অন্যের কপিরাইট করা কিছু দিলে অ্যাকাউন্ট জেলে যেতে পারে।": "Posting obscene or someone else's copyrighted content can get your account jailed.",
+"অশ্লীল, সহিংস বা অন্যের কপিরাইট করা ভিডিও বা গান আপলোড করলে অ্যাকাউন্ট ব্লক ও ইনকাম বাতিল হবে।": "Uploading obscene, violent or someone else's copyrighted videos or songs will block your account and cancel your income.",
+"ডাউনলোড": "Downloads",
+"খাড়া (9:16) ভিডিও সবচেয়ে ভালো দেখায়": "vertical (9:16) videos look best",
+"🎉 রেফারের সব টাস্ক শেষ!": "🎉 All referral tasks done!",
+"নির্দিষ্ট সময়ের মধ্যে সব টাস্ক শেষ হয়নি, তাই এই রেফারের বোনাস দেওয়া হবে না।": "Not all tasks were finished in time, so no bonus for this referral.",
+"⚠️ রেফার বাতিল:": "⚠️ Referral cancelled:",
+"⌛ রেফার সময় শেষ:": "⌛ Referral time over:",
+"কয়েন আপনার অ্যাকাউন্টে যোগ হয়েছে": "Coins were added to your account",
+"💰 রিওয়ার্ড পুল থেকে আয়": "💰 Earned from the reward pool",
+"গতকালের পুল থেকে পেয়েছেন": "From yesterday's pool you got",
+"🏆 অভিনন্দন!": "🏆 Congratulations!",
+"আপনার ব্যালেন্সে যোগ হয়েছে": "was added to your balance",
+"🏅 এজেন্ট টার্গেট পূরণ!": "🏅 Agent target reached!",
+"বাড়তি বোনাস": "Extra bonus",
+"🎉 আপনি এখন Reels Enjoy এজেন্ট!": "🎉 You're now a Reels Enjoy agent!",
+"অ্যাপে \"এজেন্ট\" পেজে আপনার লিংক ও কোড দেখুন": "See your link and code on the Agent page in the app",
+"এজেন্ট আবেদন গ্রহণ হয়নি": "Agent application not accepted",
+"পরে আবার আবেদন করতে পারেন": "You can apply again later",
+"হেল্পারদের কাছ থেকে কিনলে বেশি ছাড় পাবেন। সরাসরি মেসেজ দিন। টাকা পাঠানোর আগে হেল্পারকে কয়েন পাঠাতে বলুন।": "Buy from helpers for bigger discounts. Message them directly. Ask the helper to send coins before you send money.",
+"💎 শুধু VIP": "💎 VIP only",
+"সেকেন্ডের মধ্যে আনা যাবে": "seconds after trimming",
+"লম্বা ভিডিও কেটে": "Trim long videos to",
+"ছবি বা": "Photo or",
+"সেকেন্ড পর্যন্ত ভিডিও": "s video",
+"২৪ ঘণ্টা পর নিজে থেকে মুছে যাবে": "disappears after 24 hours",
+"অ্যাডমিন কয়েন": "Admin coins",
+"এডমিন কয়েন": "Admin coins",
+"🔎 মেনুতে খুঁজুন…": "🔎 Search the menu…",
+"প্রতিদিনের কাজ": "Daily work",
+"কনটেন্ট": "Content",
+"লাইভ ও কল": "Live & calls",
+"আয়, রেফার ও অফার": "Income, referrals & offers",
+"অ্যাপ ও ওয়েবসাইট": "App & website",
+"🎬 ভিডিও অনুমোদন": "🎬 Video approval",
+"👥 সব ইউজার": "👥 All users",
+"🪙 কয়েন পাঠান (Coin Sent)": "🪙 Send coins",
+"🏆 ফটো কম্পিটিশন": "🏆 Photo contests",
+"🔴 লাইভ ও কলের নিয়ম": "🔴 Live & call rules",
+"📢 নোটিফিকেশন পাঠান": "📢 Send notification",
+"🔎 এই তালিকায় খুঁজুন (নাম, ID, নম্বর…)": "🔎 Search this list (name, ID, number…)",
+"সব ধরন": "All types",
+"সব সময়": "All time",
+"ক্রম: আগের মতো": "Order: default",
+"টাকা: বেশি আগে": "Amount: high first",
+"টাকা: কম আগে": "Amount: low first",
+"🔎 ইউজারের ID লিখুন (যেমন 100001)": "🔎 Enter a user ID (e.g. 100001)",
+"ভিডিও অনুমোদন": "Video approval",
+"এজেন্ট আবেদন": "Agent applications",
+"অফার দিন": "Post offer",
+"পরিশোধিত": "Paid"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });
@@ -2135,8 +2196,44 @@
   var lang = "bn";
   try { lang = localStorage.getItem("lang") || "bn"; } catch (e) {}
 
+  // সংখ্যাসহ বাক্য (শব্দের ক্রম বদলায়) — শব্দ-ম্যাপের আগে চলে
+  var D = "([\\d০-৯][\\d০-৯,.]*)";
+  var KIND = { "ফটো": "photo", "লেখা": "text", "ভিডিও": "video" };
+  var PRE = [
+    [new RegExp("বন্ধু " + D + " দিনের মধ্যে নিচের সব টাস্ক শেষ করলে রেফার সফল", "g"), "If your friend finishes all tasks below within $1 days, the referral succeeds"],
+    [new RegExp("অনুরোধের " + D + " দিন পর অ্যাকাউন্ট মুছে যাবে। এই " + D + " দিনের মধ্যে চাইলে বাতিল করতে পারবেন।", "g"), "Your account will be deleted $1 days after the request. You can cancel within these $2 days."],
+    [new RegExp("এই " + D + " দিনে আপনার আয়", "g"), "Your income in the last $1 days"],
+    [new RegExp(D + " দিন — প্রতিদিন " + D + "টি (ফটো|লেখা|ভিডিও) পোস্ট", "g"), function (m, a, b, c) { return a + " days — " + b + " " + KIND[c] + " posts a day"; }],
+    [new RegExp("ছবি বা " + D + " সেকেন্ড পর্যন্ত ভিডিও", "g"), "Photo or video up to $1 s"],
+    [new RegExp("লম্বা ভিডিও কেটে " + D + " সেকেন্ডের মধ্যে আনা যাবে", "g"), "Long videos can be trimmed to $1 s"],
+    [new RegExp("প্রতি " + D + " জন সফল হলে বাড়তি \\(বারবার\\)", "g"), "Extra for every $1 successful (repeats)"],
+    [new RegExp("প্রতি " + D + " জন পূরণে", "g"), "for every $1 people"],
+    [new RegExp("প্রতি " + D + " জনে বাড়তি পুরস্কার", "g"), "extra reward every $1 people"],
+    [new RegExp("উদাহরণ: " + D + " জন সফল হলে মোট", "g"), "Example: total for $1 successful"],
+    [new RegExp("আর " + D + " জন বাকি", "g"), "$1 more to go"],
+    [new RegExp("এ পর্যন্ত " + D + " বার পূরণ", "g"), "reached $1 times"],
+    [new RegExp(D + " দিন " + D + " ঘণ্টা বাকি", "g"), "$1 days $2 hours left"],
+    [new RegExp("দিনে সর্বোচ্চ " + D + " বার", "g"), "max $1 times a day"],
+    [new RegExp("দিনে সর্বোচ্চ " + D, "g"), "max $1 a day"],
+    [new RegExp("([\\d০-৯]+) ঘণ্টা পর নিজে থেকে মুছে যাবে", "g"), "disappears after $1 hours"],
+    [new RegExp(D + " ঘণ্টা পরে?(?![\\u0980-\\u09FF])", "g"), "after $1 hours"],
+    [new RegExp(D + " দিন পরে?(?![\\u0980-\\u09FF])", "g"), "after $1 days"]
+  ];
+  var POST = [
+    [new RegExp(D + " দিনের মধ্যে", "g"), "within $1 days"],
+    [new RegExp(D + " দিনের জন্য", "g"), "for $1 days"],
+    [new RegExp(D + " দিনে একবার", "g"), "once every $1 days"],
+    [new RegExp(D + " দিনে ভিউ", "g"), "views in $1 days"],
+    [new RegExp(D + " দিনে", "g"), "in $1 days"],
+    [new RegExp(D + " দিন", "g"), "$1 days"],
+    [new RegExp("সর্বোচ্চ " + D, "g"), "max $1"],
+    [/(^|· )([^·]+?) পর্যন্ত(?= ·|$)/g, "$1until $2"]
+  ];
   function tr(s) {
     if (lang !== "en" || !s || !HAS.test(s)) return s;
+    for (var i = 0; i < PRE.length; i++) s = s.replace(PRE[i][0], PRE[i][1]);
+    s = s.replace(RX, function (m) { return EN[m]; });
+    if (HAS.test(s.replace(/[০-৯৳]/g, ""))) for (var j = 0; j < POST.length; j++) s = s.replace(POST[j][0], POST[j][1]);
     return s.replace(RX, function (m) { return EN[m]; })
             .replace(/[০-৯]/g, function (d) { return String(d.charCodeAt(0) - 0x09E6); })
             .replace(/ {2,}/g, " ");
@@ -2147,19 +2244,31 @@
   }
   var ATTRS = ["placeholder", "title", "aria-label"];
   // শুধু বদলালে লেখা হয় — নইলে MutationObserver বারবার চলতে থাকে
+  // বাংলা মোডে লেখার ইংরেজি সংখ্যা → বাংলা সংখ্যা (লিংক, ইমেইল, @নাম, #ট্যাগ, ভার্সন বাদে)
+  var BD = "০১২৩৪৫৬৭৮৯", KEEP = /(https?:\/\/\S+|\S+@\S+|@[\w.]+|#(?=[\w\u0980-\u09FF]*[A-Za-z_\u0980-\u09FF])[\w\u0980-\u09FF]+|v?\d+\.\d+\.\d+|\d+MB)/;
+  function bnDigits(s) {
+    if (!/\d/.test(s)) return s;
+    return s.split(KEEP).map(function (part, i) { return i % 2 ? part : part.replace(/\d/g, function (d) { return BD[d]; }); }).join("");
+  }
   function setText(n) {
+    if (lang !== "en") {
+      if (!window.I18N_BN_DIGITS || !/\d/.test(n.nodeValue) || skip(n)) return;
+      var b = bnDigits(n.nodeValue); if (b !== n.nodeValue) n.nodeValue = b;
+      return;
+    }
     if (!HAS.test(n.nodeValue) || skip(n)) return;
     var t = tr(n.nodeValue);
     if (t !== n.nodeValue) n.nodeValue = t;
   }
   function setAttrs(el) {
+    if (lang !== "en") return;
     ATTRS.forEach(function (a) {
       var v = el.getAttribute(a);
       if (v && HAS.test(v)) { var t = tr(v); if (t !== v) el.setAttribute(a, t); }
     });
   }
   function walk(root) {
-    if (lang !== "en" || !root) return;
+    if (!root) return;
     if (root.nodeType === 3) { setText(root); return; }
     if (root.nodeType !== 1 || skip(root)) return;
     setAttrs(root);
@@ -2174,8 +2283,8 @@
   }
   function start() {
     document.documentElement.lang = lang;
-    if (lang !== "en") return;
-    document.title = tr(document.title);
+    if (window.NO_I18N_WALK) return;
+    if (lang === "en") document.title = tr(document.title);
     walk(document.body);
     new MutationObserver(function (muts) {
       muts.forEach(function (m) {
@@ -2184,6 +2293,7 @@
         else m.addedNodes.forEach(walk);
       });
     }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATTRS });
+    if (lang !== "en") return;
     var c = window.confirm, p = window.prompt, a = window.alert;
     window.confirm = function (m) { return c.call(window, tr(String(m))); };
     window.prompt = function (m, d) { return p.call(window, tr(String(m)), d); };

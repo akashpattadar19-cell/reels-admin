@@ -152,3 +152,28 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 .mon-vids { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; background: #000; min-height: 160px; }
 .mon-vids .empty { grid-column: 1 / -1; color: #ccc; }
 .mon-tile { aspect-ratio: 3/4; background: #111; } .mon-tile > div { width: 100% !important; height: 100% !important; }
+
+/* মেনু গ্রুপ ও খোঁজা */
+.nav-q { width: 100%; margin: 0 0 8px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); font: inherit; font-size: 14px; }
+.ng { margin-bottom: 4px; }
+.ngh { width: 100%; display: flex; justify-content: space-between; align-items: center; background: none; border: 0; color: var(--text); font: inherit;
+  font-weight: 700; font-size: 13.5px; padding: 8px 10px; cursor: pointer; border-radius: 8px; letter-spacing: .2px; }
+.ngh:hover { background: var(--panel2); }
+.ngh i { font-style: normal; transition: transform .15s; opacity: .7; }
+.ng.closed:not(.searching) .ngb { display: none; }
+.ng.closed .ngh i { transform: rotate(-90deg); }
+.ngb a { padding: 8px 12px 8px 18px; font-size: 14.5px; }
+#logoutBtn { margin-top: 10px; border-top: 1px solid var(--line); border-radius: 0; }
+/* তালিকার ফিল্টার বার */
+.qf { position: sticky; top: 56px; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--bg, #0f0f14); padding: 8px 0; margin-bottom: 8px; }
+.qf input, .qf select { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; font-size: 14px; }
+.qf .qf-q { flex: 1 1 220px; min-width: 0; }
+.dash-find { display: flex; gap: 8px; margin-bottom: 12px; }
+.dash-find input { flex: 1; min-width: 0; padding: 11px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; }
+.quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
+.quick a { display: grid; justify-items: center; gap: 2px; padding: 12px 4px; border-radius: 14px; background: linear-gradient(160deg, var(--panel2), var(--panel)); border: 1px solid var(--line);
+  color: var(--text); text-decoration: none; font-size: 12.5px; text-align: center; }
+.quick a span { font-size: 24px; }
+.quick a:hover { border-color: var(--accent2); }
+@media (min-width: 900px) { .quick { grid-template-columns: repeat(8, 1fr); } }
+.qf select { flex: 1 1 28%; min-width: 0; }

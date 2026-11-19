@@ -17,7 +17,7 @@ const n = (x) => {
   return x.toLocaleString("en-IN");
 };
 const tk = (paisa) => "৳" + (Number(paisa ?? 0) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const dt = (s) => new Date(s).toLocaleString("en-GB", { timeZone: "Asia/Dhaka", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+const dt = (s) => new Date(s).toLocaleString(window.getLang?.() === "en" ? "en-GB" : "bn-BD", { timeZone: "Asia/Dhaka", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 const ago = (s) => {
   const m = Math.floor((Date.now() - new Date(s)) / 60000);
   if (m < 1) return "এইমাত্র";
@@ -1505,7 +1505,7 @@ async function xhrUpload(bucket, path, blob, type, onProg) {
 const TX = {
   view_earning: "ভিউ থেকে আয়", like_earning: "লাইক থেকে আয়", comment_earning: "কমেন্ট থেকে আয়", gift_received: "গিফট পেয়েছেন",
   gift_sent: "গিফট পাঠিয়েছেন", watch_reward: "ভিডিও দেখে পয়েন্ট", ad_reward_viewer: "অ্যাড দেখে পয়েন্ট", ad_reward_creator: "আপনার ভিডিওতে অ্যাড",
-  points_convert: "পয়েন্ট → টাকা", pending_release: "পেন্ডিং থেকে ব্যালেন্সে", cash_in: "ক্যাশ-ইন (কয়েন)", play_purchase: "Google Play থেকে কয়েন কেনা", vip_purchase: "💎 VIP কেনা", vip_daily: "💎 VIP ফ্রি কয়েন", store_purchase: "🎨 দোকান থেকে কেনা", video_boost: "🚀 ভিডিও বুস্ট", reward_pool: "💰 রিওয়ার্ড পুল", upload_reward: "🎬 ভিডিও আপলোড পুরস্কার", season_prize: "🏆 প্রতিযোগিতার পুরস্কার", agent_target_bonus: "🧑‍💼 এজেন্ট টার্গেট বোনাস", withdraw_hold: "উইথড্র রিকোয়েস্ট",
+  points_convert: "পয়েন্ট → টাকা", pending_release: "পেন্ডিং থেকে ব্যালেন্সে", cash_in: "ক্যাশ-ইন (কয়েন)", play_purchase: "Google Play থেকে কয়েন কেনা", vip_purchase: "💎 VIP কেনা", vip_daily: "💎 VIP ফ্রি কয়েন", store_purchase: "🎨 দোকান থেকে কেনা", video_boost: "🚀 ভিডিও বুস্ট", reward_pool: "💰 রিওয়ার্ড পুল", upload_reward: "🎬 ভিডিও আপলোড পুরস্কার", season_prize: "🏆 প্রতিযোগিতার পুরস্কার", admin_coin_grant: "🎁 অ্যাডমিন থেকে কয়েন", agent_target_bonus: "🧑‍💼 এজেন্ট টার্গেট বোনাস", withdraw_hold: "উইথড্র রিকোয়েস্ট",
   withdraw_refund: "উইথড্র ফেরত", admin_adjust: "অ্যাডমিন অ্যাডজাস্টমেন্ট", premium_unlock: "প্রিমিয়াম ভিডিও আনলক", welcome_bonus: "নতুন ইউজার বোনাস", jail_release: "জেল থেকে মুক্তি",
 };
 // ================= আয়ের নতুন ফিচার: স্পন্সর, বুস্ট, VIP, দোকান, রিওয়ার্ড পুল =================
@@ -1680,7 +1680,7 @@ async function seasonBanner(box, home) {
   const b = s.creator_prizes?.length ? "creator" : "referral";
   const prizes = s[b + "_prizes"] || [], me = s[b]?.me;
   box.innerHTML = `<a class="ssn-banner${home ? " home" : ""}" href="#season"><div class="ssn-l"><b translate="no">🏆 ${esc(ssnTitle(s))}</b>
-      <span class="ssn-p" translate="no">${prizes.slice(0, 3).map((p, i) => `${RANK_IC[i]} ৳${n(p)}`).join(" · ")}${prizes.length > 3 ? ` · +${n(prizes.length - 3)}` : ""}</span>
+      <span class="ssn-p">${prizes.slice(0, 3).map((p, i) => `${RANK_IC[i]} ৳${n(p)}`).join(" · ")}${prizes.length > 3 ? ` · +${n(prizes.length - 3)}` : ""}</span>
       <span class="ssn-t">${ssnLeft(s)}</span></div>
     <div class="ssn-r">${me?.rank ? `<i>#${n(me.rank)}</i><span>আপনার র‍্যাংক</span>` : `<i>👉</i><span>যোগ দিন</span>`}</div></a>`;
 }
@@ -1702,9 +1702,9 @@ R.season = async (tab) => {
   const paid = s.state === "paid";
   screen.innerHTML = `<div class="page">${header("🏆 প্রতিযোগিতা")}
     <div class="ssn-hero"><div class="ssn-trophy">🏆</div><b translate="no">${esc(ssnTitle(s))}</b>
-      <div class="ssn-total">${en ? "Total prize" : "মোট পুরস্কার"} <span translate="no">৳${Number(total).toLocaleString("en-IN")}</span></div>
+      <div class="ssn-total">${en ? "Total prize" : "মোট পুরস্কার"} <span>৳${Number(total).toLocaleString("en-IN")}</span></div>
       <div class="ssn-clock" id="ssnClock">${ssnLeft(s)}</div>
-      <div class="ssn-prizes" translate="no">${prizes.map((p, i) => `<span class="${i < 3 ? "top" : ""}">${i < 3 ? RANK_IC[i] : "#" + n(i + 1)} ৳${n(p)}</span>`).join("")}</div></div>
+      <div class="ssn-prizes">${prizes.map((p, i) => `<span class="${i < 3 ? "top" : ""}">${i < 3 ? RANK_IC[i] : "#" + n(i + 1)} ৳${n(p)}</span>`).join("")}</div></div>
     ${boards.length > 1 ? `<div class="seg">${boards.map((b) => `<button class="${b === tab ? "on" : ""}" onclick="location.hash='#season/${b}'">${b === "creator" ? "🎬 সেরা ক্রিয়েটর" : "🤝 সেরা রেফারকারী"}</button>`).join("")}</div>` : ""}
     ${paid ? "" : `<div class="card ssn-me">${avatarD(S.me)}<div style="flex:1;min-width:0"><b>${me.rank ? `${en ? "Your rank" : "আপনার র‍্যাংক"} #${n(me.rank)}` : "আপনি এখনো তালিকায় নেই"}</b>
         <div class="tiny muted">${en ? "Score" : "স্কোর"} ${n(me.score || 0)}${me.rank && prizes[me.rank - 1] ? ` · 🎁 ৳${n(prizes[me.rank - 1])}` : ""}</div>
@@ -3985,7 +3985,7 @@ R.me = async () => {
     </div>
     <div class="me-create"><b>＋ পোস্ট করুন</b><div><a href="#upload"><i>🎬</i>ভিডিও</a><a href="#newphoto"><i>📷</i>ফটো</a><a href="#newstory"><i>📖</i>স্টোরি</a>
       <a href="#texts" onclick="setTimeout(()=>document.getElementById('newT')?.click(),300)"><i>✍️</i>লেখা</a></div></div>
-    <div class="me-promo">${setting("vip_enabled", true) !== false ? `<a href="#vip" class="vipb"><b>💎 VIP</b><span>${isVip(p) ? `${new Date(p.vip_until).toLocaleDateString("bn-BD")} পর্যন্ত` : "বাড়তি পয়েন্ট, ফ্রি কয়েন"}</span></a>` : ""}
+    <div class="me-promo">${setting("vip_enabled", true) !== false ? `<a href="#vip" class="vipb"><b>💎 VIP</b><span>${isVip(p) ? `${new Date(p.vip_until).toLocaleDateString(window.getLang?.() === "en" ? "en-GB" : "bn-BD")} পর্যন্ত` : "বাড়তি পয়েন্ট, ফ্রি কয়েন"}</span></a>` : ""}
       ${setting("store_enabled", true) !== false ? `<a href="#store" class="storeb"><b>🎨 সাজান</b><span>ফ্রেম · এন্ট্রি · বাবল</span></a>` : ""}</div>
     ${p.coin_seller ? `<a href="#seller" class="me-banner seller"><span>💰 কয়েন সেলার প্যানেল</span><b>বিক্রি করুন ›</b></a>` : ""}
     ${!p.referred_by && refDaysLeft(p) > 0 ? `<div class="me-ref"><span>🎁 বন্ধুর রেফার কোড দিন</span><input id="meRef" inputmode="numeric" maxlength="12" placeholder="ID নম্বর"><button id="meRefOk">যুক্ত করুন</button></div>` : ""}

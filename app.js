@@ -12,7 +12,7 @@ const num = (n) => Number(n ?? 0).toLocaleString("en-IN");
 const taka = (p) => "৳" + (Number(p ?? 0) / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 const dt = (s) => (s ? new Date(s).toLocaleString("en-GB", { timeZone: "Asia/Dhaka", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "-");
 const METHOD = { bkash: "bKash", nagad: "Nagad", rocket: "Rocket" };
-const STATUS = { pending: "পেন্ডিং", approved: "অ্যাপ্রুভড", paid: "Paid", rejected: "রিজেক্টেড", active: "সক্রিয়", banned: "ব্যান", published: "প্রকাশিত", deleted: "ডিলিট", open: "খোলা", resolved: "সমাধান", dismissed: "বাতিল" };
+const STATUS = { pending: "পেন্ডিং", approved: "অ্যাপ্রুভড", paid: "পরিশোধিত", rejected: "রিজেক্টেড", active: "সক্রিয়", banned: "ব্যান", published: "প্রকাশিত", deleted: "ডিলিট", open: "খোলা", resolved: "সমাধান", dismissed: "বাতিল" };
 const CATS = [["natok", "🎭 নাটক"], ["movie", "🎬 মুভি"], ["funny", "😂 ফানি"], ["vlog", "📹 ব্লগ"], ["music", "🎵 গান"], ["other", "📦 অন্যান্য"]];
 const CAT_NAME = Object.fromEntries(CATS);
 const PHONE_CC = [["+880", "বাংলাদেশ"], ["+966", "সৌদি আরব"], ["+971", "দুবাই/আমিরাত"], ["+974", "কাতার"], ["+965", "কুয়েত"], ["+968", "ওমান"],
@@ -103,7 +103,57 @@ const toggleLang = (e) => { e?.preventDefault(); window.setLang?.(window.getLang
 $("#langBtn").addEventListener("click", toggleLang);
 $("#lLang").addEventListener("click", toggleLang);
 $("#menuBtn").addEventListener("click", () => $("#nav").classList.toggle("open"));
-$("#nav").addEventListener("click", (e) => { if (e.target.closest("a")) $("#nav").classList.remove("open"); });
+$("#nav").addEventListener("click", (e) => {
+  if (e.target.closest("a")) $("#nav").classList.remove("open");
+  const h = e.target.closest(".ngh");
+  if (h) {
+    const g = h.parentElement; g.classList.toggle("closed");
+    try { const c = JSON.parse(localStorage.getItem("navClosed") || "[]").filter((x) => x !== g.dataset.g); if (g.classList.contains("closed")) c.push(g.dataset.g); localStorage.setItem("navClosed", JSON.stringify(c)); } catch { /* */ }
+  }
+});
+try { JSON.parse(localStorage.getItem("navClosed") || "[]").forEach((g) => document.querySelector(`.ng[data-g="${g}"]`)?.classList.add("closed")); } catch { /* */ }
+// মেনুতে খোঁজা
+$("#navQ").addEventListener("input", (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  document.querySelectorAll("#nav .ng").forEach((g) => {
+    let any = false;
+    g.querySelectorAll("a").forEach((a) => { const ok = !q || a.textContent.toLowerCase().includes(q); a.style.display = ok ? "" : "none"; any = any || ok; });
+    g.style.display = any ? "" : "none"; g.classList.toggle("searching", !!q);
+  });
+});
+// যেকোনো তালিকায় দ্রুত খোঁজা/ফিল্টার (প্রতিটি পেজে নিজে থেকে)
+const QF_DAYS = [["", "সব সময়"], ["1", "আজ"], ["7", "৭ দিন"], ["30", "৩০ দিন"]];
+function quickFilter() {
+  view.querySelector(".qf")?.remove();
+  const box = [...view.querySelectorAll(".list, .table-wrap tbody")].sort((a, b) => b.children.length - a.children.length)[0];
+  if (!box || box.children.length < 5) return;
+  const rows = [...box.children].filter((r) => !r.classList.contains("empty"));
+  const kinds = [...new Map(rows.filter((r) => r.dataset.k).map((r) => [r.dataset.k, r.dataset.kl || r.dataset.k])).entries()];
+  const hasTs = rows.some((r) => r.dataset.ts), hasAmt = rows.some((r) => r.dataset.amt);
+  const bar = document.createElement("div");
+  bar.className = "qf";
+  bar.innerHTML = `<input type="search" class="qf-q" placeholder="🔎 এই তালিকায় খুঁজুন (নাম, ID, নম্বর…)">
+    ${kinds.length > 1 ? `<select class="qf-k"><option value="">সব ধরন</option>${kinds.map(([k, l]) => `<option value="${esc(k)}">${esc(l)}</option>`).join("")}</select>` : ""}
+    ${hasTs ? `<select class="qf-d">${QF_DAYS.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select>` : ""}
+    ${hasAmt ? `<select class="qf-s"><option value="">ক্রম: আগের মতো</option><option value="desc">টাকা: বেশি আগে</option><option value="asc">টাকা: কম আগে</option></select>` : ""}
+    <span class="qf-n muted small"></span>`;
+  (box.closest(".table-wrap") || box).before(bar);
+  const orig = [...rows];
+  const apply = () => {
+    const q = bar.querySelector(".qf-q").value.trim().toLowerCase(), k = bar.querySelector(".qf-k")?.value || "",
+      d = Number(bar.querySelector(".qf-d")?.value || 0), so = bar.querySelector(".qf-s")?.value || "";
+    const since = d ? Date.now() - d * 864e5 : 0;
+    let shown = 0;
+    orig.forEach((r) => {
+      const ok = (!q || r.textContent.toLowerCase().includes(q)) && (!k || r.dataset.k === k) && (!since || !r.dataset.ts || new Date(r.dataset.ts) >= since);
+      r.style.display = ok ? "" : "none"; if (ok) shown++;
+    });
+    const order = so ? [...orig].sort((a, b) => (Number(a.dataset.amt || 0) - Number(b.dataset.amt || 0)) * (so === "asc" ? 1 : -1)) : orig;
+    order.forEach((r) => box.appendChild(r));
+    bar.querySelector(".qf-n").textContent = `${shown}/${orig.length}টি`;
+  };
+  bar.addEventListener("input", apply); bar.addEventListener("change", apply); apply();
+}
 
 async function refreshBadges() {
   try {
@@ -127,11 +177,18 @@ function route() {
   document.querySelectorAll("#nav a").forEach((a) => a.classList.toggle("active", a.getAttribute("href") === "#" + name));
   view.onclick = null;
   try { window.__leave?.(); } catch { /* */ } window.__leave = null;
-  (routes[name] ?? routes.dashboard)(arg);
+  const act = document.querySelector(`#nav a[href="#${name}"], #nav a[href^="#${name}/"]`);
+  act?.closest(".ng")?.classList.remove("closed");
+  Promise.resolve((routes[name] ?? routes.dashboard)(arg)).then(() => setTimeout(quickFilter, 50)).catch(() => {});
   window.scrollTo(0, 0);
 }
 window.addEventListener("hashchange", () => me && route());
 
+document.addEventListener("submit", (e) => {
+  if (e.target.id !== "dFind") return;
+  e.preventDefault();
+  const v = $("#dFindQ").value.replace(/\D/g, ""); if (v) location.hash = "#lookup/" + v;
+});
 // ---------- dashboard ----------
 routes.dashboard = async () => {
   loading();
@@ -139,6 +196,10 @@ routes.dashboard = async () => {
     const d = await rpc("admin_dashboard");
     const s = (k, v, href, alert) => `<a class="card stat ${alert ? "alert" : ""}" ${href ? `href="#${href}"` : ""} style="text-decoration:none"><div class="k">${k}</div><div class="v">${v}</div></a>`;
     view.innerHTML = `<h1>ড্যাশবোর্ড</h1>
+      <form class="dash-find" id="dFind"><input id="dFindQ" inputmode="numeric" placeholder="🔎 ইউজারের ID লিখুন (যেমন 100001)"><button class="btn good">খুঁজুন</button></form>
+      <div class="quick">${[["#videos/pending", "🎬", "ভিডিও অনুমোদন"], ["#withdrawals", "💸", "উইথড্র"], ["#cashins", "💳", "ক্যাশ-ইন"], ["#agents", "🧑‍💼", "এজেন্ট আবেদন"],
+        ["#support/user", "🎧", "সাপোর্ট"], ["#launch/pnew", "📢", "অফার দিন"], ["#broadcast", "🔔", "নোটিফিকেশন"], ["#coins", "🪙", "কয়েন পাঠান"]]
+        .map(([h, i, l]) => `<a href="${h}"><span>${i}</span>${l}</a>`).join("")}</div>
       <div class="grid">
         ${s("পেন্ডিং উইথড্র", `${num(d.withdraw_pending)} · ${taka(d.withdraw_pending_paisa)}`, "withdrawals", d.withdraw_pending > 0)}
         ${s("পেন্ডিং ক্যাশ-ইন", `${num(d.cashin_pending)} · ${taka(d.cashin_pending_paisa)}`, "cashins", d.cashin_pending > 0)}
@@ -191,7 +252,7 @@ routes.withdrawals = async (tab = "pending") => {
   const list = $("#list");
   if (!data.length) list.innerHTML = `<div class="empty">কিছু নেই</div>`;
   else list.innerHTML = data.map((w) => `
-    <div class="item">
+    <div class="item" data-k="${esc(w.method)}" data-kl="${esc(METHOD[w.method] ?? w.method)}" data-amt="${w.payable_paisa}" data-ts="${w.created_at}">
       <div class="top"><span class="amt">${taka(w.payable_paisa)}</span>${pill(w.status)}</div>
       <div class="meta">
         <b>${METHOD[w.method]}</b> → ${copyable(w.account_number)} ${w.account_name ? "· " + esc(w.account_name) : ""}<br>
@@ -242,7 +303,7 @@ routes.cashins = async (tab = "pending") => {
   const list = $("#list");
   if (!data.length) list.innerHTML = `<div class="empty">কিছু নেই</div>`;
   else list.innerHTML = data.map((c) => `
-    <div class="item">
+    <div class="item" data-k="${esc(c.method)}" data-kl="${esc(METHOD[c.method] ?? c.method)}" data-amt="${c.amount_paisa}" data-ts="${c.created_at}">
       <div class="top"><span class="amt">${taka(c.amount_paisa)}</span>${pill(c.status)}</div>
       <div class="meta">
         <b>${METHOD[c.method]}</b> · পাঠিয়েছে ${copyable(c.sender_number)} · TrxID ${copyable(c.trx_id)}<br>
@@ -949,8 +1010,6 @@ const SITE_FIELDS = [
 ];
 const SITE_SOCIAL = [["whatsapp", "💬 WhatsApp নম্বর", "+8801…"], ["facebook", "📘 Facebook পেজের লিংক", "https://facebook.com/…"], ["youtube", "▶️ YouTube লিংক", "https://youtube.com/…"],
   ["tiktok", "🎵 TikTok লিংক", "https://tiktok.com/@…"], ["instagram", "📸 Instagram লিংক", "https://instagram.com/…"]];
-const SITE_THEMES = [["a", "ডিজাইন ১ — হালকা বেগুনি", "linear-gradient(135deg,#efe9ff,#f7d9ff)", "#1d1236"], ["b", "ডিজাইন ২ — রাতের নিয়ন", "linear-gradient(135deg,#0d0a1c,#3b1d6e)", "#f3efff"],
-  ["c", "ডিজাইন ৩ — উৎসবের রঙ", "linear-gradient(135deg,#ff3d7f,#ff7a3d,#ffc23d)", "#fff"]];
 routes.website = async () => {
   loading();
   const { data } = await sb.from("settings").select("key,value").in("key", ["site_texts", "site_theme"]);
@@ -960,10 +1019,6 @@ routes.website = async () => {
   view.innerHTML = `<h1>🌐 ওয়েবসাইট</h1>
     <div class="card small" style="margin-bottom:12px">অফার, প্রতিযোগিতা, বোনাস, উইথড্রর নিয়ম আর এজেন্টের নিয়ম ওয়েবসাইটে নিজে থেকেই অ্যাপ থেকে আসে। এখানে শুধু ডিজাইন আর স্থায়ী লেখা বদলাবেন।
       খালি রাখলে আগের লেখাই দেখাবে। <div style="margin-top:8px"><a class="btn sm" href="${SITE_URL}" target="_blank" rel="noopener">🌐 ওয়েবসাইট দেখুন</a></div></div>
-    <h2>🎨 ডিজাইন</h2>
-    <div class="grid">${SITE_THEMES.map(([k, l, bg, fg]) => `<div class="card" style="padding:0;overflow:hidden;${k === th ? "outline:3px solid var(--good)" : ""}">
-      <div style="background:${bg};color:${fg};padding:22px 14px;font-weight:700;text-align:center">${l}${k === th ? "<br>✅ চালু আছে" : ""}</div>
-      <div class="row" style="gap:6px;padding:10px;justify-content:center"><a class="btn sm" href="${SITE_URL}?theme=${k}" target="_blank" rel="noopener">👁 দেখুন</a>${k === th ? "" : `<button class="btn sm good" data-th="${k}">এটা চালু করুন</button>`}</div></div>`).join("")}</div>
     <h2>✍️ লেখা</h2>
     <div class="list">${SITE_FIELDS.map(([k, l, ph, area]) => `<div class="item"><b>${l}</b>
       <label class="small muted" style="display:block;margin-top:6px">বাংলা</label>${inp(k, ph, area)}
@@ -971,10 +1026,6 @@ routes.website = async () => {
     <h2>🔗 সোশ্যাল ও যোগাযোগ</h2>
     <div class="list">${SITE_SOCIAL.map(([k, l, ph]) => `<div class="item"><b>${l}</b>${inp(k, ph)}</div>`).join("")}</div>
     <button class="btn good" id="wsSave" style="margin:14px 0 30px;width:100%">💾 সব লেখা সেভ করুন</button>`;
-  view.querySelectorAll("[data-th]").forEach((b) => (b.onclick = async () => {
-    await act(() => rpc("admin_set_setting", { p_key: "site_theme", p_value: b.dataset.th }), "✅ ডিজাইন বদলানো হয়েছে");
-    routes.website();
-  }));
   $("#wsSave").onclick = async () => {
     const nt = {};
     view.querySelectorAll("[data-t]").forEach((el) => { const v = el.value.trim(); if (v) nt[el.dataset.t] = v; });

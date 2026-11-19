@@ -43,6 +43,12 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
 - Ad diagnostics (038, APK ≥ v1.0.20; v1.0.19 = Play Billing bridge): native `onAdFail(placement, code, msg)` → `log_ad_error` → `ad_errors`, shown on admin Ads page with code meanings.
 - App re-reads `settings` every 2 min and when it returns to the foreground, so rate changes (coin price etc.) show everywhere without a restart.
 - Locked folder (`vault` private bucket + `vault_files`): per-user quota `vault_quota_mb` (enforced in `vault_add` and the storage insert policy); only the owner and admins can read.
+- One language per user (owner's rule — never mix): i18n.js has PRE/POST regex rules for sentences with numbers (days, hours, until, max, N জন…)
+  around the phrase map; in Bengali mode the app (`window.I18N_BN_DIGITS`) shows Bengali digits (links, @names, #tags, versions kept), dates use bn-BD/en-GB by language.
+  Check with a crawl: render every route with lang=en and list text nodes that still contain Bengali (must be 0 except user content).
+  Website swaps media by language (`data-src-en`: app-tour-en.mp4, *-en.jpg screenshots).
+- Admin panel: grouped, collapsible menu (`.ng` groups, state in localStorage `navClosed`) + menu search `#navQ`; dashboard ID search + quick-action tiles;
+  `quickFilter()` runs after every route and adds search / type (`data-k`,`data-kl`) / date (`data-ts`) / amount sort (`data-amt`) to the biggest list on the page.
 - Language: `i18n.js` (shared by admin and app) translates Bengali UI text to English at runtime from a phrase map when `localStorage.lang = 'en'`.
   Elements with `translate="no"` (user captions, names, comments, bios) are never translated — keep fixed UI text outside them.
   New UI text → add its English to the map (audit: extract Bengali literals from app/app.js + SQL, run them through the map, list leftovers).
@@ -241,8 +247,7 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   (`#launch/posts|pnew|p<id>`, `admin_site_posts/admin_save_site_post/admin_delete_site_post`, optional `admin_broadcast`).
   App: `app_offers()` → Home strip (`homeOffers`) + `#offers`; Settings links to #offers and the website; `get/` links to the site.
   No own domain/repo yet (session can't create repos) — a custom domain would improve trust.
-- Website editor (046, admin "🌐 ওয়েবসাইট" `#website`): `settings.site_theme` a (light purple) | b (dark neon) | c (festive gradient) → body class
-  `t-<x>` (preview any with `site/?theme=b`); `settings.site_texts` {notice (top ribbon), hero_tag/title/lead, *_title, faq ("q || a" per line),
+- Website editor (046, admin "🌐 ওয়েবসাইট" `#website`): only design 3 kept (owner's choice) — body class `t-c` (pink-orange festive); `site_theme` = c; `settings.site_texts` {notice (top ribbon), hero_tag/title/lead, *_title, faq ("q || a" per line),
   footer, whatsapp/facebook/youtube/tiktok/instagram, each text also `<key>_en`} applied to `[data-k]` elements by `applySite()` in site.js.
 - Agents (044/045): owner wants NO apply option inside the app. People apply on the website (`site/#agent` form → `agent_web_apply(user_no, name,
   phone, area, plan)`, anon allowed, rate-limited, table `agent_applications`; `agent_apply` revoked). Admin "🧑‍💼 এজেন্ট" `#agents/<pending|approved|rejected|all|rules>`
