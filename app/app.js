@@ -1558,6 +1558,43 @@ function boostSheet(v) {
   };
 }
 
+// ---------- 📢 অফার ও খবর (অ্যাডমিন লেখে, অ্যাপ + ওয়েবসাইটে দেখায়) ----------
+let OFFERS = null, OFFERS_AT = 0;
+async function offersData(force) {
+  if (!force && OFFERS_AT && Date.now() - OFFERS_AT < 120000) return OFFERS;
+  OFFERS = await rpc("app_offers").catch(() => []); OFFERS_AT = Date.now();
+  return OFFERS || [];
+}
+const offT = (x, k) => (window.getLang?.() === "en" && x[k + "_en"]) || x[k] || "";
+function offerGo(x) {
+  if (!x.link_url) return;
+  if (x.link_url.startsWith("#")) location.hash = x.link_url; else openLink(x.link_url);
+}
+async function homeOffers(box) {
+  if (!box) return;
+  const list = await offersData();
+  if (!list?.length || !box.isConnected) return;
+  const x = list[0];
+  box.innerHTML = `<a class="off-strip" href="#offers">${x.image_url ? `<img src="${esc(x.image_url)}" alt="">` : `<span class="oi">${x.kind === "news" ? "📢" : "🎁"}</span>`}
+    <span class="ot"><b translate="no">${esc(offT(x, "title"))}</b>${list.length > 1 ? `<small>+${n(list.length - 1)} আরও অফার ও খবর</small>` : `<small>বিস্তারিত দেখুন</small>`}</span><span class="og">›</span></a>`;
+}
+R.offers = async () => {
+  screen.innerHTML = `<div class="page">${header("📢 অফার ও খবর")}<div class="spinner"></div></div>`;
+  const list = await offersData(true);
+  screen.innerHTML = `<div class="page">${header("📢 অফার ও খবর")}<div id="ofSsn"></div>
+    ${list.map((x, i) => `<div class="card off-card">${x.image_url ? `<img src="${esc(x.image_url)}" alt="">` : ""}
+      <div class="off-k">${x.pinned ? "📌 " : ""}${x.kind === "news" ? "📢 খবর" : "🎁 অফার"} · ${dt(x.starts_at || x.created_at)}</div>
+      <b translate="no">${esc(offT(x, "title"))}</b>
+      ${offT(x, "body") ? `<p translate="no">${esc(offT(x, "body"))}</p>` : ""}
+      ${x.ends_at ? `<div class="tiny muted">⏳ শেষ হবে ${dt(x.ends_at)}</div>` : ""}
+      ${x.link_url ? `<button class="btn primary" data-go="${i}" style="width:100%;margin-top:10px">দেখুন →</button>` : ""}</div>`).join("")
+      || `<div class="empty">এখন কোনো অফার নেই।<br>নতুন অফার এলে এখানে দেখাবে 🔔</div>`}
+    <a class="btn" href="https://akashpattadar19-cell.github.io/reels-admin/site/" target="_blank" rel="noopener" style="width:100%;margin-top:6px" id="ofSite">🌐 আমাদের ওয়েবসাইট</a></div>`;
+  seasonBanner($("#ofSsn")).catch(() => {});
+  screen.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => offerGo(list[Number(b.dataset.go)])));
+  $("#ofSite").onclick = (e) => { e.preventDefault(); openLink(e.currentTarget.href); };
+};
+
 // ---------- 🏆 সিজন প্রতিযোগিতা ----------
 let SSN = null, SSN_AT = 0;
 async function seasonData(force) {
@@ -3749,7 +3786,7 @@ R.home = (tab = "video") => {
       </div>
     </div>
     ${notice() ? `<div style="padding:0 10px">${notice()}</div>` : ""}
-    ${tab === "video" ? `<div id="homeSsn" style="padding:0 10px"></div><div id="homeSp" style="padding:0 10px"></div>` : ""}
+    ${tab === "video" ? `<div id="homeSsn" style="padding:0 10px"></div><div id="homeOf" style="padding:0 10px"></div><div id="homeSp" style="padding:0 10px"></div>` : ""}
     ${tab === "video" ? `<div class="st-row hidden" id="stRow"></div>` : ""}
     ${tab === "video" || tab === "photo" ? `<div class="trend-row hidden" id="trend"></div>` : ""}
     <div class="disc-grid"><div class="disc-col" id="c0"></div><div class="disc-col" id="c1"></div></div>
@@ -3762,6 +3799,7 @@ R.home = (tab = "video") => {
   storyRow($("#stRow"));
   homeSponsors($("#homeSp")).catch(() => {});
   seasonBanner($("#homeSsn"), true).catch(() => {});
+  homeOffers($("#homeOf")).catch(() => {});
   if ($("#trend")) rpc("trending_tags", { p_days: 7, p_limit: 12 }).then((tr) => {
     if (!tr?.length || !$("#trend")) return;
     $("#trend").innerHTML = `<a class="tr-all" href="#tags">🔥 ট্রেন্ডিং</a>${tr.map((t) => `<a href="#tag/${encodeURIComponent(t.tag)}" translate="no">#${esc(t.tag)}</a>`).join("")}`;
@@ -3963,6 +4001,8 @@ R.settings = async () => {
       <em>${th?.unread_user ? `<b class="badge-n">${th.unread_user}</b>` : ""}›</em></a>
     ${tgUser ? `<a class="card list-1" href="https://t.me/${esc(tgUser)}" target="_blank" rel="noopener"><span>✈️ টেলিগ্রামে যোগাযোগ</span><span class="muted">@${esc(tgUser)} ›</span></a>` : ""}
     <div class="card list">
+      <a class="li" href="#offers"><span>📢 অফার ও খবর</span><span>›</span></a>
+      <a class="li" href="https://akashpattadar19-cell.github.io/reels-admin/site/" target="_blank" rel="noopener"><span>🌐 আমাদের ওয়েবসাইট</span><span>›</span></a>
       <label class="li"><span>🔔 নোটিফিকেশন</span><input type="checkbox" id="nt" class="sw" ${notifOn() ? "checked" : ""}></label>
       ${me.account_type === "host" ? `<label class="li"><span>📞 কল নিতে রাজি (ইউজাররা আপনাকে কল দিতে পারবে)</span><input type="checkbox" id="cOn" class="sw" ${me.calls_on !== false ? "checked" : ""}></label>` : ""}
     </div>

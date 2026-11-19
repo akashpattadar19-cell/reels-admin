@@ -1,0 +1,178 @@
+// Reels Enjoy ওয়েবসাইট — অ্যাপ থেকে সরাসরি তথ্য (site_info, লগইন ছাড়া পড়া যায়)
+(function () {
+  const CFG = window.REELS_CONFIG || {};
+  let lang = (() => { try { return localStorage.getItem("lang") === "en" ? "en" : "bn"; } catch { return "bn"; } })();
+  let INFO = null, clockT = null;
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const L = (bn, en) => (lang === "en" ? en : bn);
+  const BN_DIG = "০১২৩৪৫৬৭৮৯";
+  const num = (x) => { const s = Number(x || 0).toLocaleString("en-IN"); return lang === "en" ? s : s.replace(/\d/g, (d) => BN_DIG[d]); };
+  const tk = (paisa) => "৳" + num(Math.round(Number(paisa || 0)) / 100);
+  const date = (iso) => new Date(iso).toLocaleDateString(lang === "en" ? "en-GB" : "bn-BD", { day: "numeric", month: "long", year: "numeric" });
+  const T = (x, k) => (lang === "en" && x[k + "_en"]) || x[k] || "";
+
+  function applyLang() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll("[data-en]").forEach((el) => {
+      if (el.dataset.bn === undefined) el.dataset.bn = el.textContent;
+      el.textContent = lang === "en" ? el.dataset.en : el.dataset.bn;
+    });
+    $("#lang").textContent = lang === "en" ? "বাংলা" : "EN";
+    if (INFO) render();
+  }
+  $("#lang").onclick = () => { lang = lang === "en" ? "bn" : "en"; try { localStorage.setItem("lang", lang); } catch { /* */ } applyLang(); };
+
+  function left(s) {
+    const t = new Date(s.state === "upcoming" ? s.starts_at : s.ends_at) - Date.now();
+    if (s.state === "paid") return L("🎉 বিজয়ী ঘোষণা হয়েছে", "🎉 Winners announced");
+    if (t <= 0 || s.state === "ended") return L("🏁 শেষ — শীঘ্রই ফলাফল", "🏁 Finished — results soon");
+    const d = Math.floor(t / 864e5), h = Math.floor(t % 864e5 / 36e5), m = Math.floor(t % 36e5 / 6e4);
+    const span = lang === "en" ? `${d ? d + "d " : ""}${h}h ${m}m` : `${d ? num(d) + " দিন " : ""}${num(h)} ঘণ্টা ${num(m)} মিনিট`;
+    return s.state === "upcoming" ? L(`⏳ শুরু হতে ${span}`, `⏳ Starts in ${span}`) : L(`⏳ শেষ হতে ${span}`, `⏳ ${span} left`);
+  }
+  const RK = ["🥇", "🥈", "🥉"];
+
+  function seasonHtml(s) {
+    const board = s.creator_prizes?.length ? "creator" : "referral";
+    const prizes = s[board + "_prizes"] || [];
+    const total = [...(s.creator_prizes || []), ...(s.referral_prizes || [])].reduce((a, b) => a + b, 0);
+    const W = s.weights || {};
+    return `<div class="season"><div>
+        <h3>🏆 ${esc(T(s, "title"))}</h3>
+        <div class="clock" id="sClock">${left(s)}</div>
+        <div class="total">${L("মোট পুরস্কার", "Total prize")}<b>৳${num(total)}</b></div>
+        <div class="prizes">${prizes.map((p, i) => `<span class="${i < 3 ? "t" : ""}">${i < 3 ? RK[i] : "#" + num(i + 1)} ৳${num(p)}</span>`).join("")}</div>
+        ${s.referral_prizes?.length && board === "creator" ? `<div class="prizes">${s.referral_prizes.map((p, i) => `<span>🤝 ${i < 3 ? RK[i] : "#" + num(i + 1)} ৳${num(p)}</span>`).join("")}</div>` : ""}
+        <div style="margin-top:10px;font-size:14px;opacity:.95">${date(s.starts_at)} — ${date(s.ends_at)}</div>
+      </div><div>
+        <div class="how"><b>${L("কীভাবে পয়েন্ট পাবেন", "How you score")}</b><ul>
+          ${s.creator_prizes?.length ? `<li>${L("অনুমোদিত প্রতিটি ভিডিও", "Each approved video")}: ${num(W.video)}</li>
+          <li>${L("অন্যরা পুরো ভিডিও দেখলে", "Others watch your full video")}: ${num(W.watch)} · ${L("লাইক", "like")}: ${num(W.like)} · ${L("কমেন্ট", "comment")}: ${num(W.comment)} · ${L("শেয়ার", "share")}: ${num(W.share)}</li>
+          <li>${L(`তালিকায় আসতে কমপক্ষে ${num(s.min_videos)}টি অনুমোদিত ভিডিও`, `At least ${num(s.min_videos)} approved videos to be listed`)}</li>` : ""}
+          ${s.referral_prizes?.length ? `<li>${L("প্রতি সফল রেফার", "Each successful referral")}: ${num(W.referral)}</li>` : ""}
+          <li>${L("নিজের বা একই মোবাইলের অন্য অ্যাকাউন্টের কাজ গোনা হয় না", "Your own or same-phone accounts don't count")}</li></ul></div>
+        ${s.top?.length ? `<div class="top5">${s.top.map((r) => `<div>${r.rank <= 3 ? RK[r.rank - 1] : "#" + num(r.rank)} <span>${esc(r.name)}</span><em>${num(r.score)}</em></div>`).join("")}</div>` : ""}
+      </div></div>`;
+  }
+
+  function render() {
+    const I = INFO, S = I.settings || {}, LK = S.income_locks || {};
+    // ডাউনলোড লিংক ও ভার্সন
+    if (S.apk_url) { $("#dlTop").href = S.apk_url; $("#dlBottom").href = S.apk_url; }
+    const ver = S.latest_app_build ? `v1.0.${S.latest_app_build}` : "";
+    $("#verTop").textContent = L(`ফ্রি · APK ${ver}`, `Free · APK ${ver}`);
+    $("#verBottom").textContent = L(`Android · ফ্রি · ${ver}`, `Android · Free · ${ver}`);
+
+    // অফার
+    const cards = [];
+    if (S.welcome_bonus_enabled && Number(S.welcome_bonus_paisa) > 0)
+      cards.push(`<div class="oc"><span class="ic">🎁</span><b>${L("নতুন ইউজার বোনাস", "New user bonus")}</b><div class="big">${tk(S.welcome_bonus_paisa)}</div>
+        <p>${L("প্রথমবার অ্যাপ খুললে ব্যালেন্সে আসে। একটি মোবাইলে একবারই।", "Added to your balance the first time you open the app. Once per phone.")}</p></div>`);
+    if (Number(S.referral_bonus_paisa) > 0)
+      cards.push(`<div class="oc"><span class="ic">🤝</span><b>${L("বন্ধুকে রেফার করুন", "Invite friends")}</b><div class="big">${tk(S.referral_bonus_paisa)} <small style="font-size:14px;color:var(--muted)">${L("প্রতি সফল রেফার", "per successful referral")}</small></div>
+        <p>${esc(T(S, "ref_offer_text")) || L(`বন্ধু ${num(S.ref_window_days)} দিনের মধ্যে কাজগুলো শেষ করলে বোনাস পাবেন।`, `You get the bonus when your friend finishes the tasks within ${num(S.ref_window_days)} days.`)}</p></div>`);
+    (I.coin_offers || []).forEach((o) => cards.push(`<div class="oc">${o.badge ? `<span class="badge">${esc(o.badge)}</span>` : ""}<span class="ic">🪙</span><b>${esc(o.title)}</b>
+      <div class="big">🪙 ${num(o.coins)}</div><p>${L(`মাত্র ৳${num(o.price_taka)}-এ (অ্যাপের কয়েন পেজে)`, `for only ৳${num(o.price_taka)} (in the app's coin page)`)}</p>${o.ends_at ? `<div class="when">⏳ ${L("শেষ", "Ends")} ${date(o.ends_at)}</div>` : ""}</div>`));
+    (I.posts || []).forEach((x) => cards.push(`<div class="oc">${x.image_url ? `<img src="${esc(x.image_url)}" alt="">` : `<span class="ic">${x.kind === "news" ? "📢" : "🎁"}</span>`}
+      ${x.pinned ? `<span class="badge">📌</span>` : ""}<b>${esc(T(x, "title"))}</b>${T(x, "body") ? `<p>${esc(T(x, "body"))}</p>` : ""}
+      <div class="when">${date(x.starts_at || x.created_at)}${x.ends_at ? ` · ⏳ ${L("শেষ", "Ends")} ${date(x.ends_at)}` : ""}</div>
+      ${x.link_url && /^https?:/.test(x.link_url) ? `<a class="btn small" style="margin-top:10px" href="${esc(x.link_url)}" target="_blank" rel="noopener">${L("দেখুন", "Open")} →</a>` : ""}</div>`));
+    $("#liveOffers").innerHTML = (I.season ? seasonHtml(I.season) : "") + (cards.length ? `<div class="ocards">${cards.join("")}</div>` : "")
+      || `<div class="loading">${L("এখন কোনো অফার নেই — নতুন অফার এলে এখানে দেখাবে।", "No offers right now — new offers will show here.")}</div>`;
+    clearInterval(clockT);
+    if (I.season) clockT = setInterval(() => { const c = $("#sClock"); if (c) c.textContent = left(I.season); }, 30000);
+
+    // পরিসংখ্যান (যথেষ্ট ইউজার হলে)
+    const st = I.stats || {};
+    if (st.users >= 100) {
+      $("#statsIn").innerHTML = `<div class="s"><b>${num(st.users)}+</b><span>${L("ইউজার", "users")}</span></div><div class="s"><b>${num(st.videos)}+</b><span>${L("ভিডিও", "videos")}</span></div>`
+        + (st.paid_count > 0 ? `<div class="s"><b>${num(st.paid_count)}</b><span>${L("সফল উইথড্র", "withdrawals paid")}</span></div><div class="s"><b>${tk(st.paid_paisa)}</b><span>${L("মোট পরিশোধ", "total paid")}</span></div>` : "");
+      $("#stats").classList.remove("hidden");
+    }
+
+    // পুরস্কার ও আয়
+    const soon = `<span class="soon">🔒 ${L("শীঘ্রই আসছে", "Coming soon")}</span>`;
+    const row = (ic, bn, en, val, sub) => `<div class="r"><i>${ic}</i><div><b>${L(bn, en)}</b>${val}${sub ? `<small>${sub}</small>` : ""}</div></div>`;
+    const v = (x) => `<div class="v">${x}</div>`;
+    const lockOr = (k, x) => (LK[k] ? soon : v(x));
+    $("#earnList").innerHTML = [
+      row("🏆", "সিজন প্রতিযোগিতা", "Season contest", v(I.season ? L("চলছে", "Running") : L("নতুন সিজন শীঘ্রই", "Next season soon")), L("সেরা ক্রিয়েটর ও রেফারকারীরা নগদ পুরস্কার পান", "Top creators and referrers win cash prizes")),
+      row("🤝", "প্রতি সফল রেফার", "Each successful referral", v(tk(S.referral_bonus_paisa)), L("বন্ধু নির্দিষ্ট কাজগুলো শেষ করলে", "When your friend finishes the tasks")),
+      S.welcome_bonus_enabled ? row("🎁", "নতুন ইউজার বোনাস", "New user bonus", v(tk(S.welcome_bonus_paisa)), L("একটি মোবাইলে একবার", "Once per phone")) : "",
+      row("💝", "গিফট পেলে", "Receiving gifts", v(L("গিফটের দামের বড় অংশ", "A large share of the gift")), L("দর্শকরা আপনার ভিডিও, লাইভ বা পোস্টে গিফট পাঠালে", "When viewers send gifts on your videos, lives or posts")),
+      row("👀", "আপনার ভিডিওর প্রতি ১০০০ ভিউ", "Per 1000 views on your videos", lockOr("views", tk(S.view_rate_paisa_per_1000))),
+      row("❤️", "প্রতি লাইক / কমেন্টকারী", "Per like / commenter", LK.likes && LK.comments ? soon : v(`${LK.likes ? "🔒" : tk(S.like_rate_paisa)} / ${LK.comments ? "🔒" : tk(S.comment_rate_paisa)}`)),
+      row("⭐", "পুরো ভিডিও দেখলে", "Watching a full video", lockOr("watch", `${num(S.watch_points)} ${L("পয়েন্ট", "points")}`)),
+      row("🔁", "পয়েন্ট থেকে টাকা", "Points to money", lockOr("convert", `${num(S.points_convert_min)} ${L("পয়েন্ট", "points")} = ${tk(S.points_convert_min * S.point_value_paisa)}`)),
+      row("📺", "অ্যাড দেখে পয়েন্ট", "Points for ads", LK.ads ? soon : v(L("চালু", "On"))),
+      row("🖼️", "ফটো ও লেখা থেকে আয়", "Photo & text posts", LK.posts ? soon : v(L("চালু", "On"))),
+      Number(S.upload_reward_coins) > 0 ? row("🪙", "ভিডিও অনুমোদন হলে", "Approved video", lockOr("upload", `🪙 ${num(S.upload_reward_coins)}`)) : "",
+    ].join("");
+
+    // টাকা-পয়সার নিয়ম
+    const coinTk = Number(S.coin_price_paisa || 0) / 100;
+    $("#moneyRules").innerHTML = [
+      row("💸", "সর্বনিম্ন উইথড্র", "Minimum withdrawal", v(tk(S.withdraw_min_paisa)), "bKash · Nagad · Rocket"),
+      row("📅", "কত দিন পরপর", "How often", v(L(`${num(S.withdraw_cooldown_days)} দিনে একবার`, `Once every ${num(S.withdraw_cooldown_days)} days`)), L("একসাথে একটাই রিকোয়েস্ট", "One request at a time")),
+      row("⏳", "আয় ব্যালেন্সে আসে", "Earnings become withdrawable", v(L(`${num(S.pending_hold_hours)} ঘণ্টা পর`, `after ${num(S.pending_hold_hours)} hours`)), L("ভুয়া কাজ যাচাইয়ের সময়", "Time to check for fraud")),
+      row("✅", "উইথড্র কীভাবে হয়", "How payouts work", v(L("অ্যাডমিন যাচাই করে পাঠায়", "Checked and sent by admin")), L("পাঠানোর পর অ্যাপে ট্রানজেকশন আইডি দেখাবে", "The transaction ID shows in the app")),
+      row("🪙", "কয়েনের দাম", "Coin price", v(`🪙 1 = ৳${coinTk.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`), L("কয়েন দিয়ে গিফট, VIP, প্রোফাইল সাজানো, বুস্ট — কয়েন টাকায় তোলা যায় না", "Coins are for gifts, VIP, profile style and boosts — coins can't be withdrawn")),
+      row("🛒", "কয়েন কেনা", "Buying coins", v(L("অ্যাপের ভেতর থেকে", "Inside the app")), L(`bKash / Nagad, কমপক্ষে ৳${num(S.min_cash_in_taka)} · Google Play শীঘ্রই`, `bKash / Nagad, from ৳${num(S.min_cash_in_taka)} · Google Play soon`)),
+    ].join("");
+
+    // রেফার টাস্ক
+    const tasks = [
+      ["ref_req_full_watch", "টি ভিডিও পুরো দেখবে", " full video watches"], ["ref_req_likes", "টি ভিডিওতে লাইক দেবে", " likes"],
+      ["ref_req_comments", "টি কমেন্ট করবে", " comments"], ["ref_req_shares", "টি ভিডিও শেয়ার করবে", " shares"],
+      ["ref_req_video_posts", "টি ভিডিও পোস্ট করবে (অনুমোদিত)", " approved video posts"], ["ref_req_text_posts", "টি লেখা পোস্ট করবে", " text posts"],
+    ].filter(([k]) => Number(S[k]) > 0).map(([k, bn, en]) => `<li>${lang === "en" ? num(S[k]) + en : num(S[k]) + bn}</li>`);
+    if (Number(S.ref_req_active_days) > 0) tasks.push(`<li>${L(`${num(S.ref_req_active_days)} দিন অ্যাপ ব্যবহার (প্রতিদিন কমপক্ষে ${num(S.ref_req_minutes_per_day)} মিনিট)`, `Uses the app on ${num(S.ref_req_active_days)} days (at least ${num(S.ref_req_minutes_per_day)} min each day)`)}</li>`);
+    tasks.push(`<li>${L(`সব কাজ শেষ করার সময়: ${num(S.ref_window_days)} দিন`, `Time to finish everything: ${num(S.ref_window_days)} days`)}</li>`);
+    $("#refTasks").innerHTML = tasks.join("");
+
+    // বিজয়ী
+    if (I.winners?.length) {
+      $("#winList").innerHTML = I.winners.map((w) => `<div class="w"><span class="rk">${w.rank <= 3 ? RK[w.rank - 1] : "#" + num(w.rank)}</span>
+        <span class="av">${w.avatar_url ? `<img src="${esc(w.avatar_url)}" alt="">` : esc((w.name || "?").charAt(0))}</span>
+        <span><b>${esc(w.name)}</b><small>${esc(T(w, "season"))} · ${w.board === "referral" ? L("রেফার", "Referral") : L("ক্রিয়েটর", "Creator")}</small></span><em>${tk(w.prize_paisa)}</em></div>`).join("");
+      $("#winners").classList.remove("hidden");
+    }
+
+    // যোগাযোগ
+    if (S.support_email) { $("#supEmail").href = "mailto:" + S.support_email; $("#supEmail").textContent = S.support_email; }
+    const tg = String(S.support_telegram || "").replace(/^@/, "");
+    $("#supTg").innerHTML = tg ? `✈️ Telegram: <a href="https://t.me/${esc(tg)}" target="_blank" rel="noopener">@${esc(tg)}</a>` : "";
+    $("#supHours").textContent = lang === "en" ? "We usually reply within a few hours." : (S.support_hours || "");
+
+    // প্রশ্ন ও উত্তর
+    const faq = [
+      [L("Reels Enjoy কি ফ্রি?", "Is Reels Enjoy free?"), L("হ্যাঁ। অ্যাপ নামানো, ভিডিও দেখা ও বানানো, লাইভ দেখা — সব ফ্রি। কয়েন কেনা ঐচ্ছিক, শুধু গিফট, VIP বা প্রোফাইল সাজানোর জন্য।", "Yes. Downloading, watching and making videos, and watching lives are free. Buying coins is optional — only for gifts, VIP or profile style.")],
+      [L("কিছু আয়ে “শীঘ্রই আসছে” লেখা কেন?", "Why do some rewards say “Coming soon”?"), L("অ্যাপ সবে শুরু হয়েছে। এখন পুরস্কার আসে প্রতিযোগিতা, রেফার আর গিফট থেকে। বাকি আয় চালু হলে এই ওয়েবসাইট আর অ্যাপে ঘোষণা দেওয়া হবে।", "The app has just launched. For now rewards come from contests, referrals and gifts. Other rewards will be announced here and in the app when they start.")],
+      [L("টাকা কীভাবে তুলব?", "How do I withdraw?"), L(`অ্যাপে ওয়ালেট → উইথড্র। কমপক্ষে ${tk(S.withdraw_min_paisa)}, ${num(S.withdraw_cooldown_days)} দিনে একবার। bKash, Nagad বা Rocket নম্বরে অ্যাডমিন যাচাই করে পাঠায়।`, `In the app: Wallet → Withdraw. At least ${tk(S.withdraw_min_paisa)}, once every ${num(S.withdraw_cooldown_days)} days. The admin checks and sends it to your bKash, Nagad or Rocket number.`)],
+      [L("প্রতিযোগিতায় কীভাবে জিতব?", "How do I win a contest?"), L("নিজের ভালো ভিডিও বানিয়ে আপলোড করুন — অন্যরা যত দেখবে, লাইক, কমেন্ট ও শেয়ার করবে, তত পয়েন্ট। বন্ধুদের রেফার করলেও পয়েন্ট। ভুয়া অ্যাকাউন্ট বা ভুয়া লাইক ধরা পড়লে পুরস্কার বাতিল।", "Upload your own good videos — the more others watch, like, comment and share, the more points you get. Referrals also score. Fake accounts or likes cancel the prize.")],
+      [L("আমার রেফার কেন গোনা হয়নি?", "Why didn't my referral count?"), L(`বন্ধুকে ${num(S.ref_window_days)} দিনের মধ্যে সব কাজ শেষ করতে হবে। একই মোবাইলে আগে অন্য অ্যাকাউন্ট খোলা থাকলে রেফার গোনা হয় না। অ্যাপের “রেফার” পেজে প্রত্যেক বন্ধুর অগ্রগতি দেখা যায়।`, `Your friend must finish all tasks within ${num(S.ref_window_days)} days. Referrals from a phone that already had another account don't count. The Invite page in the app shows each friend's progress.`)],
+      [L("কয়েন কি টাকায় ফেরত নেওয়া যায়?", "Can coins be turned back into money?"), L("না। কয়েন শুধু অ্যাপের ভেতরে খরচের জন্য। তবে আপনি গিফট পেলে তার বড় অংশ আপনার উইথড্রযোগ্য আয়ে যোগ হয়।", "No. Coins are only for spending in the app. But when you receive gifts, a large share is added to your withdrawable earnings.")],
+      [L("অ্যাপ Google Play-তে নেই কেন?", "Why isn't the app on Google Play?"), L("Google Play-তে প্রকাশের কাজ চলছে। ততদিন এই অফিসিয়াল পেজ থেকে নামাতে পারবেন। Play-তে এলে এখানে জানানো হবে।", "Publishing on Google Play is in progress. Until then you can download from this official page. We'll announce it here when it's live.")],
+      [L("কারা ব্যবহার করতে পারবে?", "Who can use it?"), L("১৮ বছর বা তার বেশি বয়সীরা। অশ্লীল বা নিয়মবিরোধী কিছু দিলে অ্যাকাউন্ট বন্ধ হতে পারে।", "People aged 18 or older. Accounts posting obscene or rule-breaking content can be closed.")],
+      [L("আমার তথ্য কি নিরাপদ?", "Is my data safe?"), L("আপনার ফোন নম্বর ও ইমেইল অন্য ইউজারদের দেখানো হয় না। অবস্থান আনুমানিকভাবে রাখা হয়, সঠিক ঠিকানা নয়। বিস্তারিত গোপনীয়তা নীতিতে।", "Your phone number and email are never shown to other users. Location is stored only roughly, never your exact address. Details are in the privacy policy.")],
+      [L("সমস্যা হলে কোথায় জানাব?", "Where do I get help?"), L("অ্যাপে সেটিংস → লাইভ সাপোর্ট, অথবা নিচের ইমেইলে লিখুন।", "In the app: Settings → Live Support, or email us below.")],
+    ];
+    $("#faqList").innerHTML = faq.map(([q, a], i) => `<details ${i === 0 ? "open" : ""}><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join("");
+  }
+
+  async function load() {
+    try {
+      const r = await fetch(`${CFG.SUPABASE_URL}/rest/v1/rpc/site_info`, {
+        method: "POST", headers: { apikey: CFG.SUPABASE_KEY, "Content-Type": "application/json" }, body: "{}" });
+      if (!r.ok) throw new Error(r.status);
+      INFO = await r.json();
+      render();
+    } catch (e) {
+      $("#liveOffers").innerHTML = `<div class="loading">${L("অফার লোড করা যায়নি — একটু পরে আবার দেখুন।", "Couldn't load offers — please try again later.")}</div>`;
+      $("#earnList").innerHTML = "";
+    }
+  }
+  applyLang();
+  load();
+})();

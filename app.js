@@ -950,9 +950,79 @@ const prizeTotal = (a) => (a || []).reduce((x, y) => x + Number(y || 0), 0);
 const partsTxt = (p) => [["watch", "👀"], ["like", "❤️"], ["comment", "💬"], ["share", "🔁"], ["video", "🎬"], ["referral", "🤝"]]
   .filter(([k]) => p?.[k]).map(([k, i]) => `${i} ${num(p[k])}`).join(" · ") || "—";
 
+// 📢 অফার ও খবর: একবার লিখলে অ্যাপ আর ওয়েবসাইট দুই জায়গায় দেখাবে
+const SITE_URL = "https://akashpattadar19-cell.github.io/reels-admin/site/";
+async function launchPosts(arg, tabs) {
+  const list = await rpc("admin_site_posts");
+  const now = Date.now();
+  const live = (x) => x.active && (!x.starts_at || new Date(x.starts_at) <= now) && (!x.ends_at || new Date(x.ends_at) > now);
+  if (arg === "posts") {
+    view.innerHTML = `<h1>🚀 লঞ্চ অফার</h1>${tabs("posts")}
+      <div class="card small" style="margin-bottom:12px">এখানে যে অফার বা খবর লিখবেন তা একসাথে <b>অ্যাপের হোম পেজে</b> আর <b>ওয়েবসাইটে</b> দেখাবে। শেষ সময় দিলে তারপর নিজে থেকে লুকিয়ে যাবে।
+        চলমান সিজন প্রতিযোগিতা, রেফার অফার, স্বাগত বোনাস আর কয়েন অফার ওয়েবসাইটে নিজে থেকেই দেখায় — আলাদা লিখতে হবে না।
+        <div style="margin-top:8px"><a class="btn sm" href="${SITE_URL}" target="_blank" rel="noopener">🌐 ওয়েবসাইট দেখুন</a> <span class="copy" data-copy="${SITE_URL}">${SITE_URL}</span></div></div>
+      <a class="btn good" href="#launch/pnew" style="margin-bottom:12px">➕ নতুন অফার / খবর</a>
+      <div class="list">${list.map((x) => `<a class="item" href="#launch/p${x.id}" style="display:block">
+        <div class="top"><b>${x.pinned ? "📌 " : ""}${x.kind === "news" ? "📰" : "🎁"} ${esc(x.title)}</b><span class="pill ${live(x) ? "active" : ""}">${live(x) ? "✅ দেখাচ্ছে" : x.active ? "⏳ সময়ের বাইরে" : "⏸️ বন্ধ"}</span></div>
+        <div class="meta">${x.show_app ? "📱 অ্যাপ " : ""}${x.show_site ? "🌐 ওয়েবসাইট " : ""}· ${new Date(x.created_at).toLocaleDateString("bn-BD")}${x.ends_at ? ` · শেষ ${new Date(x.ends_at).toLocaleString("bn-BD")}` : ""}</div></a>`).join("")
+        || `<div class="empty">এখনো কিছু নেই — "➕ নতুন অফার / খবর" চাপুন</div>`}</div>`;
+    return;
+  }
+  const isNew = arg === "pnew";
+  const x = isNew ? { kind: "offer", title: "", show_app: true, show_site: true, pinned: false, active: true } : list.find((y) => "p" + y.id === arg);
+  if (!x) { view.innerHTML = `<div class="empty">পাওয়া যায়নি</div>`; return; }
+  let img = x.image_url || "";
+  const loc = (iso) => iso ? toLocalInput(iso) : "";
+  view.innerHTML = `<h1>🚀 লঞ্চ অফার</h1>${tabs("posts")}<p><a href="#launch/posts">← সব অফার ও খবর</a></p>
+    <h2>${isNew ? "➕ নতুন অফার / খবর" : "✏️ এডিট"}</h2>
+    <div class="card">
+      <label class="small">ধরন</label><select id="pK"><option value="offer" ${x.kind === "offer" ? "selected" : ""}>🎁 অফার</option><option value="news" ${x.kind === "news" ? "selected" : ""}>📰 খবর / ঘোষণা</option></select>
+      <label class="small">শিরোনাম</label><input id="pT" value="${esc(x.title)}" placeholder="যেমন: ঈদ অফার — কয়েনে ৩০% বেশি">
+      <label class="small">শিরোনাম — English</label><input id="pTe" value="${esc(x.title_en ?? "")}">
+      <label class="small">বিস্তারিত</label><textarea id="pB" rows="4">${esc(x.body ?? "")}</textarea>
+      <label class="small">বিস্তারিত — English</label><textarea id="pBe" rows="4">${esc(x.body_en ?? "")}</textarea>
+      <label class="small">ছবি (ঐচ্ছিক, চওড়া ছবি ভালো দেখায়)</label><input id="pF" type="file" accept="image/*">
+      <div id="pPrev" style="margin:6px 0">${img ? `<img src="${esc(img)}" style="width:200px;border-radius:8px"> <button class="btn sm" id="pNoImg" type="button">ছবি সরান</button>` : ""}</div>
+      <label class="small">লিংক (ঐচ্ছিক — যেমন অ্যাপের পেজ #season, #invite, #cashin বা কোনো ওয়েব লিংক)</label><input id="pL" value="${esc(x.link_url ?? "")}" placeholder="#season">
+      <div class="row" style="gap:8px"><div style="flex:1"><label class="small">শুরু (খালি = এখনই)</label><input id="pS" type="datetime-local" value="${loc(x.starts_at)}"></div>
+        <div style="flex:1"><label class="small">শেষ (খালি = যতদিন না বন্ধ করেন)</label><input id="pE" type="datetime-local" value="${loc(x.ends_at)}"></div></div>
+      <div style="display:grid;gap:8px;margin:12px 0">
+        <label><input type="checkbox" id="pA" ${x.show_app ? "checked" : ""}> 📱 অ্যাপে দেখাবে</label>
+        <label><input type="checkbox" id="pW" ${x.show_site ? "checked" : ""}> 🌐 ওয়েবসাইটে দেখাবে</label>
+        <label><input type="checkbox" id="pP" ${x.pinned ? "checked" : ""}> 📌 সবার উপরে রাখুন</label>
+        <label><input type="checkbox" id="pOn" ${x.active ? "checked" : ""}> ✅ চালু</label>
+        ${isNew ? `<label><input type="checkbox" id="pN"> 🔔 সব ইউজারকে নোটিফিকেশন পাঠান</label>` : ""}</div>
+      <div class="row" style="gap:8px"><button class="btn good" id="pSave">💾 সেভ</button>${isNew ? "" : `<button class="btn bad" id="pDel">🗑️ মুছুন</button>`}</div>
+    </div>`;
+  $("#pNoImg")?.addEventListener("click", () => { img = ""; $("#pPrev").innerHTML = ""; });
+  $("#pSave").onclick = async (e) => {
+    const title = $("#pT").value.trim(); if (title.length < 2) return toast("শিরোনাম লিখুন", true);
+    e.target.disabled = true;
+    try {
+      const f = $("#pF").files[0];
+      if (f) {
+        const path = `${S.me.id}/offer-${Date.now()}.${(f.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "")}`;
+        const { error } = await sb.storage.from("photos").upload(path, f, { contentType: f.type || "image/jpeg" });
+        if (error) throw error;
+        img = sb.storage.from("photos").getPublicUrl(path).data.publicUrl;
+      }
+      const iso = (v) => v ? new Date(v).toISOString() : "";
+      const p = { id: isNew ? null : x.id, kind: $("#pK").value, title, title_en: $("#pTe").value, body: $("#pB").value, body_en: $("#pBe").value,
+        image_url: img, link_url: $("#pL").value.trim(), starts_at: iso($("#pS").value), ends_at: iso($("#pE").value),
+        show_app: $("#pA").checked, show_site: $("#pW").checked, pinned: $("#pP").checked, active: $("#pOn").checked };
+      const id = await rpc("admin_save_site_post", { p });
+      if ($("#pN")?.checked) await rpc("admin_broadcast", { p_title: (p.kind === "news" ? "📢 " : "🎁 ") + title, p_body: (p.body || "").slice(0, 140) }).catch(() => {});
+      toast("✅ সেভ হয়েছে");
+      location.hash = "#launch/p" + id;
+    } catch (er) { toast(errMsg(er), true); e.target.disabled = false; }
+  };
+  $("#pDel")?.addEventListener("click", async () => { if (!confirm("এটা মুছবেন?")) return; await act(() => rpc("admin_delete_site_post", { p_id: x.id }), "মুছে ফেলা হয়েছে"); location.hash = "#launch/posts"; });
+}
+
 routes.launch = async (arg = "locks") => {
-  const tabs = (on) => `<div class="tabs"><a class="btn sm ${on === "locks" ? "on" : ""}" href="#launch/locks">🔒 ইনকাম লক</a><a class="btn sm ${on !== "locks" ? "on" : ""}" href="#launch/season">🏆 সিজন প্রতিযোগিতা</a></div>`;
+  const tabs = (on) => `<div class="tabs"><a class="btn sm ${on === "locks" ? "on" : ""}" href="#launch/locks">🔒 ইনকাম লক</a><a class="btn sm ${on === "season" ? "on" : ""}" href="#launch/season">🏆 সিজন প্রতিযোগিতা</a><a class="btn sm ${on === "posts" ? "on" : ""}" href="#launch/posts">📢 অফার ও খবর</a></div>`;
   loading();
+  if (arg === "posts" || /^p(new|\d+)$/.test(arg)) return launchPosts(arg, tabs);
   if (arg === "locks") {
     const { data } = await sb.from("settings").select("value").eq("key", "income_locks").maybeSingle();
     const L = data?.value || {};

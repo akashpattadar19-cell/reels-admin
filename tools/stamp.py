@@ -3,9 +3,9 @@
 import re, time, pathlib
 v = time.strftime("%Y%m%d%H%M")
 root = pathlib.Path(__file__).resolve().parent.parent
-for f in ["index.html", "app/index.html"]:
+for f in ["index.html", "app/index.html", "site/index.html"]:
     p = root / f
     s = p.read_text()
-    s = re.sub(r'((?:src|href)="(?:\.\./)?(?:i18n|config|app|style)\.(?:js|css))(\?v=\w+)?"', rf'\1?v={v}"', s)
+    s = re.sub(r'((?:src|href)="(?:\.\./)?(?:i18n|config|app|style|site)\.(?:js|css))(\?v=\w+)?"', rf'\1?v={v}"', s)
     p.write_text(s)
 print("stamped", v)

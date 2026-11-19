@@ -10,6 +10,7 @@ Owner works only from a phone (Bengali UI). Everything is free-tier: Supabase + 
 | User app (web, loaded inside the APK) | `app/` → https://akashpattadar19-cell.github.io/reels-admin/app/ |
 | Android APK shell (AdMob, video compression, share) | private repo `reels-app` |
 | Database, RPCs, cron, storage | Supabase project `reels-enjoy` (ref `smveeoykybpufhvcehjv`, ap-south-1) |
+| Public website (offers, rules, FAQ, contact) | `site/` → https://akashpattadar19-cell.github.io/reels-admin/site/ |
 | SQL migrations / edge functions (source copy) | `supabase/` |
 
 ## Money rules (all in Postgres functions, never in the client)
@@ -232,6 +233,14 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
     (app: top 20 + me), admin `admin_seasons/admin_save_season/admin_delete_season/admin_season_board/admin_season_exclude/admin_season_pay`
     (after end: pays `season_prize` to earning, notifies, 👑 crown frame, boosts top-3 latest video). App: `seasonBanner()` on Home/#rules/#wallet,
     `#season/<creator|referral>`.
+- Website + offer posts (043): `site/` (index.html, site.css, site.js, img/ = sample app screenshots) is a static bilingual page
+  (`data-en` attributes, shares `localStorage.lang` with the app). It calls `site_info()` over REST with the publishable key:
+  public settings (rates, withdraw rules, referral tasks, income_locks → "Coming soon"), current season (+ live top 5), last paid
+  winners, active coin offers, `site_posts`, stats (shown only when ≥ 100 users). `site_posts` (kind offer|news, bn/en title & body,
+  image in `photos`, link `#route` or https, show_app/show_site, pinned, starts/ends) edited on admin "🚀 লঞ্চ অফার" → "📢 অফার ও খবর"
+  (`#launch/posts|pnew|p<id>`, `admin_site_posts/admin_save_site_post/admin_delete_site_post`, optional `admin_broadcast`).
+  App: `app_offers()` → Home strip (`homeOffers`) + `#offers`; Settings links to #offers and the website; `get/` links to the site.
+  No own domain/repo yet (session can't create repos) — a custom domain would improve trust.
 - Not built on purpose: Chamet "BIG WIN"/"City PK" coin games (betting).
 - Declined: real-money betting games in live (coins are bought with money and earnings withdraw → gambling, illegal in BD/KSA,
   banned by Play). Offer free point games instead. Call moderation must cover the whole call, not only the first minutes.
@@ -252,4 +261,4 @@ so phones load the new files immediately. APK ≥ v1.0.7 also opens the app URL 
 
 ## Security
 RLS on every table; clients can only SELECT. All writes go through SECURITY DEFINER RPCs that check `auth.uid()`;
-admin RPCs call `_require_admin()`. `anon` cannot execute any function.
+admin RPCs call `_require_admin()`. `anon` cannot execute any function except `site_info()` (read-only public info for the website).
