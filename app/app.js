@@ -3790,27 +3790,53 @@ R.support = async () => {
   };
 };
 
+const REF_TASKS = { full_watch: ["🎬", "ভিডিও পুরো দেখুন"], likes: ["❤️", "ভিডিওতে লাইক দিন"], comments: ["💬", "কমেন্ট করুন"],
+  shares: ["↗️", "ভিডিও শেয়ার করুন"], active_days: ["📱", "দিন অ্যাপ ব্যবহার করুন"], video_posts: ["🎥", "ভিডিও পোস্ট করুন (অনুমোদিত)"],
+  text_posts: ["✍️", "টেক্সট পোস্ট করুন"] };
+const refLeft = (end) => { const ms = new Date(end) - Date.now(); if (ms <= 0) return "সময় শেষ"; const h = Math.floor(ms / 3600e3);
+  return h >= 24 ? `${n(Math.floor(h / 24))} দিন ${n(h % 24)} ঘণ্টা বাকি` : `${n(h)} ঘণ্টা বাকি`; };
+// রেফারের টাস্ক তালিকা (have/need + প্রগ্রেস বার)
+const refTaskList = (pr, compact) => `<div class="rt-list${compact ? " compact" : ""}">${pr.items.filter((x) => x.need > 0).map((x) => {
+  const ok = x.have >= x.need, pct = Math.min(100, Math.round((x.have / x.need) * 100));
+  return `<div class="rt-i ${ok ? "ok" : ""}"><span class="rt-ic">${ok ? "✅" : REF_TASKS[x.k][0]}</span><div><div class="rt-t">${n(x.need)} ${x.k === "active_days" ? `দিন অ্যাপ ব্যবহার (প্রতিদিন ${n(x.mins)} মিনিট)` : REF_TASKS[x.k][1].replace(/^দিন /, "")}</div>
+    <div class="progress"><div style="width:${pct}%"></div></div></div><b>${n(Math.min(x.have, x.need))}/${n(x.need)}</b></div>`;
+}).join("")}</div>`;
+// রেফারের নিয়ম (সেটিংস থেকে) — শেয়ার করার আগে বন্ধুকে বোঝাতে
+const refRuleItems = () => [["full_watch", "ref_req_full_watch"], ["likes", "ref_req_likes"], ["comments", "ref_req_comments"], ["shares", "ref_req_shares"],
+  ["active_days", "ref_req_active_days"], ["video_posts", "ref_req_video_posts"], ["text_posts", "ref_req_text_posts"]]
+  .map(([k, sk]) => ({ k, need: Number(setting(sk, 0)), have: 0, mins: Number(setting("ref_req_minutes_per_day", 0)) })).filter((x) => x.need > 0);
+
 R.invite = async () => {
   screen.innerHTML = `<div class="page">${header("🎁 আমার রেফার")}<div class="spinner"></div></div>`;
-  const r = await rpc("my_referrals").catch((e) => ({ error: e }));
+  const [r, mine] = await Promise.all([rpc("my_referrals").catch((e) => ({ error: e })), rpc("my_referral_tasks").catch(() => null)]);
   if (r.error) { screen.innerHTML = `<div class="page">${header("🎁 আমার রেফার")}<div class="empty">${esc(errMsg(r.error))}</div></div>`; return; }
   const shareText = `Reels Enjoy অ্যাপে ভিডিও দেখে ও বানিয়ে আয় করুন!${Number(setting("welcome_bonus_paisa", 0)) > 0 && setting("welcome_bonus_enabled", true) !== false ? ` নতুন ইউজাররা পাবেন ৳${Math.round(Number(setting("welcome_bonus_paisa")) / 100)} বোনাস 🎁` : ""}\n\n📲 ডাউনলোড: ${shareLink()}\n🎟️ রেজিস্টার করার সময় আমার রেফার কোড দিন: ${r.code}`;
+  const days = Number(setting("ref_window_days", 3)), offer = settingL("ref_offer_text", "");
+  const rules = refRuleItems();
   screen.innerHTML = `<div class="page">${header("🎁 আমার রেফার")}
+    ${offer ? `<div class="ref-offer"><span>🔥</span><div translate="no">${esc(offer)}</div></div>` : ""}
+    ${mine && !mine.qualified && !mine.blocked ? `<div class="card ref-mine"><b>🎯 আপনার টাস্ক (@${esc(mine.referrer)}-এর রেফারে যুক্ত)</b>
+      <div class="tiny muted" style="margin:2px 0 8px">⏳ ${refLeft(mine.end)} · সব শেষ করলে আপনি পাবেন ⭐ ${n(setting("referral_welcome_points"))} পয়েন্ট</div>${refTaskList(mine)}</div>` : ""}
     <div class="card hero" style="text-align:center"><div class="k">আপনার রেফার কোড</div>
       <div class="v" data-copy="${r.code}" style="letter-spacing:2px">${r.code} ⧉</div>
       <button class="btn" id="shr" style="background:#fff;color:#4b1c7a;border:0">📤 বন্ধুদের পাঠান</button></div>
     <div class="stats" style="margin-bottom:12px"><div><b>${n(r.total)}</b><span>মোট রেফার</span></div><div><b>${n(r.qualified)}</b><span>সফল</span></div><div><b>${tk(r.earned_paisa)}</b><span>রেফার আয়</span></div></div>
     <div class="card"><b>কীভাবে কাজ করে</b><div class="list tiny">
-      <div class="li"><span>১. বন্ধু রেজিস্টারের সময় আপনার কোড দেবে</span></div>
-      <div class="li"><span>২. বন্ধু ${n(r.min_views)}টি ভিডিও দেখলে রেফার সফল</span></div>
-      <div class="li"><span>৩. প্রতি সফল রেফারে আপনি পাবেন</span><b>${tk(setting("referral_bonus_paisa"))}</b></div>
-      <div class="li"><span>বন্ধু পাবে স্বাগত পয়েন্ট</span><b>⭐ ${n(setting("referral_welcome_points"))}</b></div>
-      <div class="li"><span>⚠️ একই মোবাইলে খোলা দ্বিতীয় অ্যাকাউন্টের রেফার গণ্য হবে না। বন্ধুকে অ্যাপ (APK) থেকে লগইন করতে হবে।</span></div></div></div>
+      <div class="li"><span>১. বন্ধু রেজিস্টারের সময় (বা লগইনের পর রেফার পেজে) আপনার কোড দেবে</span></div>
+      <div class="li"><span>২. বন্ধু ${n(days)} দিনের মধ্যে নিচের সব টাস্ক শেষ করলে রেফার সফল</span></div>
+      <div class="li"><span>৩. প্রতি সফল রেফারে আপনি পাবেন</span><b>${tk(S.me.account_type === "host" && Number(setting("host_referral_bonus_paisa", 0)) > 0 ? setting("host_referral_bonus_paisa") : setting("referral_bonus_paisa"))}</b></div>
+      <div class="li"><span>বন্ধু পাবে স্বাগত পয়েন্ট</span><b>⭐ ${n(setting("referral_welcome_points"))}</b></div></div>
+      ${rules.length ? `<div class="tiny" style="margin:10px 0 4px"><b>বন্ধুর টাস্ক (${n(days)} দিনের মধ্যে)</b></div><div class="ref-rules">${rules.map((x) =>
+        `<span>${REF_TASKS[x.k][0]} ${n(x.need)} ${x.k === "active_days" ? `দিন অ্যাপ ব্যবহার (প্রতিদিন ${n(x.mins)} মিনিট)` : REF_TASKS[x.k][1].replace(/^দিন /, "")}</span>`).join("")}</div>` : ""}
+      <div class="tiny muted" style="margin-top:8px">⚠️ একই মোবাইলে খোলা দ্বিতীয় অ্যাকাউন্টের রেফার গণ্য হবে না। বন্ধুকে অ্যাপ (APK) থেকে লগইন করতে হবে।</div></div>
     ${r.tiers.length ? `<div class="card"><b>🏆 বাড়তি বোনাস</b><div class="list">${r.tiers.map((t) => `<div class="li"><span>${n(t.referrals)} জন সফল রেফার</span>
       <span>${t.awarded ? "✅ " : ""}<b>${tk(t.bonus_paisa)}</b></span></div>
       ${t.awarded ? "" : `<div class="progress" style="margin:0 0 6px"><div style="width:${Math.min(100, Math.round((r.qualified / t.referrals) * 100))}%"></div></div>`}`).join("")}</div></div>` : ""}
-    <h3>আপনার রেফার করা বন্ধু</h3><div class="card list">${r.list.length ? r.list.map((x) => `<div class="li"><span>@${esc(x.username)}<div class="tiny muted">${dt(x.created_at)} · ${n(x.views)}/${n(r.min_views)} ভিডিও দেখেছে</div></span>
-      <span class="pill ${x.qualified ? "paid" : x.blocked ? "rejected" : "pending"}">${x.qualified ? "সফল" : x.blocked ? "❌ বাতিল (একই মোবাইল)" : "চলছে"}</span></div>`).join("") : `<div class="empty">এখনো কেউ নেই — কোড শেয়ার করুন</div>`}</div></div>`;
+    <h3>আপনার রেফার করা বন্ধু</h3>${r.list.length ? r.list.map((x) => `<div class="card ref-fr"><div class="row" style="justify-content:space-between;align-items:center">
+        <span><b translate="no">@${esc(x.username)}</b><div class="tiny muted">${dt(x.created_at)}${x.progress ? ` · ⏳ ${refLeft(x.progress.end)}` : ""}</div></span>
+        <span class="pill ${x.qualified ? "paid" : x.blocked ? "rejected" : "pending"}">${x.qualified ? "✅ সফল" : x.blocked === "same_device" ? "❌ বাতিল (একই মোবাইল)" : x.blocked === "expired" ? "⌛ সময় শেষ" : x.blocked ? "❌ বাতিল" : "চলছে"}</span></div>
+        ${x.progress ? refTaskList(x.progress, true) : ""}</div>`).join("") : `<div class="card"><div class="empty">এখনো কেউ নেই — কোড শেয়ার করুন</div></div>`}
+  </div>`;
   $("#shr").onclick = async () => {
     try {
       if (Native?.share) Native.share(shareText);
@@ -3821,10 +3847,12 @@ R.invite = async () => {
 };
 
 R.rules = async () => {
-  const { data: tiers } = await sb.from("referral_tiers").select("*").eq("is_active", true).order("referrals");
+  const [{ data: tiers }, mine] = await Promise.all([sb.from("referral_tiers").select("*").eq("is_active", true).order("referrals"), rpc("my_referral_tasks").catch(() => null)]);
   const rew = S.ads.rewarded_points;
   screen.innerHTML = `<div class="page">${header("📋 আমার টাস্ক ও আয়ের নিয়ম")}
     ${S.ads.rewarded_points && Native?.showRewarded ? `<div class="card hero"><b>🎬 অ্যাড দেখে পয়েন্ট নিন</b><div class="tiny" style="margin:4px 0 10px">প্রতি অ্যাডে ⭐ ${n(S.ads.rewarded_points.viewer_points)} · দিনে ${n(S.ads.rewarded_points.daily_cap)} বার</div><a class="btn" href="#wallet" style="background:#fff;color:#5b2bd0;border:0">ওয়ালেটে গিয়ে অ্যাড দেখুন</a></div>` : ""}
+    ${mine && !mine.qualified && !mine.blocked ? `<a class="card ref-mine" href="#invite" style="display:block"><b>🎯 রেফার টাস্ক — ⭐ ${n(setting("referral_welcome_points"))} পয়েন্ট পাবেন</b>
+      <div class="tiny muted" style="margin:2px 0 8px">⏳ ${refLeft(mine.end)}</div>${refTaskList(mine, true)}</a>` : ""}
     <div class="card"><b>✅ প্রতিদিনের টাস্ক</b><div class="list tiny">
       <div class="li"><span>ভিডিও পুরোটা দেখুন (ছোট-বড় যেকোনো ভিডিও)</span><b>⭐ ${n(setting("watch_points"))} / ভিডিও</b></div>
       <div class="li"><span>ভিডিও আপলোড করুন</span><a href="#upload" class="btn small">আপলোড</a></div>

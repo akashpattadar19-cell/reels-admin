@@ -1177,3 +1177,19 @@ html, body, .auth, .auth-card { overflow-x: clip; }
 .sbar { position: fixed; top: 0; left: 0; right: 0; height: var(--safe-t); background: var(--bg); z-index: 30; pointer-events: none; }
 .up-rule { background: linear-gradient(135deg, #fff7e0, #ffeef8); border: 1px solid #fde2a6; border-radius: 14px; padding: 10px 12px; margin: 10px 0; font-size: 13px; color: #5b4a2a; display: grid; gap: 3px; }
 .up-rule b { color: #b45309; font-size: 14.5px; }
+
+/* রেফার টাস্ক */
+.ref-offer { display: flex; gap: 10px; align-items: flex-start; background: linear-gradient(135deg, #ff7a3d, #e34cf0); color: #fff; border-radius: 16px; padding: 12px 14px; margin-bottom: 12px; font-weight: 600; white-space: pre-line; box-shadow: 0 8px 20px rgba(227,76,240,.25); }
+.ref-offer span { font-size: 22px; }
+.ref-mine { border: 2px solid #c9b2ff; background: linear-gradient(180deg, #fbf8ff, #fff); color: inherit; }
+.rt-list { display: grid; gap: 8px; }
+.rt-i { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: center; font-size: 13px; }
+.rt-i .rt-ic { font-size: 18px; text-align: center; }
+.rt-i .progress { margin: 4px 0 0; height: 6px; }
+.rt-i b { font-size: 12.5px; color: #6d3df0; }
+.rt-i.ok .rt-t { color: #16a34a; }
+.rt-list.compact { gap: 5px; margin-top: 8px; }
+.rt-list.compact .rt-i { font-size: 12px; }
+.ref-rules { display: flex; flex-wrap: wrap; gap: 6px; }
+.ref-rules span { background: #f1ecff; color: #4b2a9a; border-radius: 10px; padding: 4px 9px; font-size: 12px; }
+.ref-fr { padding: 12px 14px; }

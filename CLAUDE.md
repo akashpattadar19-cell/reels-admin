@@ -47,9 +47,15 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   New UI text → add its English to the map (audit: extract Bengali literals from app/app.js + SQL, run them through the map, list leftovers).
   Admin-written notices are bilingual: `settingL(key)` shows `<key>_en` when English is chosen (app_notice, premium_notice, cashin_notice,
   text_notice, live_rules_notice, update_message); admin panel has an English field next to each.
-- Referral: signup takes `ref_no` (referrer's user_no) → `profiles.referred_by`. When the new user reaches `referral_min_views` valid views,
-  `_check_referral` (called from `record_view`) pays the referrer `referral_bonus_paisa` (pending) + welcome points to the new user, and
-  one-time tier bonuses from `referral_tiers` (`referral_tier_awards`). Admin edits all rates on the "Income rules" page.
+- Referral: signup takes `ref_no` (referrer's user_no) → `profiles.referred_by` (`referred_at` set by `set_referrer`). Since 039 the new user must
+  finish tasks within `ref_window_days` (3) counted from max(referred_at/created_at, `ref_rules_since`): `ref_req_full_watch` (rewarded full
+  watches), `ref_req_likes`, `ref_req_comments`, `ref_req_shares`, `ref_req_active_days` with ≥ `ref_req_minutes_per_day` in `app_usage`,
+  `ref_req_video_posts` (published), `ref_req_text_posts` (0 = off). `_referral_progress(user)` → {items[{k,need,have}], start, end, done};
+  `_check_referral` (record_view + cron `referral-cron` every 10 min via `referral_cron()`) pays the referrer `referral_bonus_paisa`
+  (host: `host_referral_bonus_paisa`) as pending + `referral_welcome_points` to the new user + `referral_tiers` bonuses; after end + 3 days
+  grace → `referral_blocked='expired'`. App `#invite`: offer banner (`settingL('ref_offer_text')`), own tasks (`my_referral_tasks`), rules
+  and per-friend progress (`my_referrals.list[].progress`); `#rules` shows own task card. Admin "🎁 রেফার" page `#referrals/<running|done|failed|all>`
+  (`admin_referrals`): all referral settings, offer text bn/en, anti-fraud toggles, bonus tiers, top referrers, list with progress.
 - Referral without signup form (Google): login page "🎁 বন্ধুর রেফার কোড আছে?" stores `localStorage.refNo`, `start()` calls
   `set_referrer` once; Me page shows a "বন্ধুর রেফার কোড দিন" box while `referred_by` is null and the account is < `referral_add_days` old.
 - Categories: `videos.category` (natok/movie/funny/vlog/music/other); feed RPC takes `p_category`; set via `set_video_category` after upload.

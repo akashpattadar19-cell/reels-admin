@@ -1033,22 +1033,8 @@ routes.rules = async (kind = "user") => {
       ${row("points_convert_min", "কমপক্ষে কত পয়েন্ট হলে টাকায় নেওয়া যাবে", "num")}
       <div class="item"><b>অ্যাড দেখে পয়েন্ট</b><div class="muted small">দর্শক ${num(ads?.viewer_points)} · ক্রিয়েটর ${num(ads?.creator_points)} · দিনে ${num(ads?.daily_cap)} বার — <a href="#ads">অ্যাড পেজে</a> বদলান</div></div>
     </div>
-    <h2>🤝 রেফার</h2><div class="list">
-      ${row("referral_enabled", "রেফার ইনকাম", "bool")}
-      ${row("referral_bonus_paisa", "প্রতি সফল রেফারে রেফারকারী পাবে", "taka")}
-      ${row("referral_welcome_points", "নতুন ইউজার স্বাগত পয়েন্ট পাবে", "num")}
-      ${row("referral_min_views", "রেফার সফল হতে নতুন ইউজারকে কতটি ভিডিও দেখতে হবে", "num")}
-      ${row("referral_add_days", "নতুন অ্যাকাউন্ট (Google সহ) কত দিনের মধ্যে পরে রেফার কোড দিতে পারবে", "num")}
-      ${row("referral_block_same_device", "একই মোবাইলে আগে অন্য অ্যাকাউন্ট থাকলে রেফার বাতিল", "bool")}
-      ${row("referral_require_device", "রেফার সফল হতে নতুন ইউজারকে অ্যাপ (APK) থেকে লগইন করতে হবে", "bool")}
-    </div>
-    <h2>🏆 রেফার বোনাস ধাপ</h2>
-    <p class="muted small">যেমন: ১০ জন সফল রেফার হলে একবার ৳৫০ বাড়তি বোনাস। প্রতিটা ধাপ একজন ইউজার একবারই পাবে।</p>
-    <div class="table-wrap"><table id="tt"><tr><th class="num">কতজন রেফার</th><th class="num">বোনাস (৳)</th><th>চালু</th><th></th></tr>
-      ${(tiers ?? []).map((t) => `<tr data-id="${t.id}"><td><input name="referrals" type="number" min="1" value="${t.referrals}"></td><td><input name="bonus" type="number" step="0.01" min="0" value="${t.bonus_paisa / 100}"></td>
-        <td><input name="is_active" type="checkbox" ${t.is_active ? "checked" : ""} style="width:auto"></td><td><button class="btn sm good" data-ts>সেভ</button> <button class="btn sm bad" data-td>মুছুন</button></td></tr>`).join("")}
-      <tr data-id="new"><td><input name="referrals" type="number" min="1" placeholder="যেমন 200"></td><td><input name="bonus" type="number" step="0.01" min="0" placeholder="যেমন 2000"></td>
-        <td><input name="is_active" type="checkbox" checked style="width:auto"></td><td><button class="btn sm" data-ts>যোগ করুন</button></td></tr></table></div>
+    <h2>🤝 রেফার</h2><a class="card" href="#referrals" style="display:block;margin-bottom:12px"><b>🎁 রেফার পেজে যান →</b>
+      <div class="muted small">রেফারের বোনাস, টাস্ক (ভিডিও দেখা, লাইক, পোস্ট…), সময়সীমা, অফার ও বোনাস ধাপ এখন আলাদা পেজে।</div></a>
     <h2>📤 আপলোড, জেল, হোস্ট ও প্রিমিয়াম</h2><div class="list">
       ${row("daily_upload_limit", "নতুন ইউজার দিনে কয়টি ভিডিও আপলোড করতে পারবে (কারো জন্য আলাদা করতে ইউজার খুঁজুন পেজে যান)", "num")}
       ${row("jail_release_coins", "জেল থেকে মুক্ত হতে ডিফল্ট কয়েন", "num")}
@@ -1128,6 +1114,108 @@ routes.rules = async (kind = "user") => {
       if (error) return toast(String(error.message).includes("duplicate") ? "এই সংখ্যার ধাপ আগেই আছে" : errMsg(error), true);
       toast("সেভ হয়েছে");
       if (id === "new") routes.rules();
+    }
+  };
+};
+
+// ---------- 🎁 রেফার (নিয়ম, টাস্ক, অফার, বোনাস ধাপ, তালিকা) ----------
+const REF_TASK = { full_watch: "🎬 ভিডিও পুরো দেখা", likes: "❤️ লাইক", comments: "💬 কমেন্ট", shares: "↗️ শেয়ার",
+  active_days: "📱 অ্যাপ ব্যবহারের দিন", video_posts: "🎥 ভিডিও পোস্ট (অনুমোদিত)", text_posts: "✍️ টেক্সট পোস্ট" };
+routes.referrals = async (tab = "running") => {
+  loading();
+  const [{ data: st }, { data: tiers }, info] = await Promise.all([
+    sb.from("settings").select("key,value"), sb.from("referral_tiers").select("*").order("referrals"),
+    rpc("admin_referrals", { p_status: tab, p_limit: 150 }).catch(() => null)]);
+  const S = Object.fromEntries((st ?? []).map((x) => [x.key, x.value]));
+  const row = (key, label, kind) => {
+    const v = S[key];
+    if (kind === "text") return `<div class="item" data-key="${key}" data-kind="text"><div class="top"><b>${label}</b></div>
+      <textarea name="v" rows="3" translate="no">${esc(v ?? "")}</textarea><button class="btn sm good" data-save>সেভ</button></div>`;
+    return `<div class="item" data-key="${key}" data-kind="${kind}"><div class="top"><b>${label}</b></div>
+      <div class="row" style="flex-wrap:nowrap">${kind === "bool"
+        ? `<select name="v"><option value="true" ${v === true ? "selected" : ""}>চালু</option><option value="false" ${v === false ? "selected" : ""}>বন্ধ</option></select>`
+        : `<input name="v" type="number" step="${kind === "taka" ? "0.01" : "1"}" min="0" value="${esc(kind === "taka" ? Number(v) / 100 : v)}">${kind === "taka" ? '<span class="muted">৳</span>' : ""}`}
+        <button class="btn sm good" data-save>সেভ</button></div></div>`;
+  };
+  const c = info?.counts ?? {};
+  const prog = (p) => p ? `<div class="small">${p.items.filter((x) => x.need > 0).map((x) => `<span class="pill ${x.have >= x.need ? "approved" : ""}" style="margin:2px">${REF_TASK[x.k]} ${num(x.have)}/${num(x.need)}</span>`).join("")}
+      <div class="muted">শেষ সময়: ${dt(p.end)}</div></div>` : "";
+  view.innerHTML = `<h1>🎁 রেফার</h1>
+    <div class="grid">
+      <div class="card stat"><div class="k">চলছে</div><div class="v">${num(c.running)}</div></div>
+      <div class="card stat"><div class="k">সফল</div><div class="v">${num(c.done)}</div></div>
+      <div class="card stat"><div class="k">বাতিল / সময় শেষ</div><div class="v">${num(c.failed)}</div></div>
+      <div class="card stat"><div class="k">গত ২৪ ঘণ্টায় নতুন</div><div class="v">${num(c.today)}</div></div></div>
+    <h2>💰 বোনাস</h2><div class="list">
+      ${row("referral_enabled", "রেফার চালু", "bool")}
+      ${row("referral_bonus_paisa", "প্রতি সফল রেফারে রেফারকারী (ইউজার) পাবে", "taka")}
+      ${row("host_referral_bonus_paisa", "প্রতি সফল রেফারে রেফারকারী হোস্ট পাবে", "taka")}
+      ${row("referral_welcome_points", "সব টাস্ক শেষ করলে নতুন ইউজার পাবে (পয়েন্ট)", "num")}
+    </div>
+    <h2>✅ নতুন ইউজারের টাস্ক (০ = সেই টাস্ক বন্ধ)</h2>
+    <p class="muted small">রেফার কোড দেওয়ার পর থেকে নিচের দিনের মধ্যে সব টাস্ক শেষ করলে রেফার সফল হবে। প্রতি ১০ মিনিটে নিজে থেকে যাচাই হয়। সময় শেষ হলে (ভিডিও অনুমোদনের জন্য বাড়তি ৩ দিন) রেফার বাতিল।</p>
+    <div class="list">
+      ${row("ref_window_days", "কত দিনের মধ্যে শেষ করতে হবে", "num")}
+      ${row("ref_req_full_watch", "কয়টি ভিডিও পুরো দেখতে হবে", "num")}
+      ${row("ref_req_likes", "কয়টি লাইক দিতে হবে", "num")}
+      ${row("ref_req_comments", "কয়টি কমেন্ট করতে হবে", "num")}
+      ${row("ref_req_shares", "কয়টি শেয়ার করতে হবে", "num")}
+      ${row("ref_req_active_days", "কয় দিন অ্যাপ ব্যবহার করতে হবে", "num")}
+      ${row("ref_req_minutes_per_day", "প্রতিদিন কমপক্ষে কত মিনিট ব্যবহার", "num")}
+      ${row("ref_req_video_posts", "কয়টি ভিডিও পোস্ট (এডমিন অনুমোদিত)", "num")}
+      ${row("ref_req_text_posts", "কয়টি টেক্সট পোস্ট", "num")}
+    </div>
+    <h2>📢 রেফার অফার (অ্যাপের রেফার পেজে উপরে দেখাবে)</h2><div class="list">
+      ${row("ref_offer_text", "অফারের লেখা — বাংলা (খালি = দেখাবে না)", "text")}
+      ${row("ref_offer_text_en", "অফারের লেখা — English", "text")}
+    </div>
+    <h2>🛡️ ভুয়া রেফার ঠেকানো</h2><div class="list">
+      ${row("referral_block_same_device", "একই মোবাইলে আগে অন্য অ্যাকাউন্ট থাকলে রেফার বাতিল", "bool")}
+      ${row("referral_require_device", "নতুন ইউজারকে অ্যাপ (APK) থেকে লগইন করতে হবে", "bool")}
+      ${row("referral_add_days", "নতুন অ্যাকাউন্ট কত দিনের মধ্যে পরে রেফার কোড দিতে পারবে", "num")}
+    </div>
+    <h2>🏆 রেফার বোনাস ধাপ</h2>
+    <p class="muted small">যেমন: ১০ জন সফল রেফার হলে একবার ৳৫০ বাড়তি বোনাস। প্রতিটা ধাপ একজন ইউজার একবারই পাবে।</p>
+    <div class="table-wrap"><table id="tt"><tr><th class="num">কতজন রেফার</th><th class="num">বোনাস (৳)</th><th>চালু</th><th></th></tr>
+      ${(tiers ?? []).map((t) => `<tr data-id="${t.id}"><td><input name="referrals" type="number" min="1" value="${t.referrals}"></td><td><input name="bonus" type="number" step="0.01" min="0" value="${t.bonus_paisa / 100}"></td>
+        <td><input name="is_active" type="checkbox" ${t.is_active ? "checked" : ""} style="width:auto"></td><td><button class="btn sm good" data-ts>সেভ</button> <button class="btn sm bad" data-td>মুছুন</button></td></tr>`).join("")}
+      <tr data-id="new"><td><input name="referrals" type="number" min="1" placeholder="যেমন 200"></td><td><input name="bonus" type="number" step="0.01" min="0" placeholder="যেমন 2000"></td>
+        <td><input name="is_active" type="checkbox" checked style="width:auto"></td><td><button class="btn sm" data-ts>যোগ করুন</button></td></tr></table></div>
+
+    <h2>🏅 সেরা রেফারকারী</h2><div class="table-wrap"><table><tr><th>ID</th><th>ইউজার</th><th class="num">মোট</th><th class="num">সফল</th></tr>
+      ${(info?.top ?? []).map((x) => `<tr><td><a href="#lookup/${x.user_no}">${x.user_no}</a></td><td>@${esc(x.username)}</td><td class="num">${num(x.total)}</td><td class="num">${num(x.done)}</td></tr>`).join("") || `<tr><td colspan="4" class="muted">এখনো নেই</td></tr>`}</table></div>
+    <h2>📋 রেফার তালিকা</h2>
+    <div class="tabs">${[["running", "চলছে"], ["done", "সফল"], ["failed", "বাতিল"], ["all", "সব"]].map(([k, l]) => `<a class="btn sm ${k === tab ? "on" : ""}" href="#referrals/${k}">${l}</a>`).join("")}</div>
+    <div class="table-wrap"><table><tr><th>নতুন ইউজার</th><th>রেফার করেছে</th><th>কবে</th><th>অবস্থা / অগ্রগতি</th></tr>
+      ${(info?.list ?? []).map((x) => `<tr><td><a href="#lookup/${x.user_no}">${x.user_no}</a> @${esc(x.username)}</td><td><a href="#lookup/${x.ref_no}">${x.ref_no}</a> @${esc(x.ref_username)}</td>
+        <td class="small">${dt(x.at)}</td><td>${x.done_at ? `<span class="pill approved">✅ সফল</span> <span class="small muted">${dt(x.done_at)}</span>`
+          : x.blocked ? `<span class="pill rejected">${x.blocked === "same_device" ? "❌ একই মোবাইল" : x.blocked === "expired" ? "⌛ সময় শেষ" : esc(x.blocked)}</span>` : prog(x.progress)}</td></tr>`).join("") || `<tr><td colspan="4" class="muted">কিছু নেই</td></tr>`}</table></div>`;
+  view.onclick = async (e) => {
+    const b = e.target.closest("[data-save]");
+    if (b) {
+      const it = b.closest(".item"), raw = it.querySelector("[name=v]").value, kind = it.dataset.kind;
+      const value = kind === "text" ? raw.trim() : kind === "bool" ? raw === "true" : kind === "taka" ? Math.round(Number(raw) * 100) : Math.round(Number(raw));
+      if (kind !== "bool" && kind !== "text" && (isNaN(value) || value < 0)) return toast("সঠিক সংখ্যা দিন", true);
+      await act(() => rpc("admin_set_setting", { p_key: it.dataset.key, p_value: value }), "সেভ হয়েছে");
+      return;
+    }
+    const tr = e.target.closest("tr[data-id]");
+    if (!tr) return;
+    const id = tr.dataset.id;
+    if (e.target.closest("[data-td]")) {
+      if (!confirm("এই ধাপ মুছবেন?")) return;
+      const { error } = await sb.from("referral_tiers").delete().eq("id", Number(id));
+      if (error) return toast(errMsg(error), true);
+      return routes.referrals(tab);
+    }
+    if (e.target.closest("[data-ts]")) {
+      const r = { referrals: Number(tr.querySelector("[name=referrals]").value), bonus_paisa: Math.round(Number(tr.querySelector("[name=bonus]").value) * 100),
+        is_active: tr.querySelector("[name=is_active]").checked };
+      if (!r.referrals || r.referrals < 1 || isNaN(r.bonus_paisa)) return toast("কতজন ও বোনাস দিন", true);
+      const { error } = id === "new" ? await sb.from("referral_tiers").insert(r) : await sb.from("referral_tiers").update(r).eq("id", Number(id));
+      if (error) return toast(String(error.message).includes("duplicate") ? "এই সংখ্যার ধাপ আগেই আছে" : errMsg(error), true);
+      toast("সেভ হয়েছে");
+      if (id === "new") routes.referrals(tab);
     }
   };
 };
