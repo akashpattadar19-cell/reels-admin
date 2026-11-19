@@ -177,6 +177,16 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   OAuth client (package com.reelsenjoy.app + SHA-1 of reels-release.jks; add Play App Signing SHA-1 for the Play build).
   `handle_new_user` (google provider) fills name/avatar, user_private phone `google:<uid>`; no welcome form any more (owner's choice —
   users set gender/language/birth date in `#myprofile`; own profile "✏️ প্রোফাইল এডিট" opens `#myprofile`). `#onbForm` code kept but unused.
+- Coin page (036, Chamet-style `#cashin/<g|r|h>`): purple header with balance, tabs **Google** (Play Billing, only in the Play build),
+  **রিকমেন্ড** (bKash/Nagad offers + standard packs → cash-in form) and **টপ-আপ হেল্পার** (coin sellers, region filter, notice
+  `settings.topup_helper_notice(_en)`). Play build hides bKash/helpers/seller CTAs/offer popup unless admin sets `play_show_helpers`
+  (Play policy risk — default off). Packages: `play_products` (product_id = Play Console in-app product ID, coins, base_coins for the
+  crossed-out number, badge 👍) edited on admin "Coin Sent" page; prices are set only in Play Console. Flow: APK `ReelsAndroid.playProducts(ids)`
+  → `onPlayProducts`, `playBuy(productId, userId)` (obfuscatedAccountId = user id) → `onPlayPurchase({productId, token}|{error})` →
+  edge function `play-purchase` (verify with Google Play Developer API using service account JSON in `private_config.play_service_account`,
+  checks account id, `grant_play_purchase` idempotent per token, consumes) ; `playRestore()` on start re-sends unfinished purchases.
+  Needs (owner TODO after Play account approval): create the app + in-app products in Play Console, Google Cloud service account with
+  Play Console "View financial data / Manage orders" permission, put its JSON key in private_config. Refunds are not reversed yet.
 - Not built on purpose: Chamet "BIG WIN"/"City PK" coin games (betting).
 - Declined: real-money betting games in live (coins are bought with money and earnings withdraw → gambling, illegal in BD/KSA,
   banned by Play). Offer free point games instead. Call moderation must cover the whole call, not only the first minutes.

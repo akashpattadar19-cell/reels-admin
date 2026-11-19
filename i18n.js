@@ -1765,7 +1765,29 @@
 "আপনি আগেই একজনের রেফারে যুক্ত আছেন": "You already have a referrer",
 "নতুন অ্যাকাউন্ট খোলার কয়েক দিনের মধ্যেই শুধু রেফার কোড দেওয়া যায়": "A referral code can only be added within a few days of opening a new account",
 "এই ID নম্বরের কোনো ইউজার পাওয়া যায়নি": "No user found with this ID number",
-"নিজের বা আপনার রেফার করা কারো কোড দেওয়া যাবে না": "You can't use your own code or the code of someone you referred"
+"নিজের বা আপনার রেফার করা কারো কোড দেওয়া যাবে না": "You can't use your own code or the code of someone you referred",
+"Google Play থেকে কয়েন কেনা": "Coins bought on Google Play",
+"পেমেন্ট প্রক্রিয়াধীন — শেষ হলে কয়েন যোগ হবে": "Payment is processing — coins will be added when it completes",
+"কেনা যায়নি, আবার চেষ্টা করুন": "Purchase failed, please try again",
+"কয়েন যোগ হয়নি — অ্যাপ আবার খুললে চেষ্টা করবে": "Coins not added yet — the app will retry when you open it again",
+"রিকমেন্ড": "Recommend",
+"টপ-আপ হেল্পার": "Top-up helper",
+"কয়েন কেনা এখন বন্ধ আছে। পরে চেষ্টা করুন।": "Buying coins is closed right now. Please try later.",
+"আগে শর্তাবলিতে টিক দিন": "Please tick the terms first",
+"এখনো কোনো প্যাকেজ নেই": "No packages yet",
+"পেমেন্ট হবে Google Play-এর মাধ্যমে (কার্ড, Google Play ব্যালেন্স বা মোবাইল বিল)। কেনার পর কয়েন সাথে সাথে যোগ হয়।": "Payment is made through Google Play (card, Google Play balance or mobile billing). Coins are added right after purchase.",
+"এই প্যাকেজ এখন পাওয়া যাচ্ছে না": "This package isn't available right now",
+"Play Store থেকে অ্যাপটি আপডেট করুন": "Update the app from the Play Store",
+"পরিবর্তন": "Change",
+"অন্য পরিমাণ": "Other amount",
+"নিজে লিখুন": "Enter yourself",
+"নিচের তথ্য দিয়ে রিকোয়েস্ট পাঠান": "Send a request with the details below",
+"নিজের পরিমাণ লিখুন": "Enter your own amount",
+"এলাকা": "Region",
+"🌐 সব": "🌐 All",
+"এই এলাকায় কোনো হেল্পার নেই": "No helpers in this region",
+"আমার রিচার্জের অবস্থা দেখুন ›": "Check my recharge status ›",
+"অফার: ঠিক ৳": "Offer: send exactly ৳"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });

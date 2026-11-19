@@ -539,6 +539,7 @@ async function start() {
       .then((r) => { if (r?.welcome_paisa > 0) showWelcome(r.welcome_paisa); }).catch(() => {});
   } catch { /* old APK */ }
   if (!checkUpdate()) { requireLocation(); setTimeout(offerPopup, 2500); }
+  setTimeout(() => { try { if (isPlay()) Native?.playRestore?.(); } catch { /* old APK */ } }, 3000);
 }
 
 function showWelcome(paisa) {
@@ -1435,7 +1436,7 @@ async function xhrUpload(bucket, path, blob, type, onProg) {
 const TX = {
   view_earning: "ভিউ থেকে আয়", like_earning: "লাইক থেকে আয়", comment_earning: "কমেন্ট থেকে আয়", gift_received: "গিফট পেয়েছেন",
   gift_sent: "গিফট পাঠিয়েছেন", watch_reward: "ভিডিও দেখে পয়েন্ট", ad_reward_viewer: "অ্যাড দেখে পয়েন্ট", ad_reward_creator: "আপনার ভিডিওতে অ্যাড",
-  points_convert: "পয়েন্ট → টাকা", pending_release: "পেন্ডিং থেকে ব্যালেন্সে", cash_in: "ক্যাশ-ইন (কয়েন)", withdraw_hold: "উইথড্র রিকোয়েস্ট",
+  points_convert: "পয়েন্ট → টাকা", pending_release: "পেন্ডিং থেকে ব্যালেন্সে", cash_in: "ক্যাশ-ইন (কয়েন)", play_purchase: "Google Play থেকে কয়েন কেনা", withdraw_hold: "উইথড্র রিকোয়েস্ট",
   withdraw_refund: "উইথড্র ফেরত", admin_adjust: "অ্যাডমিন অ্যাডজাস্টমেন্ট", premium_unlock: "প্রিমিয়াম ভিডিও আনলক", welcome_bonus: "নতুন ইউজার বোনাস", jail_release: "জেল থেকে মুক্তি",
 };
 R.wallet = async () => {
@@ -1516,7 +1517,7 @@ const offerCard = (o, price) => {
 // অ্যাপ খুললে দিনে একবার নতুন অফার পপআপ
 async function offerPopup() {
   try {
-    if (location.hash.startsWith("#cashin")) return;
+    if (location.hash.startsWith("#cashin") || !helpersAllowed()) return;
     const offers = await loadOffers(); if (!offers.length) return;
     const key = "ofseen_" + new Date().toDateString() + "_" + offers.map((o) => o.id).join(".");
     if (localStorage.getItem(key)) return;
@@ -1528,56 +1529,143 @@ async function offerPopup() {
       <div class="offers">${offers.slice(0, 4).map((o) => offerCard(o, price)).join("")}</div>
       <button class="btn primary" id="ofGo">এখনই কিনুন</button><button class="btn" id="ofX" style="margin-top:8px">পরে</button></div>`;
     document.body.appendChild(d);
-    const go = (id) => { d.remove(); S.pickOffer = id ?? null; location.hash = "#cashin"; };
+    const go = (id) => { d.remove(); S.pickOffer = id ?? null; location.hash = "#cashin/r"; };
     d.querySelectorAll("[data-of]").forEach((b) => (b.onclick = () => go(Number(b.dataset.of))));
     d.querySelector("#ofGo").onclick = () => go();
     d.querySelector("#ofX").onclick = () => d.remove();
   } catch { /* ignore */ }
 }
 
+// ---------------- আমার কয়েন / কয়েন কিনুন (Chamet-স্টাইল: Google · রিকমেন্ড · টপ-আপ হেল্পার) ----------------
+const isPlay = () => { try { return Native?.store?.() === "play"; } catch { return false; } };
+// Play ভার্সনে বাইরের পেমেন্ট/হেল্পার শুধু এডমিন চালু করলে দেখাবে (Play নীতিমালা)
+const helpersAllowed = () => !isPlay() || setting("play_show_helpers", false) === true;
+function coinArt(level) {
+  const pos = [[32, 40], [20, 44], [44, 44], [26, 32], [38, 32], [14, 50], [50, 50], [32, 24]];
+  const k = Math.max(1, Math.min(pos.length, level));
+  return `<svg class="ci-art" viewBox="0 0 64 64">${pos.slice(0, k).reverse().map(([x, y]) =>
+    `<g transform="translate(${x} ${y})"><ellipse rx="11" ry="4.2" cy="3" fill="#c98a12"/><ellipse rx="11" ry="4.2" fill="url(#cg)"/><ellipse rx="7" ry="2.5" fill="none" stroke="#fff6c4" stroke-opacity=".8"/></g>`).join("")}
+    <defs><linearGradient id="cg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff1a6"/><stop offset=".55" stop-color="#ffc83d"/><stop offset="1" stop-color="#e59a0c"/></linearGradient></defs></svg>`;
+}
+const ciCard = (attrs, coins, base, price, level, best) => `<button type="button" class="ci-card${best ? " best" : ""}" ${attrs}>
+  ${best ? `<i class="ci-best">👍</i>` : ""}${coinArt(level)}<b>${Number(coins).toLocaleString("en-US")}</b>${base && base < coins ? `<s>${Number(base).toLocaleString("en-US")}</s>` : `<s class="ghost">0</s>`}
+  <span class="ci-price">${price}</span></button>`;
+
+// Play কেনার ফলাফল — অ্যাপ যেকোনো পেজে থাকলেও কাজ করে (অসম্পূর্ণ কেনাও অ্যাপ খুললে আবার আসে)
+window.onPlayPurchase = async (raw) => {
+  let r; try { r = typeof raw === "string" ? JSON.parse(raw) : raw; } catch { return; }
+  if (!r || !S.me) return;
+  if (r.error) { if (r.error !== "USER_CANCELED") toast(r.error === "PENDING" ? "পেমেন্ট প্রক্রিয়াধীন — শেষ হলে কয়েন যোগ হবে" : "কেনা যায়নি, আবার চেষ্টা করুন", r.error !== "PENDING"); return; }
+  try {
+    const g = await fnCall("play-purchase", { productId: r.productId, token: r.token });
+    try { Native?.playConsume?.(r.token); } catch { /* ignore */ }
+    if (!g.already) toast(`🎉 🪙 ${n(g.coins)} কয়েন যোগ হয়েছে`);
+    if (location.hash.startsWith("#cashin")) R.cashin();
+  } catch (e) {
+    toast(String(e.message).includes("PENDING") ? "পেমেন্ট প্রক্রিয়াধীন — শেষ হলে কয়েন যোগ হবে" : "কয়েন যোগ হয়নি — অ্যাপ আবার খুললে চেষ্টা করবে", true);
+  }
+};
+
 R.cashin = async () => {
-  const nums = ["bkash", "nagad", "rocket"].filter((m) => setting(m + "_number", ""));
+  const play = isPlay(), helpers = helpersAllowed();
+  const nums = helpers ? ["bkash", "nagad", "rocket"].filter((m) => setting(m + "_number", "")) : [];
   const coinPrice = Number(setting("coin_price_paisa", 100));
-  const offers = nums.length ? await loadOffers() : [];
-  const { data: sellers } = setting("coin_seller_enabled", true) === false ? { data: [] }
-    : await sb.from("profiles").select("id,username,full_name,avatar_url,user_no,country_code").eq("coin_seller", true).eq("account_type", "host").eq("status", "active").limit(20);
-  screen.innerHTML = `<div class="page">${header("কয়েন কিনুন")}
-    ${nums.length ? `<div class="card"><b>ধাপ ১:</b> <span>নিচের নম্বরে Send Money করুন</span>
-      ${nums.map((m) => `<div class="row" style="margin-top:8px"><span>${METHOD[m]}</span><span class="copy" data-copy="${esc(setting(m + "_number"))}">${esc(setting(m + "_number"))}</span></div>`).join("")}
-      <p class="tiny muted" style="margin:10px 0 0">১ কয়েন = ৳${(coinPrice / 100).toFixed(2).replace(/\.00$/, "")} · ৳১০০ = 🪙 ${n(Math.floor(10000 / coinPrice))} কয়েন · সর্বনিম্ন ৳${n(setting("min_cash_in_taka", 20))}</p></div>
-    ${offers.length ? `<div class="card"><b>🔥 বিশেষ অফার</b> <span class="tiny muted">— একটি বেছে নিন, ঠিক ততো টাকা পাঠান</span>
-      <div class="offers" id="offers">${offers.map((o) => offerCard(o, coinPrice)).join("")}</div>
-      <div class="tiny muted" id="ofSel" style="margin-top:6px"></div></div>` : ""}
-    ${settingL("cashin_notice", "") ? `<div class="card rules-note"><b>📌 নিয়ম ও নোটিশ</b><div class="tiny" translate="no" style="white-space:pre-line;margin-top:6px">${esc(settingL("cashin_notice", ""))}</div></div>` : ""}
-    <form class="card" id="cf"><b>ধাপ ২:</b> পেমেন্টের তথ্য দিন
-      <div class="methods">${nums.map((m, i) => `<label><input type="radio" name="m" value="${m}" ${i === 0 ? "checked" : ""}>${METHOD[m]}</label>`).join("")}</div>
+  const tabs = [];
+  if (play && setting("play_billing_enabled", true) !== false) tabs.push(["g", "Google"]);
+  if (nums.length) tabs.push(["r", "রিকমেন্ড"]);
+  if (helpers && setting("coin_seller_enabled", true) !== false) tabs.push(["h", "টপ-আপ হেল্পার"]);
+  const want = (location.hash.split("/")[1] || "");
+  let tab = tabs.some((t) => t[0] === want) ? want : tabs[0]?.[0];
+  const { data: w } = await sb.from("wallets").select("coin_balance").eq("user_id", S.me.id).maybeSingle();
+  const tabIc = { g: 3, r: 5, h: 8 };
+  screen.innerHTML = `<div class="ci-top"><button class="back" onclick="history.back()">←</button>
+      <a class="ci-hist" href="#history" title="লেনদেনের হিসাব">🧾</a>
+      <div class="ci-bal">${coinArt(2)}<b id="ciBal">${Number(w?.coin_balance ?? 0).toLocaleString("en-US")}</b></div></div>
+    <div class="ci-tabs">${tabs.map(([k, l]) => `<button data-t="${k}" class="${k === tab ? "on" : ""}"><span>${l}</span>${coinArt(tabIc[k])}</button>`).join("")}</div>
+    <div class="page ci-page" id="ciBody">${tabs.length ? `<div class="spinner"></div>` : `<div class="card">কয়েন কেনা এখন বন্ধ আছে। পরে চেষ্টা করুন।</div>`}</div>`;
+  const show = (k) => {
+    tab = k; history.replaceState(null, "", "#cashin/" + k);
+    document.querySelectorAll(".ci-tabs button").forEach((b) => b.classList.toggle("on", b.dataset.t === k));
+    ({ g: ciGoogle, r: ciRecommend, h: ciHelpers })[k]?.({ nums, coinPrice });
+  };
+  document.querySelectorAll(".ci-tabs button").forEach((b) => (b.onclick = () => show(b.dataset.t)));
+  if (tab) show(tab);
+};
+
+const agreeRow = () => { const en = window.getLang?.() === "en";
+  return `<label class="ci-agree"><input type="checkbox" id="ciAg" ${localStorage.getItem("ciAgree") ? "checked" : ""}><span translate="no">${en
+    ? `I agree to the <a href="#policy/terms">Terms of Service</a> and <a href="#policy/coins">Coin Policy</a>`
+    : `আমি <a href="#policy/terms">ব্যবহারের শর্তাবলি</a> ও <a href="#policy/coins">কয়েন নীতিমালা</a> মেনে নিচ্ছি`}</span></label>`; };
+const agreed = () => { const ok = $("#ciAg")?.checked; if (ok) localStorage.setItem("ciAgree", "1"); else toast("আগে শর্তাবলিতে টিক দিন", true); return ok; };
+
+async function ciGoogle() {
+  const body = $("#ciBody");
+  const { data } = await sb.from("play_products").select("*").eq("active", true).order("sort").order("coins");
+  const list = data ?? [];
+  if (!list.length) { body.innerHTML = `<div class="empty">এখনো কোনো প্যাকেজ নেই</div>`; return; }
+  const ordered = [...list].sort((a, b) => a.coins - b.coins), lvl = (p) => ordered.indexOf(p) + 1;
+  body.innerHTML = `<div class="ci-grid">${list.map((p) => ciCard(`data-pp="${esc(p.product_id)}"`, p.coins, p.base_coins, `<span data-price="${esc(p.product_id)}">…</span>`, lvl(p), !!p.badge)).join("")}</div>
+    ${agreeRow()}<p class="tiny muted ci-note">পেমেন্ট হবে Google Play-এর মাধ্যমে (কার্ড, Google Play ব্যালেন্স বা মোবাইল বিল)। কেনার পর কয়েন সাথে সাথে যোগ হয়।</p>`;
+  window.onPlayProducts = (raw) => {
+    let arr = []; try { arr = JSON.parse(raw) || []; } catch { /* ignore */ }
+    arr.forEach((x) => document.querySelectorAll(`[data-price="${x.id}"]`).forEach((el) => (el.textContent = x.price)));
+    document.querySelectorAll("[data-price]").forEach((el) => { if (el.textContent === "…") el.closest(".ci-card")?.classList.add("na"); });
+  };
+  try { Native?.playProducts?.(JSON.stringify(list.map((p) => p.product_id))); } catch { /* ignore */ }
+  body.querySelectorAll("[data-pp]").forEach((b) => (b.onclick = () => {
+    if (b.classList.contains("na")) return toast("এই প্যাকেজ এখন পাওয়া যাচ্ছে না", true);
+    if (!agreed()) return;
+    if (!Native?.playBuy) return toast("Play Store থেকে অ্যাপটি আপডেট করুন", true);
+    Native.playBuy(b.dataset.pp, S.me.id);
+  }));
+}
+
+async function ciRecommend({ nums, coinPrice }) {
+  const body = $("#ciBody");
+  let offers = await loadOffers();
+  const std = [100, 200, 500, 1000, 2000, 5000].map((t, i) => ({ id: null, price_taka: t, coins: Math.floor(t * 100 / coinPrice), std: i }));
+  const all = [...offers.map((o) => ({ ...o, base: Math.floor(o.price_taka * 100 / coinPrice) })), ...std];
+  const lv = (x) => { const s = [...all].sort((a, b) => a.coins - b.coins); return Math.min(8, Math.ceil((s.indexOf(x) + 1) * 8 / s.length)); };
+  let method = nums[0];
+  body.innerHTML = `<div class="ci-method"><span class="ci-mic">📱</span><b id="ciM">${METHOD[method]}</b>
+      <select id="ciMs">${nums.map((m) => `<option value="${m}">${METHOD[m]}</option>`).join("")}</select><span class="ci-chg">পরিবর্তন</span></div>
+    <div class="ci-grid">${all.map((x, i) => ciCard(`data-ri="${i}"`, x.coins, x.base, "৳" + n(x.price_taka), lv(x), !!x.badge || (x.id && x.coins > x.base))).join("")}
+      <button type="button" class="ci-card other" data-ri="custom"><b>✏️</b><span>অন্য পরিমাণ</span><span class="ci-price">নিজে লিখুন</span></button></div>
+    ${settingL("cashin_notice", "") ? `<div class="ci-tip"><span>💡</span><div translate="no">${esc(settingL("cashin_notice", ""))}</div></div>` : ""}
+    <form class="card hidden" id="cf"><b id="cfT"></b>
+      <div class="ci-steps"><div><i>১</i> <span translate="no">${window.getLang?.() === "en" ? "<b>Send Money</b> to this number:" : "এই নম্বরে <b>Send Money</b> করুন:"}</span> <span class="copy" id="cfNum"></span></div>
+      <div><i>২</i> <span>নিচের তথ্য দিয়ে রিকোয়েস্ট পাঠান</span></div></div>
       <input id="am" type="number" inputmode="numeric" min="1" placeholder="কত টাকা পাঠিয়েছেন" required>
       <div class="tiny muted" id="cv"></div>
       <input id="sn" inputmode="numeric" placeholder="যে নম্বর থেকে পাঠিয়েছেন (01XXXXXXXXX)" required>
       <input id="tx" placeholder="TrxID (যেমন 9AB7C6D5E4)" autocapitalize="characters" required>
       <label class="proofpick"><input type="file" id="pf" accept="image/*" class="hidden"><span id="pfl">📎 পেমেন্টের স্ক্রিনশট দিন (ঐচ্ছিক)</span></label>
       <button class="btn primary">রিকোয়েস্ট পাঠান</button>
-      <p class="tiny muted">অ্যাডমিন যাচাই করার পর কয়েন যোগ হবে। ভুল/ভুয়া TrxID দিলে অ্যাকাউন্ট ব্লক হবে।</p></form>`
-    : `<div class="card">ক্যাশ-ইন এখন বন্ধ আছে। পরে চেষ্টা করুন।</div>`}
-    ${sellers?.length ? `<div class="card"><b>💰 হোস্ট সেলারের কাছ থেকে কিনুন</b> <span class="tiny muted">— মেসেজ দিয়ে দাম জেনে নিন</span>
-      <div class="sellers">${sellers.filter((x) => x.id !== S.me.id).map((x) => `<a class="sl-item" href="#u/${x.id}">${avatar(x)}<span><b translate="no">${esc(x.full_name || x.username)}</b><small>${flagOf(x.country_code)} ID ${x.user_no}</small></span><em onclick="event.preventDefault();location.hash='#chat/${x.id}'">💬</em></a>`).join("")}</div></div>` : ""}
-    <h3>আপনার রিকোয়েস্ট</h3><div class="card list" id="cl"><div class="spinner"></div></div></div>`;
+      <p class="tiny muted">অ্যাডমিন যাচাই করার পর কয়েন যোগ হবে। ভুল/ভুয়া TrxID দিলে অ্যাকাউন্ট ব্লক হবে। সর্বনিম্ন ৳${n(setting("min_cash_in_taka", 20))}</p></form>
+    ${agreeRow()}
+    <button class="ci-status" id="ciSt">আমার রিচার্জের অবস্থা দেখুন ›</button><div class="card list hidden" id="cl"></div>`;
   let offerId = null;
-  const pick = (id) => {
-    offerId = offerId === id ? null : id;
-    const o = offers.find((x) => x.id === offerId);
-    document.querySelectorAll("#offers [data-of]").forEach((b) => b.classList.toggle("on", Number(b.dataset.of) === offerId));
-    $("#am").readOnly = !!o;
-    if (o) { $("#am").value = o.price_taka; $("#cv").textContent = `অফার: ঠিক ৳${n(o.price_taka)} পাঠান → পাবেন 🪙 ${n(o.coins)} কয়েন`; }
-    else { $("#cv").textContent = ""; }
-    $("#ofSel").textContent = o ? `✅ "${o.title}" বাছাই করা হয়েছে (আবার চাপলে বাতিল)` : "";
+  const setNum = () => { $("#ciM").textContent = METHOD[method]; const v = setting(method + "_number", ""); $("#cfNum").textContent = v; $("#cfNum").dataset.copy = v; };
+  $("#ciMs").value = method; $("#ciMs").onchange = (e) => { method = e.target.value; setNum(); };
+  setNum();
+  const open = (x) => {
+    if (!agreed()) return;
+    body.querySelectorAll("[data-ri]").forEach((b) => b.classList.remove("on"));
+    $("#cf").classList.remove("hidden");
+    offerId = x?.id ?? null;
+    $("#am").readOnly = !!offerId;
+    $("#am").value = x ? x.price_taka : "";
+    $("#cfT").textContent = x ? `🪙 ${n(x.coins)} কয়েন — ৳${n(x.price_taka)}` : "নিজের পরিমাণ লিখুন";
+    $("#cv").textContent = x ? (offerId ? `অফার: ঠিক ৳${n(x.price_taka)} পাঠান` : `আপনি পাবেন 🪙 ${n(x.coins)} কয়েন`) : "";
+    $("#cf").scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!x) $("#am").focus();
   };
-  document.querySelectorAll("#offers [data-of]").forEach((b) => (b.onclick = () => { pick(Number(b.dataset.of)); $("#cf").scrollIntoView({ behavior: "smooth", block: "start" }); }));
-  if (S.pickOffer && offers.some((o) => o.id === S.pickOffer)) pick(S.pickOffer);
+  body.querySelectorAll("[data-ri]").forEach((b) => (b.onclick = () => { open(b.dataset.ri === "custom" ? null : all[Number(b.dataset.ri)]); b.classList.add("on"); }));
+  if (S.pickOffer) { const i = all.findIndex((x) => x.id === S.pickOffer); if (i >= 0) { localStorage.setItem("ciAgree", "1"); $("#ciAg").checked = true; open(all[i]); body.querySelector(`[data-ri="${i}"]`).classList.add("on"); } }
   S.pickOffer = null;
-  $("#am")?.addEventListener("input", (e) => ($("#cv").textContent = e.target.value ? `আপনি পাবেন 🪙 ${n(Math.floor(e.target.value * 100 / coinPrice))} কয়েন` : ""));
+  $("#am").addEventListener("input", (e) => ($("#cv").textContent = e.target.value ? `আপনি পাবেন 🪙 ${n(Math.floor(e.target.value * 100 / coinPrice))} কয়েন` : ""));
   let proof = null;
-  $("#pf")?.addEventListener("change", async (e) => {
+  $("#pf").addEventListener("change", async (e) => {
     const f = e.target.files[0]; if (!f) return;
     try {
       const img = new Image(); img.src = URL.createObjectURL(f); await img.decode();
@@ -1588,11 +1676,11 @@ R.cashin = async () => {
       $("#pfl").innerHTML = `<img src="${URL.createObjectURL(proof)}" alt=""> ✅ স্ক্রিনশট যুক্ত হয়েছে (বদলাতে চাপুন)`;
     } catch { proof = null; toast("ছবিটি খোলা যায়নি", true); }
   });
-  $("#cf")?.addEventListener("submit", async (e) => {
+  $("#cf").addEventListener("submit", async (e) => {
     e.preventDefault();
     const b = e.submitter; b.disabled = true;
     try {
-      const id = await rpc("request_cash_in", { p_method: $("input[name=m]:checked").value, p_amount_taka: Math.floor(Number($("#am").value)),
+      const id = await rpc("request_cash_in", { p_method: method, p_amount_taka: Math.floor(Number($("#am").value)),
         p_sender: cleanPhone($("#sn").value), p_trx: $("#tx").value.trim(), p_offer_id: offerId });
       if (proof && id) {
         try {
@@ -1602,14 +1690,40 @@ R.cashin = async () => {
         } catch { toast("স্ক্রিনশট যায়নি, তবে রিকোয়েস্ট পাঠানো হয়েছে", true); }
       }
       toast("রিকোয়েস্ট পাঠানো হয়েছে — যাচাইয়ের পর কয়েন যোগ হবে");
-      R.cashin();
+      ciRecommend({ nums, coinPrice }).then(() => $("#ciSt").click());
     } catch (er) { toast(errMsg(er), true); b.disabled = false; }
   });
-  const { data } = await sb.from("cash_in_requests").select("*").eq("user_id", S.me.id).order("id", { ascending: false }).limit(20);
-  $("#cl").innerHTML = data?.length ? data.map((c) => `<div class="li"><div><b>${tk(c.amount_paisa)}</b> · ${METHOD[c.method]} · 🪙 ${n(c.coins)}
-    <div class="tiny muted">${dt(c.created_at)} · TrxID ${esc(c.trx_id)}${c.proof_path ? " · 📎" : ""}${c.reject_reason ? " · " + esc(c.reject_reason) : ""}</div></div><span class="pill ${c.status}">${STATUS[c.status]}</span></div>`).join("")
-    : `<div class="empty">কোনো রিকোয়েস্ট নেই</div>`;
-};
+  $("#ciSt").onclick = async () => {
+    const cl = $("#cl"); if (!cl.classList.toggle("hidden")) {
+      cl.innerHTML = `<div class="spinner"></div>`;
+      const { data } = await sb.from("cash_in_requests").select("*").eq("user_id", S.me.id).order("id", { ascending: false }).limit(20);
+      cl.innerHTML = data?.length ? data.map((c) => `<div class="li"><div><b>${tk(c.amount_paisa)}</b> · ${METHOD[c.method]} · 🪙 ${n(c.coins)}
+        <div class="tiny muted">${dt(c.created_at)} · TrxID ${esc(c.trx_id)}${c.proof_path ? " · 📎" : ""}${c.reject_reason ? " · " + esc(c.reject_reason) : ""}</div></div><span class="pill ${c.status}">${STATUS[c.status]}</span></div>`).join("")
+        : `<div class="empty">কোনো রিকোয়েস্ট নেই</div>`;
+      cl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  };
+}
+
+async function ciHelpers() {
+  const body = $("#ciBody");
+  const { data } = await sb.from("profiles").select("id,username,full_name,avatar_url,user_no,country_code")
+    .eq("coin_seller", true).eq("account_type", "host").eq("status", "active").limit(60);
+  const list = (data ?? []).filter((x) => x.id !== S.me.id);
+  const countries = [...new Set(list.map((x) => x.country_code).filter(Boolean))];
+  const note = settingL("topup_helper_notice", "");
+  body.innerHTML = `${note ? `<div class="ci-tip"><span>💡</span><div translate="no">${esc(note)}</div></div>` : ""}
+    <div class="ci-region"><b>এলাকা</b><select id="ciRg"><option value="">🌐 সব</option>${countries.map((c) => `<option value="${c}">${flagOf(c)} ${c}</option>`).join("")}</select></div>
+    <div class="ci-helpers" id="ciHl"></div>`;
+  const paint = (cc) => {
+    const l = cc ? list.filter((x) => x.country_code === cc) : list;
+    $("#ciHl").innerHTML = l.length ? l.map((x) => `<a class="ci-h" href="#chat/${x.id}">${avatar(x)}<div><b translate="no">${esc(x.full_name || x.username)}</b>
+      <span>${x.country_code ? `<i class="fl">${flagOf(x.country_code)}</i>` : ""}<em class="idp">ID: ${x.user_no}</em><em class="msg">💬 মেসেজ</em></span></div><u>›</u></a>`).join("")
+      : `<div class="empty">এই এলাকায় কোনো হেল্পার নেই</div>`;
+  };
+  $("#ciRg").onchange = (e) => paint(e.target.value);
+  paint("");
+}
 
 R.withdraw = async () => {
   screen.innerHTML = `<div class="page">${header("উইথড্র")}<div class="spinner"></div></div>`;
@@ -3722,7 +3836,7 @@ R.u = async (id) => {
   screen.innerHTML = `<div class="cover${seller ? " seller" : host ? " host" : ""}" ${p.cover_url ? `style="background-image:url('${esc(p.cover_url)}')"` : ""}><button class="back" onclick="history.back()">←</button></div>
     <div class="page${host ? " hostpage" : ""}${seller ? " sellerpage" : ""}" style="padding-top:0">
     <div class="prof${host ? " host" : ""}${seller ? " seller" : ""}">${host ? `<div class="avwrap" id="pAv">${avatar(p)}<span class="crown">👑</span></div>` : `<div class="avplain" id="pAv">${avatar(p)}</div>`}<h2 translate="no">${esc(p.full_name ?? "")} ${p.is_verified ? "✔️" : ""}</h2><div class="muted">@${esc(p.username)}</div>
-      <div class="rbadges">${host ? `<span class="rbadge host">👑 HOST</span>` : `<span class="rbadge user">👤 ইউজার</span>`}${seller ? `<span class="rbadge seller">💰 কয়েন সেলার</span>` : ""}<span class="rbadge lv">Lv${lv}</span>${p.country_code ? `<span class="rbadge">${flagOf(p.country_code)}</span>` : ""}</div>
+      <div class="rbadges">${host ? `<span class="rbadge host">👑 HOST</span>` : `<span class="rbadge user">👤 ইউজার</span>`}${seller && helpersAllowed() ? `<span class="rbadge seller">💰 কয়েন সেলার</span>` : ""}<span class="rbadge lv">Lv${lv}</span>${p.country_code ? `<span class="rbadge">${flagOf(p.country_code)}</span>` : ""}</div>
       <div class="idtag" data-copy="${p.user_no}">ID: ${p.user_no} ⧉</div>
       <div class="counts"><div><b>${n(p.videos_count)}</b><span>ভিডিও</span></div><div><b id="fc">${n(p.followers_count)}</b><span>ফলোয়ার</span></div><div><b>${n(p.following_count)}</b><span>ফলোয়িং</span></div></div>
       ${p.bio ? `<p translate="no">${esc(p.bio)}</p>` : ""}
@@ -3733,7 +3847,7 @@ R.u = async (id) => {
     </div>
     ${mine ? `<div id="accBox" class="${S.openAcc ? "" : "hidden"}" style="margin-top:12px">${accountBlock(p)}</div>` : ""}
     ${host && !mine && setting("calls_enabled", true) !== false && p.calls_on !== false ? `<div class="callbtns"><button class="cb vid" id="cbV">📹 ভিডিও কল<small>🪙${n(callRate(p, "video"))}/মিনিট</small></button><button class="cb aud" id="cbA">📞 অডিও কল<small>🪙${n(callRate(p, "audio"))}/মিনিট</small></button></div>` : ""}
-    ${seller && !mine ? `<a class="sellcta" href="#chat/${p.id}"><span>🪙</span><div><b>এই হোস্টের কাছ থেকে কয়েন কিনুন</b><small>মেসেজ দিন → টাকা পাঠান → কয়েন সাথে সাথে পাবেন</small></div><em>›</em></a>` : ""}
+    ${seller && !mine && helpersAllowed() ? `<a class="sellcta" href="#chat/${p.id}"><span>🪙</span><div><b>এই হোস্টের কাছ থেকে কয়েন কিনুন</b><small>মেসেজ দিন → টাকা পাঠান → কয়েন সাথে সাথে পাবেন</small></div><em>›</em></a>` : ""}
     ${seller && mine ? `<a class="sellcta" href="#seller"><span>💰</span><div><b>কয়েন সেলার প্যানেল</b><small>ইউজারদের কাছে কয়েন বিক্রি করুন</small></div><em>›</em></a>` : ""}
     ${host ? `<div class="hoststrip"><span>✨ অফিসিয়াল হোস্ট</span><span>🎬 ${n(p.videos_count)} কন্টেন্ট</span><span>👑 ${n(vids.filter((v) => v.is_premium).length)} প্রিমিয়াম</span></div>` : ""}
     <div class="seg"><button class="on" data-pt="v">🎬 ভিডিও</button>${host ? `<button data-pt="prem">👑 প্রিমিয়াম</button>` : ""}<button data-pt="photo">🖼️ ফটো</button><button data-pt="text">✍️ লেখা</button></div>

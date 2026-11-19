@@ -1502,6 +1502,28 @@ routes.coins = async (preNo) => {
       <div class="row" style="gap:8px"><button class="btn primary" id="ofSave">অফার যোগ করুন</button><button class="btn hidden" id="ofCancel">বাতিল</button></div>
     </div>
     <div id="ofList" class="table-wrap"></div>
+    <h2>▶️ Google Play কয়েন প্যাকেজ</h2>
+    <p class="muted small">Play Store থেকে নামানো অ্যাপে "Google" ট্যাবে এই প্যাকেজগুলো দেখাবে। দাম এখানে নয় — Play Console → Monetize → In-app products-এ একই <b>Product ID</b> দিয়ে প্যাকেজ বানিয়ে সেখানে দাম বসাবেন। এখানে শুধু কত কয়েন পাবে তা ঠিক করবেন।</p>
+    <div class="card" style="max-width:520px" id="ppForm">
+      <input type="hidden" id="ppId">
+      <label>Product ID (Play Console-এর মতো হুবহু)<input id="ppP" maxlength="100" placeholder="যেমন coins_1200" autocapitalize="none"></label>
+      <div class="row" style="gap:8px"><label style="flex:1">কত কয়েন পাবে<input id="ppC" type="number" inputmode="numeric" min="1" placeholder="1200"></label>
+        <label style="flex:1">কাটা দাগের সংখ্যা (ঐচ্ছিক)<input id="ppB" type="number" inputmode="numeric" min="0" placeholder="1000"></label></div>
+      <div class="row" style="gap:8px"><label style="flex:1">ক্রম<input id="ppS" type="number" inputmode="numeric" value="0"></label>
+        <label class="row" style="flex:1;gap:6px;justify-content:flex-start;margin-top:18px"><input type="checkbox" id="ppBest" style="width:auto"> 👍 সেরা প্যাকেজ</label></div>
+      <label class="row" style="gap:6px;justify-content:flex-start"><input type="checkbox" id="ppA" checked style="width:auto"> চালু থাকবে</label>
+      <div class="row" style="gap:8px"><button class="btn primary" id="ppSave">প্যাকেজ যোগ করুন</button><button class="btn hidden" id="ppCancel">বাতিল</button></div>
+    </div>
+    <div id="ppList" class="table-wrap"></div>
+    <div class="card" style="max-width:520px;margin-top:12px">
+      <label class="row" style="gap:6px;justify-content:flex-start"><input type="checkbox" id="pbOn" style="width:auto"> Play অ্যাপে Google দিয়ে কয়েন কেনা চালু</label>
+      <label class="row" style="gap:6px;justify-content:flex-start"><input type="checkbox" id="phOn" style="width:auto"> Play অ্যাপেও "রিকমেন্ড" (বিকাশ/নগদ) ও "টপ-আপ হেল্পার" ট্যাব দেখাবে</label>
+      <p class="muted small" style="margin:4px 0 0">⚠️ Google-এর নিয়মে Play অ্যাপের ভেতরে অন্য পেমেন্টের পথ দেখানো নিষেধ। এটা চালু করলে অ্যাপ বাতিল বা ডেভেলপার অ্যাকাউন্ট বন্ধ হওয়ার ঝুঁকি আছে। ওয়েবসাইটের APK-তে সবসময় দেখায়।</p>
+      <label>টপ-আপ হেল্পার পেজের নোটিশ (বাংলা)<textarea id="thN" rows="2"></textarea></label>
+      <label>টপ-আপ হেল্পার পেজের নোটিশ (English)<textarea id="thNe" rows="2"></textarea></label>
+      <button class="btn primary" id="pbSave">সেভ করুন</button>
+    </div>
+    <h3>সাম্প্রতিক Google Play কেনা</h3><div id="ppBuys" class="table-wrap"></div>
     <h2>পাঠানো কয়েনের হিসাব</h2><div id="ch" class="table-wrap"></div>`;
   // ---- কয়েনের দাম ----
   const { data: st } = await sb.from("settings").select("key,value").in("key", ["coin_price_paisa", "min_cash_in_taka"]);
@@ -1570,6 +1592,60 @@ routes.coins = async (preNo) => {
       resetOf(); loadOf(); } catch { /* toast shown */ }
   };
   loadOf();
+  // ---- Google Play প্যাকেজ ----
+  const resetPp = () => { ["#ppId", "#ppP", "#ppC", "#ppB"].forEach((q) => ($(q).value = "")); $("#ppS").value = 0; $("#ppA").checked = true; $("#ppBest").checked = false;
+    $("#ppSave").textContent = "প্যাকেজ যোগ করুন"; $("#ppCancel").classList.add("hidden"); };
+  $("#ppCancel").onclick = resetPp;
+  let pps = [];
+  const loadPp = async () => {
+    const { data } = await sb.from("play_products").select("*").order("sort").order("coins");
+    pps = data ?? [];
+    $("#ppList").innerHTML = pps.length ? `<table><tr><th>Product ID</th><th class="num">কয়েন</th><th class="num">কাটা দাগ</th><th>অবস্থা</th><th></th></tr>
+      ${pps.map((p) => `<tr><td><code>${esc(p.product_id)}</code>${p.badge ? " 👍" : ""}</td><td class="num">🪙 ${num(p.coins)}</td><td class="num">${p.base_coins ? num(p.base_coins) : "—"}</td>
+        <td>${p.active ? '<span class="pill approved">চালু</span>' : '<span class="pill rejected">বন্ধ</span>'}</td>
+        <td style="white-space:nowrap"><button class="btn sm" data-pe="${p.id}">এডিট</button> <button class="btn sm danger" data-pd="${p.id}">মুছুন</button></td></tr>`).join("")}</table>`
+      : `<div class="empty">কোনো প্যাকেজ নেই</div>`;
+    view.querySelectorAll("[data-pe]").forEach((b) => (b.onclick = () => {
+      const p = pps.find((x) => x.id == b.dataset.pe);
+      $("#ppId").value = p.id; $("#ppP").value = p.product_id; $("#ppC").value = p.coins; $("#ppB").value = p.base_coins ?? ""; $("#ppS").value = p.sort;
+      $("#ppA").checked = p.active; $("#ppBest").checked = !!p.badge;
+      $("#ppSave").textContent = "পরিবর্তন সেভ করুন"; $("#ppCancel").classList.remove("hidden");
+      $("#ppForm").scrollIntoView({ behavior: "smooth", block: "center" });
+    }));
+    view.querySelectorAll("[data-pd]").forEach((b) => (b.onclick = async () => {
+      if (!confirm("প্যাকেজটি মুছবেন? (কেনা হয়ে থাকলে শুধু বন্ধ হবে)")) return;
+      await act(() => rpc("admin_delete_play_product", { p_id: Number(b.dataset.pd) }), "হয়েছে"); loadPp();
+    }));
+    const buys = (await rpc("admin_play_purchases", { p_limit: 30 }).catch(() => [])) ?? [];
+    $("#ppBuys").innerHTML = buys.length ? `<table><tr><th>সময়</th><th>ইউজার</th><th>প্যাকেজ</th><th class="num">কয়েন</th><th>Order</th></tr>
+      ${buys.map((x) => `<tr><td>${dt(x.created_at)}</td><td>${x.user_no} · @${esc(x.username)}</td><td><code>${esc(x.product_id)}</code></td><td class="num">${num(x.coins)}</td><td class="small">${esc(x.order_id ?? "")}</td></tr>`).join("")}</table>`
+      : `<div class="empty">এখনো কোনো কেনা নেই</div>`;
+  };
+  $("#ppSave").onclick = async () => {
+    const pid = $("#ppP").value.trim().toLowerCase(), coins = Math.floor(Number($("#ppC").value));
+    if (!/^[a-z0-9][a-z0-9._]*$/.test(pid)) return toast("Product ID-তে শুধু ছোট হাতের ইংরেজি অক্ষর, সংখ্যা, _ ও . চলে", true);
+    if (!(coins >= 1)) return toast("কয়েন দিন", true);
+    try { await act(() => rpc("admin_save_play_product", { p_id: $("#ppId").value ? Number($("#ppId").value) : null, p_product_id: pid, p_coins: coins,
+      p_base: Math.floor(Number($("#ppB").value) || 0), p_badge: $("#ppBest").checked ? "👍" : null, p_sort: Math.floor(Number($("#ppS").value) || 0), p_active: $("#ppA").checked }), "প্যাকেজ সেভ হয়েছে");
+      resetPp(); loadPp(); } catch { /* toast shown */ }
+  };
+  loadPp();
+  {
+    const { data: ps } = await sb.from("settings").select("key,value").in("key", ["play_billing_enabled", "play_show_helpers", "topup_helper_notice", "topup_helper_notice_en"]);
+    const pv = Object.fromEntries((ps ?? []).map((x) => [x.key, x.value]));
+    $("#pbOn").checked = pv.play_billing_enabled !== false; $("#phOn").checked = pv.play_show_helpers === true;
+    $("#thN").value = pv.topup_helper_notice ?? ""; $("#thNe").value = pv.topup_helper_notice_en ?? "";
+    $("#pbSave").onclick = async () => {
+      if ($("#phOn").checked && pv.play_show_helpers !== true && !confirm("Play অ্যাপে বিকাশ/হেল্পার দেখালে Google অ্যাপ বাতিল করতে পারে। তবুও চালু করবেন?")) return;
+      await act(async () => {
+        await rpc("admin_set_setting", { p_key: "play_billing_enabled", p_value: $("#pbOn").checked });
+        await rpc("admin_set_setting", { p_key: "play_show_helpers", p_value: $("#phOn").checked });
+        await rpc("admin_set_setting", { p_key: "topup_helper_notice", p_value: $("#thN").value.trim() });
+        await rpc("admin_set_setting", { p_key: "topup_helper_notice_en", p_value: $("#thNe").value.trim() });
+        pv.play_show_helpers = $("#phOn").checked;
+      }, "সেভ হয়েছে");
+    };
+  }
   let target = null;
   const look = async () => {
     target = null;
