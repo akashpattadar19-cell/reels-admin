@@ -979,11 +979,20 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
     const video = el.querySelector("video");
     if (video.paused || video.readyState < 3) return;
     el._watched += 500;
-    if (!el._sent && el._watched >= minWatch && el._v.user_id !== S.me.id) {
+    if (el._v.user_id === S.me.id) return;
+    if (!el._sent && el._watched >= minWatch) {
       el._sent = true;
       rpc("record_view", { p_video_id: el._v.id, p_watch_ms: el._watched })
-        .then((r) => { if (r?.points > 0) toast(`+${r.points} পয়েন্ট`); })
+        .then((r) => { el._viewOk = !!r?.counted; })
         .catch(() => { el._sent = false; });
+    }
+    // পুরো ভিডিও দেখা হলে পয়েন্ট (ছোট-বড় সব ভিডিও)
+    const durMs = (Number(el._v.duration_sec) || video.duration || 0) * 1000;
+    if (el._viewOk && !el._claimed && durMs > 0 && el._watched >= durMs * Number(setting("watch_full_pct", 95)) / 100) {
+      el._claimed = true;
+      rpc("claim_watch_reward", { p_video_id: el._v.id, p_watch_ms: el._watched })
+        .then((r) => { if (r?.points > 0) toast(`⭐ পুরো ভিডিও দেখেছেন: +${r.points} পয়েন্ট`); else if (r?.reason === "too_fast") el._claimed = false; })
+        .catch(() => { el._claimed = false; });
     }
   }, 500);
 
@@ -3802,7 +3811,7 @@ R.rules = async () => {
   screen.innerHTML = `<div class="page">${header("📋 আমার টাস্ক ও আয়ের নিয়ম")}
     ${S.ads.rewarded_points && Native?.showRewarded ? `<div class="card hero"><b>🎬 অ্যাড দেখে পয়েন্ট নিন</b><div class="tiny" style="margin:4px 0 10px">প্রতি অ্যাডে ⭐ ${n(S.ads.rewarded_points.viewer_points)} · দিনে ${n(S.ads.rewarded_points.daily_cap)} বার</div><a class="btn" href="#wallet" style="background:#fff;color:#5b2bd0;border:0">ওয়ালেটে গিয়ে অ্যাড দেখুন</a></div>` : ""}
     <div class="card"><b>✅ প্রতিদিনের টাস্ক</b><div class="list tiny">
-      <div class="li"><span>ভিডিও দেখুন (প্রতিটি ${Math.round(setting("min_watch_ms", 5000) / 1000)} সেকেন্ড)</span><b>⭐ ${n(setting("watch_points"))} / ভিডিও</b></div>
+      <div class="li"><span>ভিডিও পুরোটা দেখুন (ছোট-বড় যেকোনো ভিডিও)</span><b>⭐ ${n(setting("watch_points"))} / ভিডিও</b></div>
       <div class="li"><span>ভিডিও আপলোড করুন</span><a href="#upload" class="btn small">আপলোড</a></div>
       <div class="li"><span>বন্ধুকে রেফার করুন</span><a href="#invite" class="btn small">রেফার</a></div></div></div>
     <div class="card"><b>🎬 ভিডিও বানিয়ে (ক্রিয়েটর)</b><div class="list tiny">

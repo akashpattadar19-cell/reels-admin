@@ -1788,7 +1788,9 @@
 "এই এলাকায় কোনো হেল্পার নেই": "No helpers in this region",
 "আমার রিচার্জের অবস্থা দেখুন ›": "Check my recharge status ›",
 "অফার: ঠিক ৳": "Offer: send exactly ৳",
-"ঠিক আছে": "OK"
+"ঠিক আছে": "OK",
+"⭐ পুরো ভিডিও দেখেছেন:": "⭐ Watched the full video:",
+"ভিডিও পুরোটা দেখুন (ছোট-বড় যেকোনো ভিডিও)": "Watch a video to the end (any length)"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });

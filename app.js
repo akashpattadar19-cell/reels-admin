@@ -997,8 +997,9 @@ routes.rules = async (kind = "user") => {
       ${row("creator_daily_view_cap_paisa", "ভিউ থেকে দিনে সর্বোচ্চ আয়", "taka")}
       <div class="item"><b>গিফট থেকে</b><div class="muted small">প্রতিটা গিফটের ক্রিয়েটর % <a href="#gifts">গিফট পেজে</a> সেট করুন</div></div>
     </div>
-    <h2>👀 দর্শক (ভিডিও দেখলে)</h2><div class="list">
-      ${row("watch_points", "প্রতি ভিডিও দেখায় পয়েন্ট", "num")}
+    <h2>👀 দর্শক (ভিডিও পুরো দেখলে)</h2><div class="list">
+      ${row("watch_points", "প্রতিটা ভিডিও পুরো দেখলে পয়েন্ট", "num")}
+      ${row("watch_full_pct", "ভিডিওর কত % দেখলে পুরো দেখা ধরা হবে", "num")}
       ${row("viewer_daily_points_cap", "দিনে সর্বোচ্চ পয়েন্ট (ভিডিও দেখে)", "num")}
       ${row("point_value_paisa", "১ পয়েন্টের দাম", "taka")}
       ${row("points_convert_min", "কমপক্ষে কত পয়েন্ট হলে টাকায় নেওয়া যাবে", "num")}
@@ -1912,7 +1913,7 @@ routes.settings = async () => {
     ["উইথড্র", ["withdraw_min_paisa", "withdraw_cooldown_days", "withdraw_fee_pct", "min_account_age_days"]],
     ["ক্যাশ-ইন (ইউজার এই নম্বরে টাকা পাঠাবে)", ["bkash_number", "nagad_number", "rocket_number", "min_cash_in_taka", "coin_price_paisa"]],
     ["ক্রিয়েটর ইনকাম", ["earnings_enabled", "view_rate_paisa_per_1000", "like_rate_paisa", "comment_rate_paisa", "creator_daily_view_cap_paisa", "pending_hold_hours", "min_watch_ms"]],
-    ["দর্শক পয়েন্ট", ["watch_points", "viewer_daily_points_cap", "point_value_paisa", "points_convert_min"]],
+    ["দর্শক পয়েন্ট (পুরো ভিডিও দেখলে)", ["watch_points", "watch_full_pct", "viewer_daily_points_cap", "point_value_paisa", "points_convert_min"]],
     ["ভিডিও ও লক ফোল্ডার", ["auto_approve_minutes", "max_video_sec", "vault_quota_mb"]],
     ["অন্যান্য", ["app_notice", "app_notice_en"]],
   ];

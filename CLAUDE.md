@@ -17,7 +17,9 @@ Owner works only from a phone (Bengali UI). Everything is free-tier: Supabase + 
 - Wallet buckets: `coin_balance` (bought via cash-in, only for gifts, never withdrawable), `earning_paisa` (withdrawable),
   `pending_paisa` (earnings waiting `pending_hold_hours`, released hourly by cron `release_pending`), `points` (viewer rewards).
 - Creator earns: views (`credit_view_earnings` hourly, rate per 1000 valid views, daily cap), first like per user, first comment per user, gifts (creator_share_pct).
-- Viewer earns points: valid view (≥ min_watch_ms, once per video per day, daily cap) and AdMob rewarded ads (server-verified via `admob-ssv` edge function → `grant_ad_reward`).
+- Viewer earns points only for a FULL watch (037): `record_view` at min_watch_ms counts the view (creator income, referral) but gives no points;
+  app calls `claim_watch_reward` when watched ≥ `watch_full_pct` (95) % of `duration_sec` → `watch_points` once per video per day (daily cap),
+  server also checks real elapsed time since the view row (`video_views.rewarded_at`). Earlier: valid view (≥ min_watch_ms, once per video per day, daily cap) and AdMob rewarded ads (server-verified via `admob-ssv` edge function → `grant_ad_reward`).
 - Withdraw: `request_withdraw` holds money immediately; 7-day cooldown counted from last non-rejected request; one open request max; admin approve → paid (TrxID) or reject (refund).
 - Cash-in: manual — user sends bKash/Nagad to numbers in settings and submits TrxID; admin approves → coins.
 - All rates/limits live in `settings` and are editable from the admin panel.
