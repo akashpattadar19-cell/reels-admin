@@ -47,6 +47,11 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   around the phrase map; in Bengali mode the app (`window.I18N_BN_DIGITS`) shows Bengali digits (links, @names, #tags, versions kept), dates use bn-BD/en-GB by language.
   Check with a crawl: render every route with lang=en and list text nodes that still contain Bengali (must be 0 except user content).
   Website swaps media by language (`data-src-en`: app-tour-en.mp4, *-en.jpg screenshots).
+  App helpers: `L(bn, en)` for strings built in JS (share texts, confirms, native notifications), `admTxt(x)` for admin-written text
+  without an `_en` field (translated if the map covers it fully, else hidden in English), `trx(x)` = map translation for text that never
+  reaches the DOM (native notifications). Server notification sentences with names/numbers are PRE rules in i18n.js.
+  Native shell texts follow `ReelsAndroid.setLang(lang)` (APK ≥ v1.0.21). `get/` landing page is bilingual (`?lang=en`, share links add it).
+  Audit tools (rebuild if lost): extract Bengali literals with acorn, run them through `window.t`, list leftovers; check tr(tr(x)) == tr(x).
 - Admin panel: grouped, collapsible menu (`.ng` groups, state in localStorage `navClosed`) + menu search `#navQ`; dashboard ID search + quick-action tiles;
   `quickFilter()` runs after every route and adds search / type (`data-k`,`data-kl`) / date (`data-ts`) / amount sort (`data-amt`) to the biggest list on the page.
 - Language: `i18n.js` (shared by admin and app) translates Bengali UI text to English at runtime from a phrase map when `localStorage.lang = 'en'`.
