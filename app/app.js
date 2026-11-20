@@ -4268,8 +4268,11 @@ R.policy = async (key) => {
     const sec = doc.querySelector(window.getLang?.() === "en" ? "#en" : "#bn");
     sec?.querySelector("h2")?.remove();
     sec?.querySelectorAll("a[href$='.html']").forEach((a) => a.setAttribute("href", "#policy/" + a.getAttribute("href").replace(".html", "")));
-    const upd = doc.querySelector("header .u")?.textContent ?? "";
-    screen.innerHTML = `<div class="page">${header(item[2])}<div class="card policy" translate="no">${sec ? sec.innerHTML : ""}<p class="tiny muted">${esc(upd)}</p></div></div>`;
+    const updRaw = doc.querySelector("header .u")?.textContent ?? "", upd = updRaw.includes("/") ? (window.getLang?.() === "en" ? updRaw.split("/").pop().trim() : updRaw.split("/")[0].trim() + ": " + new Date(updRaw.match(/\d+ \w+ \d{4}/)?.[0] ?? "").toLocaleDateString("bn-BD", { day: "numeric", month: "long", year: "numeric" })) : updRaw;
+    const L2 = window.getLang?.() === "en" ? "en" : "bn", data = doc.querySelector("#data");
+    let extra = "";
+    if (data) { data.querySelectorAll("[lang]").forEach((el) => { if (el.getAttribute("lang") !== L2) el.remove(); }); const h = data.querySelector("h2"); if (h) h.textContent = h.textContent.split(" · ")[L2 === "en" ? 1 : 0] ?? h.textContent; extra = data.innerHTML; }
+    screen.innerHTML = `<div class="page">${header(item[2])}<div class="card policy" translate="no">${sec ? sec.innerHTML : ""}${extra}<p class="tiny muted">${esc(upd)}</p></div></div>`;
   } catch { screen.innerHTML = `<div class="page">${header(item[2])}<div class="empty">ইন্টারনেট সংযোগ নেই</div></div>`; }
 };
 
