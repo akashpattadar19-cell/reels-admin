@@ -286,6 +286,8 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   Dashboard: hero with pending-work chips, KPI cards, SVG charts (`CH.line/bars/donut`, data from `admin_income_report` 60 days,
   `admin_user_type_counts`, `admin_analytics(30)`). Users page = cards (`userCard`, toggle cards/table, localStorage `usersView`).
   Coins page `#coins` = hero stats + tabs send/price/offer/play/hist (sessionStorage `coinTab`).
+  Admin-only English lives in `i18n-admin.js` (`window.I18N_EXTRA` map + `I18N_EXTRA_PRE` regex rules, loaded before i18n.js only in admin);
+  new admin UI text → add there. Admin en crawl must show 0 Bengali except user/admin-written content.
 - Declined: stock/AI photos of attractive women/men presented as app users (misleading fake users). Use only real, consenting people's photos.
 - Not built on purpose: Chamet "BIG WIN"/"City PK" coin games (betting).
 - Declined: real-money betting games in live (coins are bought with money and earnings withdraw → gambling, illegal in BD/KSA,
