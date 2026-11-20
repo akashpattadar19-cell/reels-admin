@@ -105,6 +105,11 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   (`admin_support_*`). Telegram bridge = edge function `support-telegram` (verify_jwt off): admin saves BotFather token
   (`private_config`, service-role only) → setup sets webhook → admin taps Start link; user messages go to Telegram with
   `#U<user_no>`, admin replies by Telegram Reply → `support_reply_by_user_no`.
+  Video approval group (052): admin gets a code (`admin_telegram_mod('code')`), adds the bot to a group and sends `/mod <code>` →
+  `private_config.telegram_mod_chat`. Cron `tg-mod` (`tg_mod_cron()`, every min, only when pending videos with `videos.tg_sent_at` null)
+  → edge fn (x-cron = `tg_cron_secret`) `modRun()` posts sendVideo (fallback thumb/text + link) with ✅ Approve / ❌ Reject (reason list) buttons;
+  callback → `_tg_video_action(admin_uid, id, action, reason)` (service_role only, acts as `telegram_admin_uid`, only while pending) and edits the message.
+  Anyone in that group can press the buttons. Webhook allowed_updates include callback_query (re-run setup after changing).
 - Account deletion: `request_account_deletion` → cron `process-account-deletions` anonymises after 7 days (`_delete_account`),
   or admin "অ্যাকাউন্ট ডিলিট" page deletes now. Money ledger rows are kept.
 - Devices: APK ≥ v1.0.6 `ReelsAndroid.deviceInfo()` (ANDROID_ID + brand/model/OS) → `register_device` (stores md5 hash in

@@ -1133,6 +1133,7 @@ async function supportThread(kind, uid, title) {
   };
 }
 
+const L2 = (bn, en) => (window.getLang?.() === "en" ? en : bn);
 async function telegramSetup(box) {
   const st = await rpc("admin_telegram_status").catch(() => null);
   if (!st) return;
@@ -1148,7 +1149,29 @@ async function telegramSetup(box) {
       ${st.bot && st.link_code && !st.linked ? `<p><a class="btn" href="https://t.me/${esc(st.bot)}?start=${esc(st.link_code)}" target="_blank" rel="noopener">👉 টেলিগ্রামে Start চাপুন</a></p>` : ""}
       ${st.linked ? `<button class="btn sm" id="tgTest">পরীক্ষা মেসেজ পাঠান</button>` : ""}
       <p class="muted small" style="margin-top:10px">ইউজারদের জন্য সাপোর্ট টেলিগ্রাম ইউজারনেম ও উত্তরের সময় <a href="#rules">ইনকাম রুলস</a> পেজের "লাইভ সাপোর্ট" অংশে বসান।</p>
+    </div>
+    <h2>🎬 ভিডিও অ্যাপ্রুভ গ্রুপ (টেলিগ্রাম)</h2>
+    <div class="card">
+      <p class="small">নতুন ভিডিও আপলোড হলে টেলিগ্রাম গ্রুপে ভিডিওসহ আসবে, নিচে ✅ Approve ও ❌ Reject বোতাম থাকবে। Reject চাপলে কারণ বেছে নিতে পারবেন।</p>
+      <div class="kv"><div>অবস্থা</div><div>${st.mod_linked ? "<span>✅ যুক্ত:</span> <span translate=\"no\">" + esc(st.mod_title || "") + "</span>" : "❌ কোনো গ্রুপ যুক্ত নেই"}</div><div>অপেক্ষায়</div><div>${num(st.pending ?? 0)} টি ভিডিও</div></div>
+      ${!st.bot ? `<p class="muted small">আগে উপরের বট চালু করুন।</p>` : `
+      <ol class="small" style="margin:10px 0 6px;padding-left:18px">
+        <li>টেলিগ্রামে নতুন গ্রুপ খুলুন (যেমন "Reels Enjoy ভিডিও চেক") — শুধু বিশ্বস্ত লোক রাখবেন, গ্রুপের যে কেউ বোতাম চাপতে পারবে।</li>
+        <li translate="no">${L2("গ্রুপে বট @" + esc(st.bot) + " যোগ করুন।", "Add the bot @" + esc(st.bot) + " to the group.")}</li>
+        <li>নিচের বোতাম চেপে কোড নিন, তারপর গ্রুপে কমান্ডটি পাঠান।</li></ol>
+      ${st.mod_code ? `<p><span>গ্রুপে এটা লিখে পাঠান:</span> <code id="modCmd" style="font-size:16px">/mod ${esc(st.mod_code)}</code> <button class="btn sm" id="modCopy">কপি</button></p>` : ""}
+      <div class="row" style="gap:8px">
+        <button class="btn" id="modCode">${st.mod_code ? "নতুন কোড" : "গ্রুপ যুক্ত করার কোড নিন"}</button>
+        ${st.mod_linked ? `<button class="btn sm" id="modTest">পরীক্ষা মেসেজ</button><button class="btn sm" id="modRun">এখনই পাঠান</button><button class="btn sm bad" id="modOff">গ্রুপ বাদ দিন</button>` : ""}
+      </div>`}
     </div>`;
+  const modDo = async (act) => { try { await rpc("admin_telegram_mod", { p_action: act }); telegramSetup(box); } catch (er) { toast(errMsg(er), true); } };
+  $("#modCode") && ($("#modCode").onclick = () => modDo("code"));
+  $("#modOff") && ($("#modOff").onclick = () => confirm("টেলিগ্রাম গ্রুপ বাদ দেবেন?") && modDo("unlink"));
+  $("#modCopy") && ($("#modCopy").onclick = () => { navigator.clipboard?.writeText($("#modCmd").textContent); toast("কপি হয়েছে"); });
+  const fnCall = async (action, okMsg) => { const { data, error } = await sb.functions.invoke("support-telegram", { body: { action } }); if (error || data?.ok === false) toast("কাজ হয়নি", true); else toast(okMsg); };
+  $("#modTest") && ($("#modTest").onclick = () => fnCall("mod_test", "✅ গ্রুপে পরীক্ষা মেসেজ গেছে"));
+  $("#modRun") && ($("#modRun").onclick = () => fnCall("mod_run", "✅ অপেক্ষার ভিডিও পাঠানো হয়েছে"));
   $("#tgSave").onclick = async (e) => {
     const tok = $("#tgTok").value.trim();
     if (!/^\d+:[\w-]{20,}$/.test(tok)) return toast("সঠিক Bot token দিন", true);

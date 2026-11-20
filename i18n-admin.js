@@ -404,7 +404,27 @@ window.I18N_EXTRA = {
 "📋 তালিকা": "📋 List",
 "🗺 ম্যাপ": "🗺 Map",
 "সব তথ্য ও কাজ ›": "All details & actions ›",
-"ম্যাপ লোড হয়নি — ইন্টারনেট দেখুন": "Map didn't load — check the internet"
+"ম্যাপ লোড হয়নি — ইন্টারনেট দেখুন": "Map didn't load — check the internet",
+"🎬 ভিডিও অ্যাপ্রুভ গ্রুপ (টেলিগ্রাম)": "🎬 Video approval group (Telegram)",
+"নতুন ভিডিও আপলোড হলে টেলিগ্রাম গ্রুপে ভিডিওসহ আসবে, নিচে ✅ Approve ও ❌ Reject বোতাম থাকবে। Reject চাপলে কারণ বেছে নিতে পারবেন।": "New uploads are posted to a Telegram group with the video and ✅ Approve / ❌ Reject buttons. Reject lets you pick a reason.",
+"✅ যুক্ত:": "✅ Linked:",
+"❌ কোনো গ্রুপ যুক্ত নেই": "❌ No group linked",
+"অপেক্ষায়": "Waiting",
+"আগে উপরের বট চালু করুন।": "Turn on the bot above first.",
+"টেলিগ্রামে নতুন গ্রুপ খুলুন (যেমন \"Reels Enjoy ভিডিও চেক\") — শুধু বিশ্বস্ত লোক রাখবেন, গ্রুপের যে কেউ বোতাম চাপতে পারবে।": "Create a new Telegram group (e.g. \"Reels Enjoy video check\") — add only trusted people; anyone in the group can press the buttons.",
+"নিচের বোতাম চেপে কোড নিন, তারপর গ্রুপে কমান্ডটি পাঠান।": "Tap the button below to get a code, then send the command in the group.",
+"গ্রুপে এটা লিখে পাঠান:": "Send this in the group:",
+"কপি": "Copy",
+"নতুন কোড": "New code",
+"গ্রুপ যুক্ত করার কোড নিন": "Get the group link code",
+"পরীক্ষা মেসেজ": "Test message",
+"এখনই পাঠান": "Send now",
+"গ্রুপ বাদ দিন": "Remove group",
+"টেলিগ্রাম গ্রুপ বাদ দেবেন?": "Remove the Telegram group?",
+"কপি হয়েছে": "Copied",
+"কাজ হয়নি": "Failed",
+"✅ গ্রুপে পরীক্ষা মেসেজ গেছে": "✅ Test message sent to the group",
+"✅ অপেক্ষার ভিডিও পাঠানো হয়েছে": "✅ Waiting videos sent"
 };
 window.I18N_EXTRA_PRE = [
 [
@@ -594,5 +614,9 @@ window.I18N_EXTRA_PRE = [
 [
 "📍 (\\S+) জন",
 "📍 $1 users"
+],
+[
+"^(\\S+) টি ভিডিও$",
+"$1 videos"
 ]
 ];
