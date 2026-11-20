@@ -309,7 +309,7 @@ function iconText(t) {
   const frag = document.createDocumentFragment(); let last = 0;
   v.replace(ERX, (m, k, off) => {
     if (off > last) frag.appendChild(document.createTextNode(v.slice(last, off)));
-    const i = document.createElement("i"); i.className = k === "🪙" ? "coin" : "ei ei-" + EICON[k]; i.setAttribute("aria-hidden", "true");
+    const i = document.createElement("i-c"); i.className = k === "🪙" ? "coin" : "ei ei-" + EICON[k]; i.setAttribute("aria-hidden", "true");
     frag.appendChild(i); last = off + m.length; return m;
   });
   if (last < v.length) frag.appendChild(document.createTextNode(v.slice(last)));
