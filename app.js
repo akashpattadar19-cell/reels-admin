@@ -4,6 +4,12 @@ const { SUPABASE_URL, SUPABASE_KEY } = window.REELS_CONFIG;
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = (s, el = document) => el.querySelector(s);
 const view = $("#view");
+// থিম: ডার্ক / লাইট (ফোনে মনে থাকে)
+const setTheme = (t) => { document.documentElement.dataset.theme = t; try { localStorage.setItem("adminTheme", t); } catch { /* */ }
+  document.querySelectorAll("#themeTg button").forEach((b) => b.classList.toggle("on", b.dataset.th === t));
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "light" ? "#F4F2FB" : "#0A0918"); };
+setTheme(document.documentElement.dataset.theme || "dark");
+document.getElementById("themeTg")?.addEventListener("click", (e) => { const b = e.target.closest("[data-th]"); if (b) setTheme(b.dataset.th); });
 let me = null;
 
 // ---------- helpers ----------
@@ -71,7 +77,7 @@ async function boot() {
   me = p;
   $("#login").classList.add("hidden");
   $("#app").classList.remove("hidden");
-  $("#who").textContent = "@" + p.username;
+  $("#who").innerHTML = `<span class="who-chip"><span class="av0" translate="no">${esc((p.full_name || p.username || "A").charAt(0).toUpperCase())}</span><span><b translate="no">@${esc(p.username)}</b><br><span class="muted" style="font-size:11px">অ্যাডমিন</span></span></span>`;
   route();
   refreshBadges();
   setInterval(refreshBadges, 60000);
@@ -194,38 +200,137 @@ document.addEventListener("submit", (e) => {
   const v = $("#dFindQ").value.replace(/\D/g, ""); if (v) location.hash = "#lookup/" + v;
 });
 // ---------- dashboard ----------
+// ---------- চার্ট (SVG, থিমের রং মেনে) ----------
+const CH = {
+  short: (x) => { x = Number(x) || 0; const a = Math.abs(x); return a >= 1e7 ? (x / 1e7).toFixed(1) + "কো" : a >= 1e5 ? (x / 1e5).toFixed(1) + "লা" : a >= 1e3 ? (x / 1e3).toFixed(1) + "K" : String(Math.round(x)); },
+  path(pts) { // মসৃণ লাইন (cardinal)
+    if (pts.length < 2) return "";
+    let d = `M${pts[0][0]},${pts[0][1]}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2, t = 0.18;
+      d += ` C${p1[0] + (p2[0] - p0[0]) * t},${p1[1] + (p2[1] - p0[1]) * t} ${p2[0] - (p3[0] - p1[0]) * t},${p2[1] - (p3[1] - p1[1]) * t} ${p2[0]},${p2[1]}`;
+    }
+    return d;
+  },
+  line(series, labels, fmt = CH.short) { // series: [{v:[...], c:"#hex", fill:bool}]
+    const W = innerWidth < 700 ? 380 : 640, H = 230, L = 42, R = 10, T = 14, B = 26, n = labels.length;
+    const max = Math.max(1, ...series.flatMap((s) => s.v)) * 1.15;
+    const X = (i) => L + (i * (W - L - R)) / Math.max(1, n - 1), Y = (v) => T + (H - T - B) * (1 - v / max);
+    const ticks = [0, .25, .5, .75, 1].map((f) => max * f);
+    const peak = series[0].v.indexOf(Math.max(...series[0].v));
+    let g = `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs>${series.map((s, k) => `<linearGradient id="lg${k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${s.c}" stop-opacity=".35"/><stop offset="1" stop-color="${s.c}" stop-opacity="0"/></linearGradient>`).join("")}</defs>`;
+    g += ticks.map((v) => `<line class="grid-l" x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${L - 6}" y="${Y(v) + 3}" text-anchor="end">${fmt(v)}</text>`).join("");
+    const step = Math.ceil(n / 8);
+    g += labels.map((l, i) => (i % step === 0 || i === n - 1 ? `<text x="${X(i)}" y="${H - 6}" text-anchor="middle">${l}</text>` : "")).join("");
+    if (peak >= 0 && series[0].v[peak] > 0) g += `<rect x="${X(peak) - 12}" y="${T}" width="24" height="${H - T - B}" rx="6" fill="${series[0].c}" opacity=".12"/>`;
+    series.slice().reverse().forEach((s, kk) => {
+      const k = series.length - 1 - kk, pts = s.v.map((v, i) => [X(i), Y(v)]), d = CH.path(pts);
+      if (s.fill) g += `<path d="${d} L${X(n - 1)},${Y(0)} L${X(0)},${Y(0)} Z" fill="url(#lg${k})"/>`;
+      g += `<path d="${d}" fill="none" stroke="${s.c}" stroke-width="${s.fill ? 2.6 : 1.8}" stroke-linecap="round" ${s.dash ? 'stroke-dasharray="5 5"' : ""}/>`;
+    });
+    if (peak >= 0 && series[0].v[peak] > 0) {
+      const px = X(peak), py = Y(series[0].v[peak]), lab = fmt(series[0].v[peak]);
+      g += `<circle cx="${px}" cy="${py}" r="6" fill="#fff" stroke="${series[0].c}" stroke-width="3"/><rect x="${px - 34}" y="${Math.max(0, py - 32)}" width="68" height="22" rx="7" fill="${series[0].c}"/><text x="${px}" y="${Math.max(0, py - 32) + 15}" text-anchor="middle" style="fill:#fff;font-weight:700;font-size:11px">${lab}</text>`;
+    }
+    return g + `</svg>`;
+  },
+  bars(vals, labels, color = "#8B5CF6") {
+    const W = innerWidth < 700 ? 380 : 640, H = 200, L = 6, R = 6, T = 26, B = 24, n = vals.length, max = Math.max(1, ...vals);
+    const bw = (W - L - R) / n, hi = vals.indexOf(max);
+    let g = `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs><linearGradient id="bg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}"/><stop offset="1" stop-color="${color}" stop-opacity=".25"/></linearGradient></defs>`;
+    vals.forEach((v, i) => {
+      const h = Math.max(4, (H - T - B) * (v / max)), x = L + i * bw + bw * 0.18, w = bw * 0.64, y = H - B - h;
+      g += `<rect x="${x}" y="${T}" width="${w}" height="${H - T - B}" rx="8" fill="currentColor" opacity=".05"/>`;
+      g += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${i === hi && max > 0 ? "url(#bg1)" : color}" opacity="${i === hi ? 1 : .35}"/>`;
+      if (i === hi && max > 0) g += `<rect x="${x + w / 2 - 20}" y="${y - 24}" width="40" height="19" rx="6" fill="${color}"/><text x="${x + w / 2}" y="${y - 10}" text-anchor="middle" style="fill:#fff;font-weight:700;font-size:11px">${CH.short(v)}</text>`;
+      g += `<text x="${x + w / 2}" y="${H - 7}" text-anchor="middle">${labels[i]}</text>`;
+    });
+    return g + `</svg>`;
+  },
+  donut(parts, size = 180) { // [{v, c}]
+    const tot = parts.reduce((a, p) => a + p.v, 0) || 1, r = 70, C = 2 * Math.PI * r; let off = 0;
+    return `<svg viewBox="0 0 180 180" width="${size}" height="${size}" style="transform:rotate(-90deg)"><circle cx="90" cy="90" r="${r}" fill="none" stroke="currentColor" stroke-opacity=".08" stroke-width="22"/>${parts.map((p) => {
+      const len = (p.v / tot) * C, el = `<circle cx="90" cy="90" r="${r}" fill="none" stroke="${p.c}" stroke-width="22" stroke-dasharray="${Math.max(0, len - 3)} ${C}" stroke-dashoffset="${-off}" stroke-linecap="round"/>`;
+      off += len; return el; }).join("")}</svg>`;
+  },
+};
+const ROCKET = `<svg class="deco" viewBox="0 0 200 160"><defs><linearGradient id="rk" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#C4B5FD"/></linearGradient></defs>
+  <circle cx="150" cy="40" r="3" fill="#fff" opacity=".7"/><circle cx="60" cy="30" r="2" fill="#fff" opacity=".6"/><circle cx="185" cy="95" r="2" fill="#fff" opacity=".6"/>
+  <g transform="rotate(40 120 80)"><path d="M120 20c22 18 26 52 14 86h-28c-12-34-8-68 14-86z" fill="url(#rk)"/><circle cx="120" cy="58" r="10" fill="#7C3AED" stroke="#fff" stroke-width="3"/>
+  <path d="M106 96l-16 18 18-4zM134 96l16 18-18-4z" fill="#F472B6"/><path d="M110 108c2 18 8 28 10 34 2-6 8-16 10-34z" fill="#FBBF24" opacity=".9"/></g></svg>`;
 routes.dashboard = async () => {
   loading();
   try {
-    const d = await rpc("admin_dashboard");
-    const s = (k, v, href, alert) => `<a class="card stat ${alert ? "alert" : ""}" ${href ? `href="#${href}"` : ""} style="text-decoration:none"><div class="k">${k}</div><div class="v">${v}</div></a>`;
-    view.innerHTML = `<h1>ড্যাশবোর্ড</h1>
-      <form class="dash-find" id="dFind"><input id="dFindQ" inputmode="numeric" placeholder="🔎 ইউজারের ID লিখুন (যেমন 100001)"><button class="btn good">খুঁজুন</button></form>
-      <div class="quick">${[["#videos/pending", "🎬", "ভিডিও অনুমোদন"], ["#withdrawals", "💸", "উইথড্র"], ["#cashins", "💳", "ক্যাশ-ইন"], ["#agents", "🧑‍💼", "এজেন্ট আবেদন"],
-        ["#support/user", "🎧", "সাপোর্ট"], ["#launch/pnew", "📢", "অফার দিন"], ["#broadcast", "🔔", "নোটিফিকেশন"], ["#coins", "🪙", "কয়েন পাঠান"]]
-        .map(([h, i, l]) => `<a href="${h}"><span>${i}</span>${l}</a>`).join("")}</div>
-      <div class="grid">
-        ${s("পেন্ডিং উইথড্র", `${num(d.withdraw_pending)} · ${taka(d.withdraw_pending_paisa)}`, "withdrawals", d.withdraw_pending > 0)}
-        ${s("পেন্ডিং ক্যাশ-ইন", `${num(d.cashin_pending)} · ${taka(d.cashin_pending_paisa)}`, "cashins", d.cashin_pending > 0)}
-        ${s("খোলা রিপোর্ট", num(d.reports_open), "moderation", d.reports_open > 0)}
-        ${s("মোট ইউজার", num(d.users_total), "users")}
-        ${s("আজ নতুন ইউজার", num(d.users_today), "users")}
-        ${s("প্রকাশিত ভিডিও", num(d.videos_total), "videos")}
-        ${s("আজ আপলোড", num(d.videos_today), "videos")}
-        ${s("আজ ভিউ", num(d.views_today))}
+    const today = new Date(), iso = (d) => d.toISOString().slice(0, 10), from = new Date(today.getTime() - 59 * 864e5);
+    const [d, rep, types, an] = await Promise.all([rpc("admin_dashboard"), rpc("admin_income_report", { p_from: iso(from), p_to: iso(today) }).catch(() => []),
+      rpc("admin_user_type_counts").catch(() => null), rpc("admin_analytics", { p_days: 30 }).catch(() => null)]);
+    await refreshBadges().catch(() => {});
+    const byDay = Object.fromEntries((rep ?? []).map((r) => [String(r.day).slice(0, 10), r]));
+    const days = Array.from({ length: 60 }, (_, i) => iso(new Date(from.getTime() + i * 864e5)));
+    const cur = days.slice(30), prev = days.slice(0, 30);
+    const get = (arr, f) => arr.map((k) => Number(f(byDay[k] || {})) || 0);
+    const METRICS = {
+      income: ["আয় (ক্যাশ-ইন + গিফট কমিশন)", (r) => ((r.cash_in_paisa || 0) + (r.gift_fee_paisa || 0)) / 100, (v) => "৳" + CH.short(v)],
+      users: ["নতুন ইউজার", (r) => r.new_users, CH.short],
+      views: ["ভিউ", (r) => r.views, CH.short],
+      paid: ["উইথড্র দেওয়া", (r) => (r.withdraw_paid_paisa || 0) / 100, (v) => "৳" + CH.short(v)],
+    };
+    const lbl = cur.map((k) => String(Number(k.slice(8))));
+    const sum = (a) => a.reduce((x, y) => x + y, 0);
+    const pct = (a, b) => (b ? Math.round(((a - b) / b) * 100) : a ? 100 : 0);
+    const inc30 = sum(get(cur, METRICS.income[1])), incPrev = sum(get(prev, METRICS.income[1]));
+    const new30 = sum(get(cur, METRICS.users[1])), newPrev = sum(get(prev, METRICS.users[1]));
+    const badge = (id) => Number($(id)?.textContent || 0);
+    const todo = [["#withdrawals", "💸", "উইথড্র", badge("#bWd")], ["#cashins", "💳", "ক্যাশ-ইন", badge("#bCi")], ["#videos/pending", "🎬", "ভিডিও", badge("#bPv")],
+      ["#support/user", "🎧", "সাপোর্ট", badge("#bSu") + badge("#bSh")], ["#moderation", "🛡️", "রিপোর্ট", badge("#bRp")]];
+    const todoN = todo.reduce((a, t) => a + t[3], 0);
+    const trend = (p) => `<span class="tr ${p >= 0 ? "up" : "dn"}">${p >= 0 ? "▲" : "▼"} ${Math.abs(p)}%</span>`;
+    const kpi = (ic, v, k, href, extra = "", hl = false) => `<a class="kpi ${hl ? "hl" : ""}" href="${href}"><div class="ic">${ic}</div>${extra}<div class="v">${v}</div><div class="k">${k}</div></a>`;
+    const T = types || {}, ut = [{ v: Number(T.user || 0), c: "#8B5CF6", l: "👤 ইউজার" }, { v: Number(T.host || 0), c: "#F59E0B", l: "🎤 হোস্ট" }, { v: Number(T.seller || 0), c: "#22C55E", l: "💰 কয়েন সেলার" }];
+    const totT = ut.reduce((a, x) => a + x.v, 0) || 1;
+    const C = (an?.countries ?? []).slice(0, 5), cMax = Math.max(1, ...C.map((x) => Number(x.users) || 0)), CC = ["#8B5CF6", "#22C55E", "#F59E0B", "#94A3B8", "#EC4899"];
+    const act = (an?.daily ?? []).slice(-14);
+    view.innerHTML = `<h1>ড্যাশবোর্ড</h1><div class="page-sub">আজকের সারাংশ, আয় ও ইউজারের হিসাব</div>
+      <div class="d-hero">${ROCKET}<h2>${todoN ? `${num(todoN)}টি কাজ আপনার অপেক্ষায়` : "সব কাজ শেষ 🎉"}</h2>
+        <p>আজ ${num(d.users_today)} জন নতুন ইউজার · ${num(d.views_today)} ভিউ · ${num(d.videos_today)} নতুন ভিডিও</p>
+        <div class="chips">${todo.map(([h, i, l, n2]) => `<a href="${h}" class="${n2 ? "" : "zero"}">${i} ${l} <b>${num(n2)}</b></a>`).join("")}</div></div>
+      <form class="dash-find" id="dFind"><input id="dFindQ" inputmode="numeric" placeholder="🔎 ইউজারের ID লিখুন (যেমন 100001)"><button class="btn primary" style="width:auto;margin:0">খুঁজুন</button></form>
+      <div class="kpis">
+        ${kpi("👥", num(d.users_total), "মোট ইউজার", "#users", trend(pct(new30, newPrev)), true)}
+        ${kpi("💳", taka(d.cashin_month_paisa), "এ মাসে ক্যাশ-ইন", "#cashins", trend(pct(inc30, incPrev)))}
+        ${kpi("💰", taka(d.liability_paisa), "ইউজারদের ব্যালেন্স (দায়)", "#reports")}
+        ${kpi("👁", num(d.views_today), "আজকের ভিউ", "#analytics")}
       </div>
-      <h2>টাকার হিসাব</h2>
-      <div class="grid">
-        ${s("আজ গিফট কমিশন", taka(d.gift_fee_today_paisa), "reports")}
-        ${s("এ মাসে গিফট কমিশন", taka(d.gift_fee_month_paisa), "reports")}
-        ${s("এ মাসে ক্যাশ-ইন", taka(d.cashin_month_paisa), "reports")}
-        ${s("এ মাসে পেমেন্ট দেওয়া", taka(d.paid_month_paisa), "reports")}
-        ${s("ইউজারদের মোট ব্যালেন্স (দায়)", taka(d.liability_paisa))}
-        ${s("ইউজারদের কাছে কয়েন", num(d.coins_outstanding))}
-        ${s("ব্যান ইউজার", num(d.users_banned), "users")}
+      <div class="d-row">
+        <div class="chart-card"><div class="hd"><b id="lcT">মাসিক হিসাব</b><select id="lcM" style="width:auto;margin:0;padding:6px 10px">${Object.entries(METRICS).map(([k, m]) => `<option value="${k}">${m[0]}</option>`).join("")}</select></div>
+          <div class="legend"><span><i style="background:#8B5CF6"></i>শেষ ৩০ দিন</span><span><i style="background:#94A3B8"></i>আগের ৩০ দিন</span><span id="lcSum"></span></div><div id="lc"></div></div>
+        <div class="chart-card"><div class="hd"><b>ইউজারের ধরন</b><a class="btn sm" href="#users">সব দেখুন ›</a></div>
+          <div class="donut-wrap">${CH.donut(ut)}<div class="c"><b>${num(totT === 1 && !ut[0].v ? 0 : totT)}</b><span>মোট অ্যাকাউন্ট</span></div></div>
+          <div class="bars-list">${ut.map((x) => `<div class="bl"><div class="t"><span>${x.l}</span><b style="color:${x.c}">${Math.round((x.v / totT) * 100)}%</b></div><div class="tr2"><i style="width:${(x.v / totT) * 100}%;background:${x.c}"></i></div></div>`).join("")}</div></div>
+      </div>
+      <div class="d-row">
+        <div class="chart-card"><div class="hd"><b>সক্রিয় ইউজার (প্রতিদিন)</b><span>শেষ ১৪ দিন</span></div>${CH.bars(act.map((x) => Number(x.users) || 0), act.map((x) => String(Number(String(x.day).slice(8)))))}</div>
+        <div class="chart-card"><div class="hd"><b>শীর্ষ দেশ</b><a class="btn sm" href="#analytics">বিস্তারিত ›</a></div>
+          <div class="bars-list">${C.length ? C.map((x, i) => `<div class="bl"><div class="t"><span>${esc(x.country_code || "??")}</span><b style="color:${CC[i]}">${num(x.users)} জন</b></div><div class="tr2"><i style="width:${(Number(x.users) / cMax) * 100}%;background:${CC[i]}"></i></div></div>`).join("") : `<div class="empty">এখনো তথ্য নেই</div>`}</div></div>
+      </div>
+      <div class="d-row">
+        <div class="chart-card"><div class="hd"><b>টাকার হিসাব</b><a class="btn sm" href="#reports">রিপোর্ট ›</a></div><div class="act-list">
+          ${[["🎁", "আজ গিফট কমিশন", taka(d.gift_fee_today_paisa)], ["🎁", "এ মাসে গিফট কমিশন", taka(d.gift_fee_month_paisa)], ["💳", "এ মাসে ক্যাশ-ইন", taka(d.cashin_month_paisa)],
+            ["💸", "এ মাসে উইথড্র দেওয়া", taka(d.paid_month_paisa)], ["⏳", "পেন্ডিং উইথড্র", `${num(d.withdraw_pending)} · ${taka(d.withdraw_pending_paisa)}`], ["🪙", "ইউজারদের কাছে কয়েন", num(d.coins_outstanding)]]
+            .map(([i, k, v]) => `<div class="ai"><span class="dot2">${i}</span><div class="x">${k}</div><em>${v}</em></div>`).join("")}</div></div>
+        <div class="chart-card"><div class="hd"><b>দ্রুত কাজ</b></div><div class="quick" style="grid-template-columns:repeat(3,1fr);margin:0">${[["#videos/pending", "🎬", "ভিডিও অনুমোদন"], ["#withdrawals", "💸", "উইথড্র"], ["#cashins", "💳", "ক্যাশ-ইন"], ["#agents", "🧑‍💼", "এজেন্ট"],
+          ["#launch/pnew", "📢", "অফার দিন"], ["#broadcast", "🔔", "নোটিফিকেশন"], ["#coins", "🪙", "কয়েন"], ["#lookup", "🔎", "ইউজার খুঁজুন"], ["#monitor", "🛡️", "লাইভ মনিটর"]]
+          .map(([h, i, l]) => `<a href="${h}"><span>${i}</span>${l}</a>`).join("")}</div></div>
       </div>
       <div id="hostReq"></div>
       <p class="muted small" style="margin-top:16px">অ্যাড রেভিনিউ দেখতে AdMob অ্যাপ/ওয়েবসাইট ব্যবহার করুন।</p>`;
+    const draw = () => {
+      const m = METRICS[$("#lcM").value], a = get(cur, m[1]), b = get(prev, m[1]);
+      $("#lc").innerHTML = CH.line([{ v: a, c: "#8B5CF6", fill: true }, { v: b, c: "#94A3B8", dash: true }], lbl, m[2]);
+      $("#lcSum").innerHTML = `<b style="color:var(--text)">${m[2](sum(a))}</b> ${trend(pct(sum(a), sum(b))).replace('class="tr', 'class="pill tr')}`;
+    };
+    $("#lcM").onchange = draw; draw();
+    $("#dFind").onsubmit = (e) => { e.preventDefault(); const q = $("#dFindQ").value.replace(/\D/g, ""); if (q) location.hash = "#lookup/" + q; };
     const hr = await rpc("admin_host_requests").catch(() => []);
     if (hr.length) {
       $("#hostReq").innerHTML = `<h2>🎤 হোস্ট আবেদন (${num(hr.length)})</h2><div class="list">${hr.map((r) => `<div class="item" data-id="${r.id}">
@@ -242,7 +347,6 @@ routes.dashboard = async () => {
   } catch (e) { view.innerHTML = `<div class="empty err">${esc(errMsg(e))}</div>`; }
 };
 
-// ---------- withdrawals ----------
 routes.withdrawals = async (tab = "pending") => {
   const tabs = ["pending", "approved", "paid", "rejected"];
   view.innerHTML = `<h1>উইথড্র রিকোয়েস্ট</h1>
@@ -341,6 +445,24 @@ routes.cashins = async (tab = "pending") => {
 };
 
 // ---------- users ----------
+// ইউজার কার্ড: পরিচয়, ব্যাজ, ওয়ালেট আর সব সেবার বোতাম এক জায়গায়
+const AVC = ["#8B5CF6", "#EC4899", "#F59E0B", "#22C55E", "#0EA5E9", "#EF4444"];
+function userCard(u) {
+  const ini = esc(String(u.full_name || u.username || "?").trim().charAt(0).toUpperCase() || "?");
+  const col = AVC[Number(u.user_no || 0) % AVC.length];
+  const host = u.account_type === "host";
+  return `<div class="ucard ${host ? "is-host" : ""}">
+    <div class="uc-top"><a class="uc-av" translate="no" href="#lookup/${u.user_no}" style="background:${col}">${ini}</a>
+      <div class="uc-id"><a href="#lookup/${u.user_no}"><b translate="no">${esc(u.full_name || u.username)}</b></a><small translate="no">@${esc(u.username)} · ID ${u.user_no}</small>
+        <div class="uc-tags">${host ? '<span class="pill host">🎤 হোস্ট</span>' : '<span class="pill">👤 ইউজার</span>'}${u.coin_seller ? '<span class="pill seller">💰 সেলার</span>' : ""}${u.role === "admin" ? '<span class="pill approved">🛡️ অ্যাডমিন</span>' : ""}${pill(u.status)}${u.is_frozen ? '<span class="pill rejected">ফ্রিজ</span>' : ""}</div></div></div>
+    <div class="uc-w">
+      <div><span>🪙 কয়েন</span><b>${num(u.coin_balance)}</b></div><div><span>💰 ব্যালেন্স</span><b>${taka(u.earning_paisa)}</b></div>
+      <div><span>⏳ পেন্ডিং</span><b>${taka(u.pending_paisa)}</b></div><div><span>⭐ পয়েন্ট</span><b>${num(u.points)}</b></div></div>
+    <div class="uc-s"><span>🎬 ${num(u.videos_count)} ভিডিও</span><span>👥 ${num(u.followers_count)} ফলোয়ার</span><span>📈 মোট আয় ${taka(u.total_earned_paisa)}</span><span>💸 তুলেছে ${taka(u.total_withdrawn_paisa)}</span></div>
+    <div class="uc-m"><span translate="no">${esc(u.phone || u.email || "")}</span><span>যোগ দিয়েছে ${dt(u.created_at)}</span></div>
+    <div class="uc-a"><a class="btn sm primary" href="#lookup/${u.user_no}">🔎 সব তথ্য</a><a class="btn sm" href="#coins/${u.user_no}">🪙 কয়েন দিন</a><a class="btn sm" href="#user/${u.id}">⚙️ ম্যানেজ</a></div>
+  </div>`;
+}
 routes.users = async (type = "user") => {
   type = ["user", "host", "seller"].includes(type) ? type : "user";
   view.innerHTML = `<h1>👥 ইউজার</h1>
@@ -352,7 +474,8 @@ routes.users = async (type = "user") => {
     <h2 style="margin-top:14px">${type === "host" ? "🎤 হোস্ট তালিকা" : type === "seller" ? "💰 কয়েন সেলার তালিকা" : "👤 ইউজার তালিকা"}</h2>
     <div class="toolbar"><input id="q" placeholder="নাম, ইউজারনেম বা ফোন">
       <select id="st"><option value="">সব</option><option value="active">সক্রিয়</option><option value="banned">ব্যান</option></select>
-      <button class="btn" id="go">খুঁজুন</button></div>
+      <button class="btn" id="go">খুঁজুন</button>
+      <div class="theme-tg" id="uView" title="দেখার ধরন"><button type="button" data-v="cards">▦</button><button type="button" data-v="table">☰</button></div></div>
     <div id="list" class="table-wrap"></div><div class="row" style="margin-top:10px"><button class="btn sm" id="more">আরও</button><span id="cnt" class="muted small"></span></div>`;
   let offset = 0, rows = [];
   const load = async (reset) => {
@@ -361,6 +484,9 @@ routes.users = async (type = "user") => {
     rows = rows.concat(data); offset += data.length;
     $("#cnt").textContent = `${rows.length} / ${data[0]?.total_count ?? rows.length}`;
     $("#more").classList.toggle("hidden", data.length < 50);
+    const asCards = (localStorage.getItem("usersView") || "cards") === "cards";
+    $("#list").className = asCards ? "ucards" : "table-wrap";
+    if (asCards) { $("#list").innerHTML = rows.length ? rows.map(userCard).join("") : `<div class="empty">কেউ নেই</div>`; return; }
     $("#list").innerHTML = rows.length ? `<table><tr><th>ID</th><th>ইউজার</th><th>ফোন</th><th>স্ট্যাটাস</th><th class="num">ভিডিও</th><th class="num">কয়েন</th><th class="num">ব্যালেন্স</th><th class="num">পেন্ডিং</th><th class="num">পয়েন্ট</th><th>যোগদান</th></tr>
       ${rows.map((u) => `<tr><td><a href="#lookup/${u.user_no}"><b>${u.user_no}</b></a></td><td><a href="#user/${u.id}">@${esc(u.username)}</a>${u.account_type === "host" ? ' <span class="pill host">🎤</span>' : ""}${u.coin_seller ? ' <span class="pill seller">💰</span>' : ""}<br><span class="muted small">${esc(u.full_name ?? "")}${u.role === "admin" ? " · অ্যাডমিন" : ""}</span></td>
         <td>${esc(u.phone ?? "")}</td><td>${pill(u.status)}${u.is_frozen ? ' <span class="pill rejected">ফ্রিজ</span>' : ""}</td>
@@ -371,6 +497,9 @@ routes.users = async (type = "user") => {
   $("#go").onclick = () => load(true);
   $("#q").onkeydown = (e) => e.key === "Enter" && load(true);
   $("#more").onclick = () => load(false);
+  const uvSync = () => document.querySelectorAll("#uView button").forEach((b) => b.classList.toggle("on", b.dataset.v === (localStorage.getItem("usersView") || "cards")));
+  uvSync();
+  $("#uView").onclick = (e) => { const b = e.target.closest("[data-v]"); if (!b) return; localStorage.setItem("usersView", b.dataset.v); uvSync(); load(true); };
   load(true);
   rpc("admin_user_type_counts").then((c) => {
     $("#tcU").textContent = num(c.user); $("#tcH").textContent = num(c.host); $("#tcS").textContent = num(c.seller);
@@ -689,7 +818,7 @@ routes.lookup = async (no) => {
       </div>
       <div style="margin-bottom:12px"><b>দিনে আপলোড সীমা</b> <span class="muted small">(খালি রাখলে সবার জন্য নির্ধারিত সীমা)</span>
         <div class="row" style="flex-wrap:nowrap;gap:8px"><input id="ul" type="number" min="0" value="${p.daily_upload_limit ?? ""}" placeholder="ডিফল্ট"><button class="btn sm good" data-c="limit">সেভ</button></div></div>
-      ${p.jailed ? `<div style="background:#3a0f12;border-radius:10px;padding:10px"><b>🚫 জেলে আছে</b>
+      ${p.jailed ? `<div style="background:var(--pill-bad);color:var(--pill-bad-t);border-radius:10px;padding:10px"><b>🚫 জেলে আছে</b>
           <div class="small">কারণ: <span translate="no">${esc(p.jail_reason ?? "-")}</span> · মুক্তির ফি: 🪙 ${num(p.jail_fee_coins)} · ${p.jailed_at ? dt(p.jailed_at) : ""}</div>
           <button class="btn sm good" data-c="unjail" style="margin-top:8px">জেল থেকে মুক্ত করুন</button></div>`
         : `<div><b>🚫 জেলে দিন</b> <span class="muted small">(ইউজার আপলোড/লাইক/কমেন্ট/গিফট/আয় করতে পারবে না; কয়েন দিয়ে মুক্ত হতে পারবে)</span>
@@ -2135,7 +2264,7 @@ routes.live = async () => {
 // ---------- 🎵 মিউজিক লাইব্রেরি ----------
 routes.music = async () => {
   view.innerHTML = `<h1>🎵 মিউজিক</h1>
-    <div class="card" style="border-color:#7c2d12;background:#2a1408"><b>⚠️ কপিরাইট সতর্কতা</b>
+    <div class="card" style="border-color:#F59E0B;background:var(--pill-pending)"><b>⚠️ কপিরাইট সতর্কতা</b>
       <p class="small" style="margin:6px 0 0">শুধু সেই গান দিন যেগুলোর অনুমতি আপনার আছে: নিজের বানানো, কিনে নেওয়া লাইসেন্স, বা রয়্যালটি-ফ্রি (যেমন Pixabay Music, YouTube Audio Library-র "No attribution" গান)। জনপ্রিয় সিনেমা/শিল্পীর গান অনুমতি ছাড়া দিলে Google Play অ্যাপ সরিয়ে দিতে পারে এবং কপিরাইট মামলা হতে পারে।</p></div>
     <div class="card" style="max-width:560px"><b>➕ নতুন গান যোগ করুন</b>
       <label>গানের ফাইল (MP3/M4A, সর্বোচ্চ 15MB)<input type="file" id="mf" accept="audio/*"></label>
@@ -2289,8 +2418,12 @@ routes.sellers = async () => {
 
 // ---------- Coin Sent ----------
 routes.coins = async (preNo) => {
-  view.innerHTML = `<h1>🪙 Coin Sent</h1>
-    <div class="card" style="max-width:520px">
+  view.innerHTML = `<h1>🪙 কয়েন</h1><div class="page-sub">কয়েন পাঠানো, দাম, অফার, Google Play প্যাকেজ ও হিসাব — সব এক পেজে</div>
+    <div class="coin-hero"><div class="ch-main"><i-c class="coin ch-coin"></i-c><div><small>ইউজারদের কাছে মোট কয়েন</small><b id="chOut">…</b><span id="chPrice"></span></div></div>
+      <div class="ch-stats"><a href="#cashins"><small>পেন্ডিং ক্যাশ-ইন</small><b id="chPend">…</b></a><a href="#cashins"><small>এ মাসে ক্যাশ-ইন</small><b id="chMonth">…</b></a>
+        <a href="#coins" data-go="offer"><small>চালু অফার</small><b id="chOf">…</b></a><a href="#sellers"><small>কয়েন সেলার</small><b id="chSel">…</b></a></div></div>
+    <div class="ctabs" id="cTabs">${[["send", "📤", "কয়েন পাঠান"], ["price", "💰", "দাম"], ["offer", "🔥", "অফার"], ["play", "▶️", "Google Play"], ["hist", "🧾", "হিসাব"]].map(([k, i, l]) => `<button type="button" data-t="${k}">${i} ${l}</button>`).join("")}<a href="#sellers">💰 সেলার ›</a><a href="#cashins">💳 ক্যাশ-ইন ›</a></div>
+    <section class="cs" data-s="send"><div class="card cs-card">
       <label>ইউজারের ID নম্বর<input id="cn" type="number" inputmode="numeric" placeholder="যেমন 100001" value="${esc(preNo ?? "")}"></label>
       <div id="who2" class="muted small" style="min-height:1.4em;margin-top:6px"></div>
       <label>কত টাকার কয়েন<input id="ctk" type="number" inputmode="decimal" min="0" step="0.01" placeholder="যেমন 100"></label>
@@ -2301,17 +2434,17 @@ routes.coins = async (preNo) => {
       <button class="btn primary" id="csend">কয়েন পাঠান</button>
       <p class="muted small">মনে রাখবেন: এই কয়েন দিয়ে ইউজার গিফট পাঠালে ক্রিয়েটর আসল টাকা আয় করবে, যা উইথড্র করা যায়।</p>
     </div>
-    <h2>💰 কয়েনের দাম</h2>
-    <div class="card" style="max-width:520px">
+    </section><section class="cs" data-s="price"><h2>💰 কয়েনের দাম</h2>
+    <div class="card cs-card">
       <label>১ কয়েনের দাম (টাকা)<input id="cpr" type="number" inputmode="decimal" step="0.01" min="0.01" placeholder="যেমন 1"></label>
       <div id="cprInfo" class="muted small" style="margin-top:4px"></div>
       <label>সর্বনিম্ন কত টাকার কয়েন কেনা যাবে<input id="cmin" type="number" inputmode="numeric" min="1"></label>
       <button class="btn primary" id="cprSave">দাম সেভ করুন</button>
       <p class="muted small">⚠️ এই দামেই গিফট ও প্রিমিয়ামের টাকার হিসাব হয় (ক্রিয়েটর কত পাবে)। দাম কমালে ক্রিয়েটরের আয়ও কমবে।</p>
     </div>
-    <h2>🔥 কয়েন অফার</h2>
+    </section><section class="cs" data-s="offer"><h2>🔥 কয়েন অফার</h2>
     <p class="muted small">এখানে অফার যোগ করলে ইউজাররা অ্যাপে "কয়েন কিনুন" পেজে ও হোম পেজে অফার দেখবে। শেষ সময় পার হলে অফার নিজে থেকেই লুকিয়ে যাবে।</p>
-    <div class="card" style="max-width:520px" id="ofForm">
+    <div class="card cs-card" id="ofForm">
       <input type="hidden" id="ofId">
       <label>অফারের নাম<input id="ofT" maxlength="60" placeholder="যেমন: ঈদ অফার"></label>
       <div class="row" style="gap:8px"><label style="flex:1">দাম (টাকা)<input id="ofP" type="number" inputmode="numeric" min="1" placeholder="100"></label>
@@ -2324,9 +2457,9 @@ routes.coins = async (preNo) => {
       <div class="row" style="gap:8px"><button class="btn primary" id="ofSave">অফার যোগ করুন</button><button class="btn hidden" id="ofCancel">বাতিল</button></div>
     </div>
     <div id="ofList" class="table-wrap"></div>
-    <h2>▶️ Google Play কয়েন প্যাকেজ</h2>
+    </section><section class="cs" data-s="play"><h2>▶️ Google Play কয়েন প্যাকেজ</h2>
     <p class="muted small">Play Store থেকে নামানো অ্যাপে "Google" ট্যাবে এই প্যাকেজগুলো দেখাবে। দাম এখানে নয় — Play Console → Monetize → In-app products-এ একই <b>Product ID</b> দিয়ে প্যাকেজ বানিয়ে সেখানে দাম বসাবেন। এখানে শুধু কত কয়েন পাবে তা ঠিক করবেন।</p>
-    <div class="card" style="max-width:520px" id="ppForm">
+    <div class="card cs-card" id="ppForm">
       <input type="hidden" id="ppId">
       <label>Product ID (Play Console-এর মতো হুবহু)<input id="ppP" maxlength="100" placeholder="যেমন coins_1200" autocapitalize="none"></label>
       <div class="row" style="gap:8px"><label style="flex:1">কত কয়েন পাবে<input id="ppC" type="number" inputmode="numeric" min="1" placeholder="1200"></label>
@@ -2337,7 +2470,7 @@ routes.coins = async (preNo) => {
       <div class="row" style="gap:8px"><button class="btn primary" id="ppSave">প্যাকেজ যোগ করুন</button><button class="btn hidden" id="ppCancel">বাতিল</button></div>
     </div>
     <div id="ppList" class="table-wrap"></div>
-    <div class="card" style="max-width:520px;margin-top:12px">
+    <div class="card cs-card" style="margin-top:12px">
       <label class="row" style="gap:6px;justify-content:flex-start"><input type="checkbox" id="pbOn" style="width:auto"> Play অ্যাপে Google দিয়ে কয়েন কেনা চালু</label>
       <label class="row" style="gap:6px;justify-content:flex-start"><input type="checkbox" id="phOn" style="width:auto"> Play অ্যাপেও "রিকমেন্ড" (বিকাশ/নগদ) ও "টপ-আপ হেল্পার" ট্যাব দেখাবে</label>
       <p class="muted small" style="margin:4px 0 0">⚠️ Google-এর নিয়মে Play অ্যাপের ভেতরে অন্য পেমেন্টের পথ দেখানো নিষেধ। এটা চালু করলে অ্যাপ বাতিল বা ডেভেলপার অ্যাকাউন্ট বন্ধ হওয়ার ঝুঁকি আছে। ওয়েবসাইটের APK-তে সবসময় দেখায়।</p>
@@ -2346,7 +2479,16 @@ routes.coins = async (preNo) => {
       <button class="btn primary" id="pbSave">সেভ করুন</button>
     </div>
     <h3>সাম্প্রতিক Google Play কেনা</h3><div id="ppBuys" class="table-wrap"></div>
-    <h2>পাঠানো কয়েনের হিসাব</h2><div id="ch" class="table-wrap"></div>`;
+    </section><section class="cs" data-s="hist"><h2>পাঠানো কয়েনের হিসাব</h2><div id="ch" class="table-wrap"></div></section>`;
+  { const tab = (t) => { document.querySelectorAll("#cTabs [data-t]").forEach((b) => b.classList.toggle("on", b.dataset.t === t)); document.querySelectorAll(".cs").forEach((x) => x.classList.toggle("hidden", x.dataset.s !== t)); try { sessionStorage.setItem("coinTab", t); } catch { /* */ } };
+    tab(preNo ? "send" : (sessionStorage.getItem("coinTab") || "send"));
+    $("#cTabs").onclick = (e) => { const b = e.target.closest("[data-t]"); if (b) tab(b.dataset.t); };
+    view.querySelector('[data-go="offer"]').onclick = (e) => { e.preventDefault(); tab("offer"); };
+    Promise.all([rpc("admin_dashboard"), rpc("admin_coin_offers").catch(() => []), rpc("admin_user_type_counts").catch(() => ({}))]).then(([d, of, ty]) => {
+      $("#chOut").textContent = num(d.coins_outstanding); $("#chPend").textContent = `${num(d.cashin_pending)} · ${taka(d.cashin_pending_paisa)}`;
+      $("#chMonth").textContent = taka(d.cashin_month_paisa); $("#chOf").textContent = num((of ?? []).filter((o) => o.active && (!o.ends_at || new Date(o.ends_at) > new Date())).length);
+      $("#chSel").textContent = num(ty.seller ?? 0);
+    }).catch(() => {}); }
   // ---- কয়েনের দাম ----
   const { data: st } = await sb.from("settings").select("key,value").in("key", ["coin_price_paisa", "min_cash_in_taka"]);
   const sv = Object.fromEntries((st ?? []).map((x) => [x.key, Number(x.value)]));
@@ -2354,6 +2496,7 @@ routes.coins = async (preNo) => {
   $("#cpr").value = (pricePaisa / 100).toString(); $("#cmin").value = sv.min_cash_in_taka ?? 20;
   const prInfo = () => { const p = Number($("#cpr").value); $("#cprInfo").textContent = p > 0 ? `৳১ = ${(1 / p).toFixed(2).replace(/\.00$/, "")} কয়েন · ৳১০০ = ${Math.floor(100 / p)} কয়েন` : ""; };
   $("#cpr").oninput = prInfo; prInfo();
+  $("#chPrice").textContent = `১ কয়েন = ৳${(pricePaisa / 100).toFixed(2).replace(/\.00$/, "")} · ৳১০০ = ${num(Math.floor(10000 / pricePaisa))} কয়েন`;
   $("#cprSave").onclick = async () => {
     const pp = Math.round(Number($("#cpr").value) * 100), mn = Math.floor(Number($("#cmin").value));
     if (!(pp >= 1)) return toast("সঠিক দাম দিন (কমপক্ষে ৳0.01)", true);

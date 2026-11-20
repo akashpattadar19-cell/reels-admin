@@ -280,6 +280,12 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   icons at the end of app.css) and 🪙 → `<i class="coin">` (gold SVG). Skips `ESKIP` (translate="no", inputs, gifts, editor, stickers, captions,
   chat bubbles). Icon colour = `--icon`: default currentColor (same as the text); purple only in light list contexts (.li, .st-i, .me-menu, h2/h3 …). Icons are `<i-c>` elements so page CSS like `.x span`/`.x i` can't restyle them. Keep writing emoji in code; add new
   ones to `EICON` + an icon path in the generator if needed.
+- Admin design (050): dark (default, navy-purple, glowing active nav) + light theme — `html[data-theme]`, sun/moon toggle `#themeTg`,
+  localStorage `adminTheme` (set in a head script before paint). Colours via CSS vars in the "নতুন ডিজাইন" block of style.css (pills use
+  `--pill-*`; never hardcode dark hex in new UI). `icons.js` = admin iconizer (same `<i-c class="ei ei-*">` icons as the app).
+  Dashboard: hero with pending-work chips, KPI cards, SVG charts (`CH.line/bars/donut`, data from `admin_income_report` 60 days,
+  `admin_user_type_counts`, `admin_analytics(30)`). Users page = cards (`userCard`, toggle cards/table, localStorage `usersView`).
+  Coins page `#coins` = hero stats + tabs send/price/offer/play/hist (sessionStorage `coinTab`).
 - Declined: stock/AI photos of attractive women/men presented as app users (misleading fake users). Use only real, consenting people's photos.
 - Not built on purpose: Chamet "BIG WIN"/"City PK" coin games (betting).
 - Declined: real-money betting games in live (coins are bought with money and earnings withdraw → gambling, illegal in BD/KSA,
