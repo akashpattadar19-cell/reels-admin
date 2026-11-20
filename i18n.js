@@ -2337,6 +2337,7 @@
 "৪. বন্ধু যতবার কয়েন কিনবে, আপনি পাবেন (সারাজীবন)": "4. Every time your friend buys coins, you get (lifetime)"
 };
   var BN = "ঀ-৿";
+  if (window.I18N_EXTRA) for (var xk in window.I18N_EXTRA) if (!(xk in EN)) EN[xk] = window.I18N_EXTRA[xk];
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });
   var esc = function (s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); };
   var RX = new RegExp("(?<![" + BN + "])(" + keys.map(esc).join("|") + ")(?![" + BN + "])", "g");
@@ -2422,6 +2423,7 @@
     [new RegExp(D + " ঘণ্টা পরে?(?![\\u0980-\\u09FF])", "g"), "after $1 hours"],
     [new RegExp(D + " দিন পরে?(?![\\u0980-\\u09FF])", "g"), "after $1 days"]
   ];
+  (window.I18N_EXTRA_PRE || []).forEach(function (r) { PRE.unshift([new RegExp(r[0], "g"), r[1]]); });
   var POST = [
     [new RegExp(D + " দিনের মধ্যে", "g"), "within $1 days"],
     [new RegExp(D + " দিনের জন্য", "g"), "for $1 days"],

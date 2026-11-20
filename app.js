@@ -523,7 +523,7 @@ async function giveOtp(p, priv) {
     <div class="otp-pw">${esc(data.password)}</div>
     <p class="small">ইউজার: <b>@${esc(p.username)}</b> · লগইন: <b>${esc(login)}</b><br>২৪ ঘণ্টা চলবে। লগইন করলেই ইউজারকে নতুন পাসওয়ার্ড দিতে বলা হবে।</p>
     ${phone.startsWith("google:") ? `<p class="small muted">⚠️ এই ইউজার Google দিয়ে খুলেছে — তার পাসওয়ার্ড লাগে না, Google দিয়েই লগইন করবে।</p>` : ""}
-    <div class="toolbar"><button class="btn good" id="otpCopy">📋 বার্তা কপি</button>${wa ? `<a class="btn" href="${wa}" target="_blank">💬 WhatsApp-এ পাঠান</a>` : ""}<button class="btn" id="otpX">বন্ধ</button></div></div>`;
+    <div class="toolbar"><button class="btn good" id="otpCopy">📋 বার্তা কপি</button>${wa ? `<a class="btn" href="${wa}" target="_blank">💬 WhatsApp-এ পাঠান</a>` : ""}<button class="btn" id="otpX">✕ বন্ধ</button></div></div>`;
   document.body.appendChild(box);
   box.querySelector("#otpCopy").onclick = async () => { try { await navigator.clipboard.writeText(msg); toast("কপি হয়েছে"); } catch { prompt("কপি করুন:", msg); } };
   box.querySelector("#otpX").onclick = () => box.remove();
