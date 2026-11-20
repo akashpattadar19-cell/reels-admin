@@ -432,3 +432,5 @@ html[data-theme="light"] .login-card { box-shadow: 0 20px 50px rgba(60,30,140,.1
 .tcard > span { color: var(--acc); }
 .brand, #langBtn { white-space: nowrap; }
 .mon-watch { background: #0f0f16; border-color: #444; }
+
+img.logo { background: none; box-shadow: 0 6px 16px rgba(236,72,153,.35); object-fit: cover; }
