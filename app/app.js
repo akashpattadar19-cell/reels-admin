@@ -2030,11 +2030,11 @@ function wireStarter(box, after) {
   }));
 }
 // Me / টাস্ক পেজে বসানো
-async function growBox(box, compact, after) {
+async function growBox(box, compact, after, withStarter = true) {
   if (!box) return;
-  const [st, c] = await Promise.all([rpc("starter_status").catch(() => null), loadCheckin()]);
+  const [st, c] = await Promise.all([withStarter ? rpc("starter_status").catch(() => null) : null, loadCheckin()]);
   if (!box.isConnected) return;
-  box.innerHTML = starterCard(st) + checkinCard(c, compact);
+  box.innerHTML = (withStarter ? starterCard(st) : "") + checkinCard(c, compact);
   wireStarter(box, after); wireCheckin(box, after);
 }
 // অ্যাপ খুললে দিনে একবার চেক-ইন পপআপ (দেখালে true)
@@ -4172,7 +4172,9 @@ R.me = async () => {
       <a href="#u/${p.id}"><i class="mi c5"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.2-4 4.2-5.5 7.5-5.5s6.3 1.5 7.5 5.5"/></svg></i>আমার প্রোফাইল<em>›</em></a>
       <a href="#settings"><i class="mi c6"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></i>সেটিংস<em>›</em></a>
     </div></div>`;
-  growBox($("#meGrow"), true, () => growBox($("#meGrow"), true)).catch(() => {});
+  growBox($("#meGrow"), true, () => growBox($("#meGrow"), true, null, false), false).catch(() => {});
+  // নতুনদের কাজ বাকি থাকলে "আমার টাস্ক"-এ লাল বিন্দু
+  rpc("starter_status").then((st) => { if (st?.enabled && (st.items || []).some((x) => !x.claimed)) $('.me-menu a[href="#rules"] em')?.insertAdjacentHTML("afterbegin", '<i class="red"></i>'); }).catch(() => {});
   $("#meRefOk")?.addEventListener("click", async (e) => {
     const v = $("#meRef").value.replace(/\D/g, "");
     if (!v) return toast("বন্ধুর ID নম্বর দিন", true);
