@@ -11,6 +11,7 @@ Owner works only from a phone (Bengali UI). Everything is free-tier: Supabase + 
 | Android APK shell (AdMob, video compression, share) | private repo `reels-app` |
 | Database, RPCs, cron, storage | Supabase project `reels-enjoy` (ref `smveeoykybpufhvcehjv`, ap-south-1) |
 | Public website (offers, rules, FAQ, contact) | `site/` → https://akashpattadar19-cell.github.io/reels-admin/site/ |
+| Own domain (Cloudflare, bought 2026-11-20) | https://reelsenjoy.com = Worker `reelsenjoy-site` (source `cf-worker/`, auto-built from this repo by Workers Builds, path /cf-worker) proxying site/ at `/` and get/, v/, policy/, download/ from GitHub Pages. App + admin stay on github.io (moving them would log every user out). `share_link` = https://reelsenjoy.com/get/ |
 | SQL migrations / edge functions (source copy) | `supabase/` |
 
 ## Money rules (all in Postgres functions, never in the client)
@@ -173,7 +174,7 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   `r2-move` (verify_jwt off; auth = header x-cron = `private_config.r2_cron_secret`, or an admin JWT): copies files older than 1 min to R2
   (aws4fetch S3 PUT, same key as the Supabase path), checks the public URL, rewrites `videos.video_url` / `stories.media_url`, deletes the
   Supabase file. `r2_tries` (max 5) per row. Keys in `private_config` r2_account_id/r2_access_key/r2_secret_key/r2_bucket/r2_public_url
-  (r2.dev URL; later a custom domain) set on admin "☁️ ভিডিও স্টোরেজ" (`#storage`, `admin_r2_status`, `admin_r2_retry`, test/run buttons).
+  (r2.dev URL now; R2 on since 2026-11-20, bucket reels-videos; next: custom domain cdn.reelsenjoy.com) set on admin "☁️ ভিডিও স্টোরেজ" (`#storage`, `admin_r2_status`, `admin_r2_retry`, test/run buttons).
   Thumbs/photos/avatars stay on Supabase. Deleting a video does not delete its R2 file. Still TODO: allow 1 s – 59 min videos.
 - Adult/18+ content: owner asked for a paid 18+ folder; declined (illegal in BD/KSA, breaks AdMob policy, CSAM risk). Don't build it.
 - Live & calls (Agora, APK ≥ v1.0.17 grants WebView camera/mic): Agora Web SDK (`agora-rtc-sdk-ng@4` from jsDelivr, lazy) runs in
@@ -258,7 +259,7 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   image in `photos`, link `#route` or https, show_app/show_site, pinned, starts/ends) edited on admin "🚀 লঞ্চ অফার" → "📢 অফার ও খবর"
   (`#launch/posts|pnew|p<id>`, `admin_site_posts/admin_save_site_post/admin_delete_site_post`, optional `admin_broadcast`).
   App: `app_offers()` → Home strip (`homeOffers`) + `#offers`; Settings links to #offers and the website; `get/` links to the site.
-  No own domain/repo yet (session can't create repos) — a custom domain would improve trust.
+  Public URL: https://reelsenjoy.com (Cloudflare Worker, see Pieces).
 - Website editor (046, admin "🌐 ওয়েবসাইট" `#website`): only design 3 kept (owner's choice) — body class `t-c` (pink-orange festive); `site_theme` = c; `settings.site_texts` {notice (top ribbon), hero_tag/title/lead, *_title, faq ("q || a" per line),
   footer, whatsapp/facebook/youtube/tiktok/instagram, each text also `<key>_en`} applied to `[data-k]` elements by `applySite()` in site.js.
 - Agents (044/045): owner wants NO apply option inside the app. People apply on the website (`site/#agent` form → `agent_web_apply(user_no, name,

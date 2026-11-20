@@ -1229,13 +1229,13 @@ async function openGifts(el, isPost = false, liveRoom = null, toUser = null) {
 
 // শেয়ার লিংক: অ্যাপ ডাউনলোড পেজ + আমার রেফার কোড
 function shareLink() {
-  const base = String(setting("share_link", "") || "https://akashpattadar19-cell.github.io/reels-admin/get/");
+  const base = String(setting("share_link", "") || "https://reelsenjoy.com/get/");
   return `${base}?ref=${S.me?.user_no ?? ""}${isEn() ? "&lang=en" : ""}`;
 }
 // ভিডিওর নিজের পেজ (লিংক খুললেই ভিডিও চলে, তারপর অ্যাপ ডাউনলোড) — প্রিমিয়াম হলে সাধারণ ডাউনলোড পেজ
 function videoLink(v) {
   if (v.is_premium) return shareLink();
-  const base = String(setting("share_link", "") || "https://akashpattadar19-cell.github.io/reels-admin/get/").replace(/get\/?(index\.html)?$/, "v/");
+  const base = String(setting("share_link", "") || "https://reelsenjoy.com/get/").replace(/get\/?(index\.html)?$/, "v/");
   return `${base}?id=${v.id}&ref=${S.me?.user_no ?? ""}${isEn() ? "&lang=en" : ""}`;
 }
 async function doShare(el) {
@@ -1676,7 +1676,7 @@ function boostSheet(v) {
 }
 
 // ---------- 🧑‍💼 এজেন্ট ----------
-const agentLink = () => `${String(setting("share_link", "") || "https://akashpattadar19-cell.github.io/reels-admin/get/")}?ref=${S.me?.user_no ?? ""}&agent=1`;
+const agentLink = () => `${String(setting("share_link", "") || "https://reelsenjoy.com/get/")}?ref=${S.me?.user_no ?? ""}&agent=1`;
 const agentRuleItems = () => {
   const g = (k) => Number(setting("agent_" + k, 0)), days = g("req_post_days");
   return [{ k: "active_days", need: g("req_active_days"), have: 0, mins: g("req_minutes_per_day") },
@@ -1698,7 +1698,7 @@ R.agent = async () => {
       ${notice ? `<p class="tiny" style="margin:8px 0 0;white-space:pre-line" translate="no">${esc(notice)}</p>` : ""}</div>`;
   const perks = `<div class="ag-perks"><div><b>${tk(per)}</b><span>প্রতি সফল রেফার</span></div>${tgt > 0 && tb > 0 ? `<div><b>+${tk(tb)}</b><span>প্রতি ${n(tgt)} জন পূরণে</span></div>` : ""}<div><b>🧑‍💼</b><span>প্রোফাইলে এজেন্ট ব্যাজ</span></div></div>`;
   if (a.status !== "approved") {
-    const site = "https://akashpattadar19-cell.github.io/reels-admin/site/#agent";
+    const site = "https://reelsenjoy.com/#agent";
     screen.innerHTML = `<div class="page">${header("🧑‍💼 এজেন্ট")}
       <div class="ag-hero"><div class="ag-ic">🧑‍💼</div><b>${a.status === "pending" ? "⏳ আপনার আবেদন যাচাই হচ্ছে" : "আপনি এখনো এজেন্ট নন"}</b>
         <span>${a.status === "pending" ? "অনুমোদন হলে নোটিফিকেশন পাবেন, তখন এখানে আপনার এজেন্ট পেজ খুলবে।" : "এজেন্ট হতে আমাদের ওয়েবসাইটে আবেদন করুন। আবেদনে আপনার Reels Enjoy ID লাগবে:"}</span>
@@ -1767,7 +1767,7 @@ R.offers = async () => {
       ${x.ends_at ? `<div class="tiny muted">⏳ শেষ হবে ${dt(x.ends_at)}</div>` : ""}
       ${x.link_url ? `<button class="btn primary" data-go="${i}" style="width:100%;margin-top:10px">দেখুন →</button>` : ""}</div>`).join("")
       || `<div class="empty">এখন কোনো অফার নেই।<br>নতুন অফার এলে এখানে দেখাবে 🔔</div>`}
-    <a class="btn" href="https://akashpattadar19-cell.github.io/reels-admin/site/" target="_blank" rel="noopener" style="width:100%;margin-top:6px" id="ofSite">🌐 আমাদের ওয়েবসাইট</a></div>`;
+    <a class="btn" href="https://reelsenjoy.com/" target="_blank" rel="noopener" style="width:100%;margin-top:6px" id="ofSite">🌐 আমাদের ওয়েবসাইট</a></div>`;
   seasonBanner($("#ofSsn")).catch(() => {});
   screen.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => offerGo(list[Number(b.dataset.go)])));
   $("#ofSite").onclick = (e) => { e.preventDefault(); openLink(e.currentTarget.href); };
@@ -4268,7 +4268,7 @@ R.settings = async () => {
     ${tgUser ? `<a class="card list-1" href="https://t.me/${esc(tgUser)}" target="_blank" rel="noopener"><span>✈️ টেলিগ্রামে যোগাযোগ</span><span class="muted">@${esc(tgUser)} ›</span></a>` : ""}
     <div class="card list">
       <a class="li" href="#offers"><span>📢 অফার ও খবর</span><span>›</span></a>
-      <a class="li" href="https://akashpattadar19-cell.github.io/reels-admin/site/" target="_blank" rel="noopener"><span>🌐 আমাদের ওয়েবসাইট</span><span>›</span></a>
+      <a class="li" href="https://reelsenjoy.com/" target="_blank" rel="noopener"><span>🌐 আমাদের ওয়েবসাইট</span><span>›</span></a>
       <label class="li"><span>🔔 নোটিফিকেশন</span><input type="checkbox" id="nt" class="sw" ${notifOn() ? "checked" : ""}></label>
       ${me.account_type === "host" ? `<label class="li"><span>📞 কল নিতে রাজি (ইউজাররা আপনাকে কল দিতে পারবে)</span><input type="checkbox" id="cOn" class="sw" ${me.calls_on !== false ? "checked" : ""}></label>` : ""}
     </div>

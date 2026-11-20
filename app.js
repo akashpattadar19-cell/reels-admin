@@ -1280,7 +1280,7 @@ const partsTxt = (p) => [["watch", "👀"], ["like", "❤️"], ["comment", "�
   .filter(([k]) => p?.[k]).map(([k, i]) => `${i} ${num(p[k])}`).join(" · ") || "—";
 
 // 📢 অফার ও খবর: একবার লিখলে অ্যাপ আর ওয়েবসাইট দুই জায়গায় দেখাবে
-const SITE_URL = "https://akashpattadar19-cell.github.io/reels-admin/site/";
+const SITE_URL = "https://reelsenjoy.com/";
 async function launchPosts(arg, tabs) {
   const list = await rpc("admin_site_posts");
   const now = Date.now();
@@ -1993,7 +1993,7 @@ routes.agents = async (tab = "pending") => {
         ${row("agent_req_comments", "কমেন্ট (মোট)", "num")}${row("agent_req_shares", "শেয়ার (মোট)", "num")}</div>
       <h2>নিয়মের নোটিশ</h2><div class="list">${row("agent_rules_text", "এজেন্ট পেজে দেখাবে", "text")}${row("agent_rules_text_en", "English", "text")}</div>`;
   } else if (tab === "pending" || tab === "rejected") {
-    body = `<div class="card small" style="margin-bottom:12px">এজেন্ট আবেদন আসে শুধু <a href="https://akashpattadar19-cell.github.io/reels-admin/site/#agent" target="_blank" rel="noopener">ওয়েবসাইট</a> থেকে।
+    body = `<div class="card small" style="margin-bottom:12px">এজেন্ট আবেদন আসে শুধু <a href="https://reelsenjoy.com/#agent" target="_blank" rel="noopener">ওয়েবসাইট</a> থেকে।
       আবেদনের ID দিয়ে ইউজারকে দেখে নিন (🔎), দরকার হলে ফোনে কথা বলুন, তারপর অনুমোদন দিন। অনুমোদনের পর তার অ্যাপে এজেন্ট পেজ আর আয়ের নিয়ম খুলে যাবে।</div>
       <div class="list">${apps.map((a) => `<div class="item">
       <div class="top"><b>${esc(a.name)} <span class="muted small">ID <a href="#lookup/${a.user_no}">${a.user_no}</a>${a.username ? ` · @${esc(a.username)}` : ""}</span></b>
