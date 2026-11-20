@@ -424,7 +424,24 @@ window.I18N_EXTRA = {
 "কপি হয়েছে": "Copied",
 "কাজ হয়নি": "Failed",
 "✅ গ্রুপে পরীক্ষা মেসেজ গেছে": "✅ Test message sent to the group",
-"✅ অপেক্ষার ভিডিও পাঠানো হয়েছে": "✅ Waiting videos sent"
+"✅ অপেক্ষার ভিডিও পাঠানো হয়েছে": "✅ Waiting videos sent",
+"🔔 Push নোটিফিকেশন (Firebase)": "🔔 Push notifications (Firebase)",
+"অ্যাপ বন্ধ থাকলেও মেসেজ, কল, লাইক, গিফট ইত্যাদির নোটিফিকেশন যায় (APK v1.0.23+)।": "Messages, calls, likes, gifts etc. are notified even when the app is closed (APK v1.0.23+).",
+"✅ চালু · প্রজেক্ট:": "✅ On · project:",
+"❌ Service account key বসানো হয়নি": "❌ Service account key not set",
+"রেজিস্টার্ড ফোন": "Registered phones",
+"console.firebase.google.com → Reels Enjoy প্রজেক্ট → ⚙️ Project settings → Service accounts।": "console.firebase.google.com → Reels Enjoy project → ⚙️ Project settings → Service accounts.",
+"Generate new private key → ডাউনলোড হওয়া .json ফাইল ফোনে খুলে পুরো লেখা কপি করুন।": "Generate new private key → open the downloaded .json file and copy all of its text.",
+"নিচের ঘরে পেস্ট করে সেভ করুন (key শুধু সার্ভারে থাকে, পরে আর দেখা যায় না)।": "Paste it below and save (the key stays on the server only and can't be read back).",
+"Key সেভ": "Save key",
+"📲 আমার ফোনে পরীক্ষা": "📲 Test on my phone",
+"ইউজার ID": "User ID",
+"ইউজারকে পরীক্ষা": "Test a user",
+"পুরো JSON লেখা পেস্ট করুন": "Paste the whole JSON text",
+"✅ সেভ হয়েছে": "✅ Saved",
+"এটা সঠিক service account JSON না": "This is not a valid service account JSON",
+"পাঠানো হচ্ছে…": "Sending…",
+"এই ইউজারের ফোন এখনো রেজিস্টার হয়নি (নতুন APK দিয়ে অ্যাপ খুলে নোটিফিকেশন Allow করতে হবে)": "This user's phone isn't registered yet (open the app with the new APK and allow notifications)"
 };
 window.I18N_EXTRA_PRE = [
 [
@@ -618,5 +635,13 @@ window.I18N_EXTRA_PRE = [
 [
 "^(\\S+) টি ভিডিও$",
 "$1 videos"
+],
+[
+"^(\\S+) টি \\((\\S+) জন\\)$",
+"$1 ($2 users)"
+],
+[
+"^✅ (\\S+) টি ফোনে গেছে$",
+"✅ Sent to $1 phones"
 ]
 ];

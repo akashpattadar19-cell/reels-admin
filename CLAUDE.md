@@ -94,7 +94,16 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   Notice text in `settings.premium_notice` (requires own/licensed content, no obscene).
 - Analytics: app sends `track_time` every minute → `app_usage`; admin "অ্যানালিটিক্স" (`admin_analytics`): time, categories, posts, countries.
 - APK ≥ v1.0.4: asks camera, photos/videos, notifications; camera capture for photos; `notify(title, body)` local notifications
-  while the app is in background (no Firebase push yet).
+  while the app is in background.
+- Push (054, APK ≥ v1.0.23): Firebase Cloud Messaging. reels-app reads `app/google-services.json` in gradle (no plugin; resValues
+  google_app_id/api_key/sender/project, `BuildConfig.HAS_FCM`); `PushService` shows data messages (title, body, route, kind call|msg|notif, tag;
+  channels reels_push + reels_calls with ringtone; skipped while the app is in the foreground). Bridge: `pushToken()` → `window.onPushToken`,
+  `notifStatus()` granted|denied|blocked, `requestNotif()` → `window.onNotifPerm`, `takeRoute()` (route from a tapped notification; also
+  `openPushRoute` via onNewIntent). App: `requireNotif()` = blocking `#notifGate` until notifications are allowed (owner's rule), then
+  `save_push_token(token, lang)`; logout → `remove_push_token`; `pendingCall()` shows a still-ringing call on start. Server: `push_tokens`,
+  triggers on notifications/messages/calls(ringing) → `_push(user, kind, ref)` → pg_net → edge function `send-push` (x-push = `push_secret`;
+  FCM HTTP v1 with the service account in `private_config.fcm_service_account`, set on admin "📲 অ্যাপ আপডেট" → Push card, test button;
+  English users get English templates, never mixed). Location stays coarse/foreground only (background location would fail Play review).
 - Buy coins: notice text `settings.cashin_notice` (admin Income rules page) shown under the numbers; optional payment
   screenshot → private bucket `proofs` (`<uid>/<id>-*.jpg`) via `set_cash_in_proof`; admin sees it on Cash-in page (signed URL).
 - APK ≥ v1.0.5 is edge-to-edge: native pushes `--safe-t/--safe-b` CSS vars; `ReelsAndroid.setDarkBars(bool)` per page.

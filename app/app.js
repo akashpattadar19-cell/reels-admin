@@ -609,7 +609,9 @@ async function start() {
     if (di.id) rpc("register_device", { p_device_id: di.id, p_brand: di.brand, p_model: di.model, p_os: di.os, p_app: di.app })
       .then((r) => { if (r?.welcome_paisa > 0) showWelcome(r.welcome_paisa); }).catch(() => {});
   } catch { /* old APK */ }
-  if (!checkUpdate()) { requireLocation(); setTimeout(async () => { if (!(await checkinPopup())) offerPopup(); }, 2500); }
+  if (!checkUpdate()) { requireLocation(); requireNotif(); setTimeout(async () => { if (!(await checkinPopup())) offerPopup(); }, 2500); }
+  pendingCall();
+  try { const pr = Native?.takeRoute?.(); if (pr) setTimeout(() => (location.hash = pr), 300); } catch { /* old APK */ }
   setTimeout(() => { try { if (isPlay()) Native?.playRestore?.(); } catch { /* old APK */ } }, 3000);
 }
 
@@ -712,6 +714,52 @@ window.onNativeLocation = (r) => {
   const msg = $("#locMsg");
   if (msg) msg.textContent = r?.reason === "disabled" ? "ফোনের লোকেশন (GPS) বন্ধ আছে — সেটিংস থেকে চালু করুন" : r?.reason === "denied" ? "অনুমতি দেওয়া হয়নি — আবার চাপুন বা সেটিংস থেকে চালু করুন" : "লোকেশন পাওয়া যায়নি — আবার চেষ্টা করুন";
 };
+
+// ---------------- Push নোটিফিকেশন (APK ≥ v1.0.23) ----------------
+// নোটিফিকেশনের অনুমতি না দেওয়া পর্যন্ত অ্যাপ খোলা যায় না; অনুমতি পেলে টোকেন সার্ভারে যায়
+function requireNotif() {
+  if (!Native?.notifStatus) return; // ব্রাউজার বা পুরনো APK
+  const st = Native.notifStatus();
+  if (st === "granted") { pushRegister(); return; }
+  notifGate(st);
+}
+function notifGate(st) {
+  let g = $("#notifGate");
+  if (!g) {
+    document.body.insertAdjacentHTML("beforeend", `<div id="notifGate" class="loc-gate"><div>
+      <div style="font-size:54px">🔔</div><h2>নোটিফিকেশন চালু করুন</h2>
+      <p class="muted">মেসেজ, কল, গিফট, লাইক আর আপনার ভিডিও অনুমোদনের খবর সাথে সাথে পেতে নোটিফিকেশনের অনুমতি দিন। অ্যাপ বন্ধ থাকলেও খবর পাবেন।</p>
+      <button class="btn primary" id="ntTry">অনুমতি দিন</button>
+      <p class="tiny muted" id="ntMsg"></p></div></div>`);
+    g = $("#notifGate");
+    $("#ntTry").onclick = () => { try { Native.requestNotif(); } catch { /* */ } };
+  }
+  g.classList.remove("hidden");
+  $("#ntMsg").textContent = st === "blocked" ? "নোটিফিকেশন বন্ধ করা আছে — \"অনুমতি দিন\" চাপলে সেটিংস খুলবে, সেখানে চালু করে ফিরে আসুন" : "";
+  $("#ntTry").textContent = st === "blocked" ? "সেটিংস খুলুন" : "অনুমতি দিন";
+}
+window.onNotifPerm = (st) => {
+  if (!S.me || !Native?.notifStatus) return;
+  if (st === "granted") { $("#notifGate")?.remove(); pushRegister(); }
+  else if ($("#notifGate")) notifGate(st);
+};
+function pushRegister() { try { Native?.pushToken?.(); } catch { /* */ } }
+window.onPushToken = (tok) => {
+  if (!tok || !S.me) return;
+  S.pushTok = tok;
+  rpc("save_push_token", { p_token: tok, p_lang: window.getLang?.() === "en" ? "en" : "bn" }).catch(() => {});
+};
+async function dropPush() { if (S.pushTok) { try { await rpc("remove_push_token", { p_token: S.pushTok }); } catch { /* */ } S.pushTok = null; } }
+// নোটিফিকেশনে চাপ দিলে সেই পেজ
+window.openPushRoute = (r) => { if (r && S.me) location.hash = r; };
+// অ্যাপ বন্ধ ছিল, কল আসছে — খুললেই ধরার স্ক্রিন
+async function pendingCall() {
+  try {
+    const { data } = await sb.from("calls").select("*").eq("callee_id", S.me.id).eq("status", "ringing")
+      .gte("created_at", new Date(Date.now() - 45000).toISOString()).order("created_at", { ascending: false }).limit(1);
+    if (data?.[0]) incomingCall(data[0]);
+  } catch { /* */ }
+}
 
 function realtime() {
   if (S.rtChannel) sb.removeChannel(S.rtChannel);
@@ -4159,7 +4207,7 @@ R.jail = async () => {
     try { await rpc("pay_jail_release"); S.me.jailed = false; toast("🔓 আপনি এখন মুক্ত"); location.hash = "#home"; }
     catch (er) { toast(errMsg(er), true); e.target.disabled = false; }
   });
-  $("#lo").onclick = async () => { await sb.auth.signOut(); S.me = null; location.hash = ""; showAuth(); };
+  $("#lo").onclick = async () => { await dropPush(); await sb.auth.signOut(); S.me = null; location.hash = ""; showAuth(); };
 };
 
 R.me = async () => {
@@ -4239,7 +4287,7 @@ function accountBlock(me) {
 function bindAccount(me, reload) {
   const en = window.getLang?.() === "en", host = me.account_type === "host", pending = !host && me.host_requested_at;
   $("#lang")?.addEventListener("click", () => window.setLang?.(en ? "bn" : "en"));
-  $("#lo")?.addEventListener("click", async () => { if (!await ask("লগআউট করবেন?")) return; await sb.auth.signOut(); S.me = null; location.hash = ""; showAuth(); });
+  $("#lo")?.addEventListener("click", async () => { if (!await ask("লগআউট করবেন?")) return; await dropPush(); await sb.auth.signOut(); S.me = null; location.hash = ""; showAuth(); });
   document.querySelectorAll(".acct button").forEach((b) => (b.onclick = async () => {
     const t = b.dataset.t;
     if ((t === "host" && (host || pending)) || (t === "user" && !host && !pending)) return;
@@ -4559,7 +4607,7 @@ R.u = async (id) => {
       <span class="pill ${v.status === "pending" ? "pending" : "rejected"}">${v.status === "pending" ? "⏳ পেন্ডিং" : "রিজেক্টেড"}</span></div>`).join("")}</div></div>`;
   }
   $("#lang")?.addEventListener("click", () => window.setLang?.(window.getLang?.() === "en" ? "bn" : "en"));
-  $("#lo")?.addEventListener("click", async () => { if (!await ask("লগআউট করবেন?")) return; await sb.auth.signOut(); S.me = null; location.hash = ""; showAuth(); });
+  $("#lo")?.addEventListener("click", async () => { if (!await ask("লগআউট করবেন?")) return; await dropPush(); await sb.auth.signOut(); S.me = null; location.hash = ""; showAuth(); });
   $("#pfMore")?.addEventListener("click", () => userMenu(p));
   $("#cbV")?.addEventListener("click", () => startCall(p, "video"));
   $("#cbA")?.addEventListener("click", () => startCall(p, "audio"));

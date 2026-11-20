@@ -1,0 +1,4 @@
+-- 054/055: Push নোটিফিকেশন (FCM). টোকেন push_tokens-এ; notifications / messages / calls ইনসার্ট → _push() → pg_net → edge function send-push.
+-- service account JSON: private_config.fcm_service_account (admin_set_private_config, JSON যাচাই করে)। push_secret = edge function-এর x-push হেডার।
+-- (প্রয়োগ করা SQL: push_tokens, save_push_token, remove_push_token, _push, tg_push_notification/message/call ট্রিগার, admin_push_status,
+--  admin_set_private_config-এ 'fcm_service_account' যোগ — Supabase-এ migration 054_push_notifications ও 055_private_config_fcm নামে আছে)

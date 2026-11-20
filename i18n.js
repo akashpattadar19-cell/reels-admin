@@ -1899,6 +1899,8 @@
 "👀 এডমিন দেখে অনুমোদন করলে তবেই সবাই দেখতে পাবে": "👀 Everyone can see it after an admin approves it",
 "🪙 প্রতিটা ভিডিও অনুমোদন হলে +": "🪙 +",
 "নিয়ম দেখুন": "See rules",
+"মেসেজ, কল, গিফট, লাইক আর আপনার ভিডিও অনুমোদনের খবর সাথে সাথে পেতে নোটিফিকেশনের অনুমতি দিন। অ্যাপ বন্ধ থাকলেও খবর পাবেন।": "Allow notifications to get messages, calls, gifts, likes and video approvals instantly — even when the app is closed.",
+"নোটিফিকেশন বন্ধ করা আছে — \"অনুমতি দিন\" চাপলে সেটিংস খুলবে, সেখানে চালু করে ফিরে আসুন": "Notifications are turned off — tap \"Open settings\", turn them on and come back",
 "📋 আপলোডের নিয়ম": "📋 Upload rules",
 "কয়েন!": "coins for every approved video!",
 "কয়েন পুরস্কার পেয়েছেন": "coins reward received",

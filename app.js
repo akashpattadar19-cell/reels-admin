@@ -1651,6 +1651,8 @@ routes.appupdate = async () => {
       <label class="small">এর নিচের Play ভার্সন খুলবে না (০ = বাধ্যতামূলক নয়)</label><input id="pm" type="number" value="${Number(S2.play_min_build || 0)}">
       <div class="toolbar"><button class="btn good" id="psave">Play নম্বর সেভ</button></div>
     </div>
+    <h2>🔔 Push নোটিফিকেশন (Firebase)</h2>
+    <div class="card" id="pushBox"><div class="empty">লোড হচ্ছে…</div></div>
     <h2>কে কোন ভার্সন ব্যবহার করছে</h2>
     <div class="table-wrap"><table><tr><th>ভার্সন</th><th>ইউজার</th></tr>${vers.map((v) => `<tr><td>${esc(v.app_version)}${Number(String(v.app_version).split(".")[2]) < latest ? ' <span class="pill pending">পুরনো</span>' : ""}</td><td>${num(v.users)}</td></tr>`).join("") || `<tr><td colspan="2" class="muted">ডেটা নেই (v1.0.6+ থেকে গণনা হয়)</td></tr>`}</table></div>`;
   const save = async (over = {}) => {
@@ -1662,7 +1664,37 @@ routes.appupdate = async () => {
   $("#psave").onclick = () => act(async () => { await rpc("admin_set_setting", { p_key: "play_latest_build", p_value: Number($("#pl").value) || 0 });
     await rpc("admin_set_setting", { p_key: "play_min_build", p_value: Number($("#pm").value) || 0 }); }, "সেভ হয়েছে").then(() => routes.appupdate());
   $("#usoft").onclick = () => act(() => save({ min_app_build: 0 }), "ঐচ্ছিক করা হয়েছে").then(() => routes.appupdate());
+  pushCard($("#pushBox"));
 };
+
+async function pushCard(box) {
+  const st = await rpc("admin_push_status").catch(() => null);
+  if (!st || !box) return;
+  box.innerHTML = `<p class="small">অ্যাপ বন্ধ থাকলেও মেসেজ, কল, লাইক, গিফট ইত্যাদির নোটিফিকেশন যায় (APK v1.0.23+)।</p>
+    <div class="kv"><div>অবস্থা</div><div>${st.has_key ? "<span>✅ চালু · প্রজেক্ট:</span> <span translate=\"no\">" + esc(st.project || "") + "</span>" : "❌ Service account key বসানো হয়নি"}</div>
+      <div>রেজিস্টার্ড ফোন</div><div>${num(st.tokens)} টি (${num(st.users)} জন)</div></div>
+    <ol class="small" style="margin:10px 0 6px;padding-left:18px">
+      <li>console.firebase.google.com → Reels Enjoy প্রজেক্ট → ⚙️ Project settings → Service accounts।</li>
+      <li>Generate new private key → ডাউনলোড হওয়া .json ফাইল ফোনে খুলে পুরো লেখা কপি করুন।</li>
+      <li>নিচের ঘরে পেস্ট করে সেভ করুন (key শুধু সার্ভারে থাকে, পরে আর দেখা যায় না)।</li></ol>
+    <textarea id="saJson" rows="4" placeholder='{"type": "service_account", ...}' autocomplete="off" spellcheck="false"></textarea>
+    <div class="toolbar"><button class="btn good" id="saSave">Key সেভ</button>
+      ${st.has_key ? `<button class="btn" id="pTest">📲 আমার ফোনে পরীক্ষা</button><input id="pNo" type="number" placeholder="ইউজার ID" style="max-width:130px"><button class="btn sm" id="pTestU">ইউজারকে পরীক্ষা</button>` : ""}</div>
+    <p class="tiny muted" id="pMsg"></p>`;
+  $("#saSave").onclick = async () => {
+    const v = $("#saJson").value.trim();
+    if (!v.startsWith("{")) return toast("পুরো JSON লেখা পেস্ট করুন", true);
+    try { await rpc("admin_set_private_config", { p_key: "fcm_service_account", p_value: v }); toast("✅ সেভ হয়েছে"); pushCard(box); }
+    catch (e) { toast(String(e.message).includes("BAD_JSON") ? "এটা সঠিক service account JSON না" : errMsg(e), true); }
+  };
+  const test = async (user_no) => {
+    $("#pMsg").textContent = "পাঠানো হচ্ছে…";
+    const { data, error } = await sb.functions.invoke("send-push", { body: { action: "test", user_no } });
+    $("#pMsg").textContent = error ? "❌ " + error.message : data?.sent ? `✅ ${data.sent} টি ফোনে গেছে` : data?.reason === "NO_TOKEN" ? "এই ইউজারের ফোন এখনো রেজিস্টার হয়নি (নতুন APK দিয়ে অ্যাপ খুলে নোটিফিকেশন Allow করতে হবে)" : "❌ " + JSON.stringify(data);
+  };
+  $("#pTest") && ($("#pTest").onclick = () => test(null));
+  $("#pTestU") && ($("#pTestU").onclick = () => { const n = Number($("#pNo").value); if (n) test(n); });
+}
 
 // ---------- অ্যাকাউন্ট ডিলিট রিকোয়েস্ট ----------
 routes.deletions = async () => {
