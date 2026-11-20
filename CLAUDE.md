@@ -75,7 +75,7 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
 - Location: APK (≥ v1.0.3) blocks the app until coarse location is allowed; Android Geocoder gives country/city → `update_location`
   (stored rounded to ~1 km in `user_private`). Admin "User lookup" page (`admin_user_detail(user_no)`) shows profile, phone country,
   location, birth date, referrals, wallet and all posts.
-- App layout (Chamet-style, own icons): tabs Home (Discover 2-column grid: Nearby/Discover/Friends, language + country filters) ·
+- App layout (Chamet-style, own icons): tabs Home (Discover 2-column grid: Nearby/Discover/Friends, language + country filters = buttons opening a chip panel `#dfPan`, order from `discover_facets()` (056) = most creators first) ·
   Reels (`#feed`, full-screen player, categories) · ＋ · Inbox · Me (compact profile that fits one screen). Light theme; reels stay dark.
 - Account type: `profiles.account_type` user|host. User asks in Settings → `set_account_type('host')` → admin approves (dashboard
   "হোস্ট আবেদন" / lookup page) unless `host_auto_approve`. Hosts watch all premium free.

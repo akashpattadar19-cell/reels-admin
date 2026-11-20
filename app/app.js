@@ -4078,9 +4078,10 @@ R.home = (tab = "video") => {
         <a href="#top" class="rank" aria-label="র‍্যাংকিং"><svg viewBox="0 0 32 32"><path d="M4 27h24M7 27V17h5v10M13.5 27V7h5v20M20 27V12h5v15" /></svg></a>
       </div>
       <div class="disc-filters ${tab === "video" || tab === "premium" ? "" : "hidden"}">
-        <label>🅰️ <span id="flL">${f.lang ? langName(f.lang) : "সব"}</span><select id="fLang"><option value="">সব ভাষা</option>${LANGS.map(([k, l]) => `<option value="${k}" ${k === f.lang ? "selected" : ""}>${l}</option>`).join("")}</select></label>
-        <label>📍 <span id="flC">${f.country ? flagOf(f.country) + " " + (COUNTRY_NAMES[f.country] ?? f.country) : "সব"}</span><select id="fCountry"><option value="">সব দেশ</option>${countries.map((c) => `<option value="${c}" ${c === f.country ? "selected" : ""}>${flagOf(c)} ${COUNTRY_NAMES[c]}</option>`).join("")}</select></label>
+        <button type="button" class="df ${f.lang ? "set" : ""}" data-k="lang">🅰️ <span>${f.lang ? langName(f.lang) : "সব"}</span><i class="car"></i></button>
+        <button type="button" class="df ${f.country ? "set" : ""}" data-k="country">📍 <span>${f.country ? flagOf(f.country) + " " + (COUNTRY_NAMES[f.country] ?? f.country) : "সব"}</span><i class="car"></i></button>
       </div>
+      <div class="df-pan hidden" id="dfPan"></div>
     </div>
     ${notice() ? `<div style="padding:0 10px">${notice()}</div>` : ""}
     ${tab === "video" ? `<div id="homeSsn" style="padding:0 10px"></div><div id="homeOf" style="padding:0 10px"></div><div id="homeSp" style="padding:0 10px"></div>` : ""}
@@ -4091,8 +4092,36 @@ R.home = (tab = "video") => {
     ${tab === "photo" ? `<a class="fab" href="#newphoto">📷 ফটো দিন</a>` : ""}</div>`;
   paintUnread();
   const save = () => { try { localStorage.setItem("disc", JSON.stringify(S.disc)); } catch { /* */ } };
-  $("#fLang").onchange = (e) => { S.disc.lang = e.target.value; save(); R.home(tab); };
-  $("#fCountry").onchange = (e) => { S.disc.country = e.target.value; save(); R.home(tab); };
+  // দেশ / ভাষা প্যানেল (চিপ) — যেখানে বেশি ক্রিয়েটর সেটা আগে
+  const pan = $("#dfPan");
+  let bg = null, openK = null;
+  const closePan = () => { pan.classList.add("hidden"); $(".disc-top")?.classList.remove("pan-open"); bg?.remove(); bg = null; openK = null; document.querySelectorAll(".df").forEach((b) => b.classList.remove("open")); };
+  const openPan = async (k) => {
+    if (openK === k) return closePan();
+    closePan(); openK = k;
+    document.querySelector(`.df[data-k="${k}"]`)?.classList.add("open");
+    bg = document.createElement("div"); bg.className = "df-bg"; bg.onclick = closePan; $(".disc").prepend(bg);
+    $(".disc-top")?.classList.add("pan-open");
+    pan.innerHTML = `<div class="center" style="padding:20px"><div class="spinner"></div></div>`; pan.classList.remove("hidden");
+    const fc = S.facets ?? (S.facets = await rpc("discover_facets").catch(() => ({ countries: [], langs: [] })));
+    if (openK !== k) return;
+    const cur = k === "lang" ? f.lang : f.country;
+    let items;
+    if (k === "country") {
+      const top = (fc.countries ?? []).map((x) => x.cc).filter((c) => COUNTRY_NAMES[c]);
+      items = [...top, ...countries.filter((c) => !top.includes(c))].map((c) => [c, `${flagOf(c)} ${COUNTRY_NAMES[c]}`]);
+    } else {
+      const top = (fc.langs ?? []).map((x) => x.lang).filter((l) => LANGS.some(([x]) => x === l));
+      items = [...top, ...LANGS.map(([x]) => x).filter((l) => !top.includes(l))].map((l) => [l, langName(l)]);
+    }
+    pan.innerHTML = `<h3>${k === "country" ? "দেশ" : "ভাষা"}</h3><div class="df-chips">
+      <button type="button" data-v="" class="${cur ? "" : "on"}">🌐 সব</button>${items.map(([v, l]) => `<button type="button" data-v="${esc(v)}" class="${v === cur ? "on" : ""}">${esc(l)}</button>`).join("")}</div>`;
+    pan.onclick = (e) => {
+      const b = e.target.closest("[data-v]"); if (!b) return;
+      S.disc[k] = b.dataset.v; save(); closePan(); R.home(tab);
+    };
+  };
+  document.querySelectorAll(".df").forEach((b) => (b.onclick = () => openPan(b.dataset.k)));
   storyRow($("#stRow"));
   homeSponsors($("#homeSp")).catch(() => {});
   seasonBanner($("#homeSsn"), true).catch(() => {});

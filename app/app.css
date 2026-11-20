@@ -1584,3 +1584,21 @@ details.up-rule > div { margin-top: 5px; line-height: 1.45; }
 .ved-dark .ved-tabs button b svg { width: 21px; height: 21px; }
 .ved-dark .ved-tabs button.on { background: none; color: #fff; }
 .ved-dark .ved-tabs button.on span { border-bottom: 2px solid #ec4899; padding-bottom: 1px; }
+
+/* Home: দেশ / ভাষা ফিল্টার প্যানেল (চিপ) */
+.disc-top.pan-open { z-index: 50; }
+.disc-filters .df { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0; width: auto; border: 0; border-radius: 99px;
+  background: #ecebf2; color: var(--text, #241a3d); font: inherit; font-size: 13px; font-weight: 600; padding: 7px 10px; min-width: 0; }
+.disc-filters .df span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.disc-filters .df .car { width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid currentColor; transition: transform .2s; }
+.disc-filters .df.set { color: #7c3aed; }
+.disc-filters .df.open { background: #fff; color: #7c3aed; box-shadow: 0 4px 14px rgba(60,20,120,.12); }
+.disc-filters .df.open .car { transform: rotate(180deg); }
+.df-pan { position: absolute; left: 0; right: 0; top: 100%; z-index: 40; background: #fff; border-radius: 0 0 22px 22px; padding: 6px 14px 18px;
+  box-shadow: 0 14px 30px rgba(30,10,60,.18); max-height: 62vh; overflow-y: auto; }
+.df-pan h3 { margin: 8px 2px 10px; font-size: 15px; }
+.df-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.df-chips button { width: auto; margin: 0; padding: 7px 13px; border-radius: 99px; border: 1.5px solid transparent; background: #f0eff5; color: #4b4268;
+  font: inherit; font-size: 13.5px; }
+.df-chips button.on { background: #f3e8ff; border-color: #a78bfa; color: #6d28d9; font-weight: 700; }
+.df-bg { position: fixed; inset: 0; z-index: 30; background: rgba(20,10,40,.35); }
