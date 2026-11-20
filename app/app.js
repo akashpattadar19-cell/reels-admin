@@ -616,6 +616,29 @@ async function start() {
   setTimeout(() => { try { if (isPlay()) Native?.playRestore?.(); } catch { /* old APK */ } }, 3000);
 }
 
+// ---------- My Beans (হোস্ট): গিফট/কলের কয়েন → Beans; ১০০০ হলে টাকায় উইথড্র ----------
+const beansOf = (w) => Math.floor(Number(w?.beans || 0) / 100);
+const beansUsable = (w) => { const b = Number(w?.beans || 0); return b >= Number(setting("beans_min_withdraw", 1000)) * 100 ? Math.floor(b * Number(setting("bean_value_paisa", 100)) / 100) : 0; };
+const wdDays = (d) => { d = Number(d); return d <= 0 ? L("যখন খুশি উইথড্র", "Withdraw any time") : d < 1 ? L(`${n(Math.round(d * 24))} ঘণ্টায় একবার`, `Once every ${Math.round(d * 24)} hours`) : L(`${n(d)} দিনে একবার`, d === 1 ? "Once a day" : `Once every ${d} days`); };
+// রেফার লেভেল: বেশি সফল রেফার = দ্রুত উইথড্র
+function wdLevelCard(lv) {
+  if (!lv?.levels?.length || lv.levels.length < 2) return "";
+  const nx = lv.next, left = nx ? Math.max(0, nx.refs - lv.refs) : 0;
+  return `<div class="card"><div class="row"><b>⚡ দ্রুত উইথড্র লেভেল</b><a class="tiny" href="#invite">রেফার করুন ›</a></div>
+    <div class="tiny muted" style="margin:4px 0 8px">${L(`আপনার সফল রেফার: ${n(lv.refs)} জন · এখন ${wdDays(lv.days)}`, `Your successful referrals: ${lv.refs} · now ${wdDays(lv.days)}`)}</div>
+    ${nx ? `<div class="wd-bar"><i style="width:${Math.min(100, Math.round(lv.refs / nx.refs * 100))}%"></i></div>
+      <div class="tiny" style="margin-bottom:8px">${L(`আরও ${n(left)} জন সফল রেফার করলে → ${wdDays(nx.days)}`, `${left} more successful referrals → ${wdDays(nx.days)}`)}</div>` : ""}
+    <div class="wd-lv">${lv.levels.map((x) => `<div class="lv ${x.refs === Math.max(...lv.levels.filter((y) => y.refs <= lv.refs).map((y) => y.refs)) ? "on" : ""}"><span>${L(`${n(x.refs)}+ সফল রেফার`, `${x.refs}+ successful referrals`)}</span><b>${wdDays(x.days)}</b></div>`).join("")}</div></div>`;
+}
+function beansCard(w) {
+  const b = beansOf(w), min = Number(setting("beans_min_withdraw", 1000)), val = Number(setting("bean_value_paisa", 100));
+  return `<a href="#wallet" class="mc beans"><span>My Beans</span><b>${n(b)}</b>
+    <small>${b >= min ? `≈ ${tk(b * val)}` : L(`${n(min)} হলে টাকা`, `Taka from ${min}`)}</small>
+    <svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="bn1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd9a8"/><stop offset="1" stop-color="#e0742b"/></linearGradient></defs>
+      <ellipse cx="25" cy="34" rx="12" ry="17" transform="rotate(-25 25 34)" fill="url(#bn1)"/><ellipse cx="41" cy="30" rx="12" ry="17" transform="rotate(20 41 30)" fill="url(#bn1)"/>
+      <path d="M22 24c3 5 3 13 0 19M44 20c-3 5-3 13 0 19" stroke="#b5521a" stroke-width="2" fill="none" stroke-linecap="round"/></svg></a>`;
+}
+
 // ---------- প্রথম লগইন: ইউজার নাকি হোস্ট? (নিয়ম এডমিন থেকে) ----------
 function startChoice() {
   if ($("#startGate")) return;
@@ -1736,7 +1759,7 @@ async function xhrUpload(bucket, path, blob, type, onProg) {
 
 // ---------------- WALLET ----------------
 const TX = {
-  view_earning: "ভিউ থেকে আয়", like_earning: "লাইক থেকে আয়", comment_earning: "কমেন্ট থেকে আয়", gift_received: "গিফট পেয়েছেন",
+  view_earning: "ভিউ থেকে আয়", like_earning: "লাইক থেকে আয়", comment_earning: "কমেন্ট থেকে আয়", beans_convert: "Beans → টাকা", call_earning: "কল থেকে আয়", gift_received: "গিফট পেয়েছেন",
   gift_sent: "গিফট পাঠিয়েছেন", watch_reward: "ভিডিও দেখে পয়েন্ট", ad_reward_viewer: "অ্যাড দেখে পয়েন্ট", ad_reward_creator: "আপনার ভিডিওতে অ্যাড",
   points_convert: "পয়েন্ট → টাকা", pending_release: "পেন্ডিং থেকে ব্যালেন্সে", cash_in: "ক্যাশ-ইন (কয়েন)", play_purchase: "Google Play থেকে কয়েন কেনা", vip_purchase: "💎 VIP কেনা", vip_daily: "💎 VIP ফ্রি কয়েন", store_purchase: "🎨 দোকান থেকে কেনা", video_boost: "🚀 ভিডিও বুস্ট", reward_pool: "💰 রিওয়ার্ড পুল", upload_reward: "🎬 ভিডিও আপলোড পুরস্কার", season_prize: "🏆 প্রতিযোগিতার পুরস্কার", admin_coin_grant: "🎁 অ্যাডমিন থেকে কয়েন", checkin_reward: "📅 চেক-ইন পুরস্কার", ref_topup_bonus: "🎁 বন্ধুর কয়েন কেনায় কমিশন", starter_reward: "🎯 নতুনদের কাজের পুরস্কার", agent_target_bonus: "🧑‍💼 এজেন্ট টার্গেট বোনাস", withdraw_hold: "উইথড্র রিকোয়েস্ট",
   withdraw_refund: "উইথড্র ফেরত", admin_adjust: "অ্যাডমিন অ্যাডজাস্টমেন্ট", premium_unlock: "প্রিমিয়াম ভিডিও আনলক", welcome_bonus: "নতুন ইউজার বোনাস", jail_release: "জেল থেকে মুক্তি",
@@ -2055,8 +2078,9 @@ R.wallet = async () => {
   const rew = S.ads.rewarded_points;
   const paint = (w) => {
     screen.innerHTML = `<div class="page">${header("ওয়ালেট")}${notice()}
-      <div class="card hero"><div class="k">উইথড্রযোগ্য ব্যালেন্স</div><div class="v" id="wb">${tk(w.earning_paisa)}</div>
-        <div class="stats"><div><b>${tk(w.pending_paisa)}</b><span>পেন্ডিং</span></div><div><b>🪙 ${n(w.coin_balance)}</b><span>কয়েন</span></div><div><b>⭐ ${n(w.points)}</b><span>পয়েন্ট</span></div></div>
+      <div class="card hero"><div class="k">উইথড্রযোগ্য ব্যালেন্স</div><div class="v" id="wb">${tk(Number(w.earning_paisa) + beansUsable(w))}</div>
+        ${beansOf(w) > 0 ? `<div class="tiny" style="color:#e9defc">${L(`ব্যালেন্স ${tk(w.earning_paisa)} + Beans ${beansUsable(w) ? tk(beansUsable(w)) : `(${n(setting("beans_min_withdraw", 1000))} হলে যোগ হবে)`}`, `Balance ${tk(w.earning_paisa)} + Beans ${beansUsable(w) ? tk(beansUsable(w)) : `(added at ${setting("beans_min_withdraw", 1000)})`}`)}</div>` : ""}
+        <div class="stats"><div><b>${tk(w.pending_paisa)}</b><span>পেন্ডিং</span></div><div><b>🪙 ${n(w.coin_balance)}</b><span>কয়েন</span></div>${S.me.account_type === "host" || beansOf(w) > 0 ? `<div><b>🫘 ${n(beansOf(w))}</b><span>Beans</span></div>` : `<div><b>⭐ ${n(w.points)}</b><span>পয়েন্ট</span></div>`}</div>
       </div>
       <div class="menu">
         <a href="#withdraw"><span class="ic">💸</span>উইথড্র<small>bKash / Nagad / Rocket</small></a>
@@ -2077,7 +2101,9 @@ R.wallet = async () => {
             : `<div class="li"><span>${n(setting("points_convert_min"))} পয়েন্ট</span>${locked("convert") ? soon() : `<b>${tk(setting("points_convert_min") * setting("point_value_paisa"))}</b>`}</div>`}
           <div class="li"><span>🤝 প্রতি সফল রেফার</span><b>${tk(setting("referral_bonus_paisa"))}</b></div>
           <div class="li"><span>আয় ব্যালেন্সে আসে</span><b>${n(setting("pending_hold_hours"))} ঘণ্টা পরে</b></div>
-          <div class="li"><span>সর্বনিম্ন উইথড্র</span><b>${tk(setting("withdraw_min_paisa"))} · ${n(setting("withdraw_cooldown_days"))} দিনে একবার</b></div>
+          ${S.me.account_type === "host" && setting("beans_enabled", true) !== false ? `<div class="li"><span>${L(`🫘 গিফট ও কলের ${n(setting("coins_per_bean", 100))} কয়েন = ১ Bean`, `🫘 ${setting("coins_per_bean", 100)} gift/call coins = 1 Bean`)}</span><b>${L(`১ Bean = ${tk(setting("bean_value_paisa", 100))}`, `1 Bean = ${tk(setting("bean_value_paisa", 100))}`)}</b></div>` : ""}
+          <div class="li"><span>সর্বনিম্ন উইথড্র</span><b>${tk(setting("withdraw_min_paisa"))}</b></div>
+          <div class="li"><span>কত দিনে একবার উইথড্র</span><b>রেফার লেভেল অনুযায়ী ›</b></div>
         </div></div></div>`;
     poolCard($("#poolBox")).catch(() => {});
     seasonBanner($("#ssnBox")).catch(() => {});
@@ -2108,8 +2134,8 @@ window.onRewardedResult = (status) => {
 R.history = async () => {
   screen.innerHTML = `<div class="page">${header("লেনদেনের হিসাব")}<div class="card list" id="tl"><div class="spinner"></div></div></div>`;
   const { data } = await sb.from("transactions").select("*").eq("user_id", S.me.id).order("id", { ascending: false }).limit(150);
-  const unit = (t) => (t.bucket === "coin" ? "🪙 " + n(Math.abs(t.amount)) : t.bucket === "points" ? "⭐ " + n(Math.abs(t.amount)) : tk(Math.abs(t.amount)));
-  const where = { coin: "কয়েন", earning: "ব্যালেন্স", pending: "পেন্ডিং", points: "পয়েন্ট" };
+  const unit = (t) => (t.bucket === "coin" ? "🪙 " + n(Math.abs(t.amount)) : t.bucket === "points" ? "⭐ " + n(Math.abs(t.amount)) : t.bucket === "beans" ? "🫘 " + n(Math.round(Math.abs(t.amount)) / 100) : tk(Math.abs(t.amount)));
+  const where = { coin: "কয়েন", earning: "ব্যালেন্স", pending: "পেন্ডিং", points: "পয়েন্ট", beans: "Beans" };
   $("#tl").innerHTML = data?.length ? data.filter((t) => !(t.type === "pending_release" && t.bucket === "pending")).map((t) => `<div class="li">
     <div><b>${TX[t.type] ?? t.type}</b><div class="tiny muted">${dt(t.created_at)} · ${where[t.bucket]}${t.note ? " · " + esc(t.note) : ""}</div></div>
     <span class="${t.amount >= 0 ? "plus-amt" : "minus-amt"}">${t.amount >= 0 ? "+" : "−"}${unit(t)}</span></div>`).join("") : `<div class="empty">এখনো কোনো লেনদেন নেই</div>`;
@@ -2435,7 +2461,9 @@ R.withdraw = async () => {
   else if (el.balance_paisa < el.min_paisa) block = `সর্বনিম্ন ${tk(el.min_paisa)} হলে উইথড্র করা যাবে। এখন আছে ${tk(el.balance_paisa)}।`;
   screen.innerHTML = `<div class="page">${header("উইথড্র")}
     <div class="card hero"><div class="k">উইথড্রযোগ্য ব্যালেন্স</div><div class="v">${tk(el.balance_paisa)}</div>
-      <div class="tiny" style="color:#d5cbee">সর্বনিম্ন ${tk(el.min_paisa)} · ${n(setting("withdraw_cooldown_days", 7))} দিনে একবার${el.fee_pct ? ` · চার্জ ${el.fee_pct}%` : ""}</div></div>
+      ${el.beans > 0 ? `<div class="tiny" style="color:#e9defc">${L(`ব্যালেন্স ${tk(el.earning_paisa)} + 🫘 ${n(el.beans)} Beans ${el.beans_paisa ? `= ${tk(el.beans_paisa)}` : `(${n(el.min_beans)} হলে যোগ হবে)`}`, `Balance ${tk(el.earning_paisa)} + 🫘 ${el.beans} Beans ${el.beans_paisa ? `= ${tk(el.beans_paisa)}` : `(added at ${el.min_beans})`}`)}</div>` : ""}
+      <div class="tiny" style="color:#d5cbee">সর্বনিম্ন ${tk(el.min_paisa)} · ${wdDays(el.cooldown_days ?? setting("withdraw_cooldown_days", 7))}${el.fee_pct ? ` · চার্জ ${el.fee_pct}%` : ""}</div></div>
+    ${wdLevelCard(el.level)}
     <div class="card"><div class="row"><b>📱 আমার উইথড্র নম্বর</b><button class="btn small" id="addAcc" type="button">＋ নম্বর যোগ</button></div>
       <div id="accList" class="acc-list">${saved.length ? saved.map((a, i) => `<label class="acc"><input type="radio" name="acc" value="${a.id}" ${i === 0 ? "checked" : ""}>
         <span class="acc-ic ${a.method}">${METHOD[a.method]}</span><span style="flex:1"><b>${esc(a.account)}</b>${a.name ? `<div class="tiny muted" translate="no">${esc(a.name)}</div>` : ""}</span>
@@ -4398,7 +4426,7 @@ R.me = async () => {
     </div>
     <div class="me-cards">
       <a href="#cashin" class="mc coins"><span>আমার কয়েন</span><b>${n(w?.coin_balance)}</b><svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="gm1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9f0ff"/><stop offset="1" stop-color="#5aa9ff"/></linearGradient><linearGradient id="gm2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd3ff"/><stop offset="1" stop-color="#3b82f6"/></linearGradient></defs><path d="M14 22 24 10h16l10 12-18 30z" fill="url(#gm1)"/><path d="M14 22h36L32 52z" fill="url(#gm2)" opacity=".9"/><path d="M24 10l-4 12 12 30 12-30-4-12" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.5"/><path d="M14 22h36" stroke="#fff" stroke-opacity=".8" stroke-width="1.5"/></svg></a>
-      <a href="#wallet" class="mc money"><span>আমার ব্যালেন্স</span><b>${tk(w?.earning_paisa)}</b><svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="cn1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset="1" stop-color="#f5a524"/></linearGradient></defs><ellipse cx="34" cy="46" rx="20" ry="7" fill="#e08c14"/><rect x="14" y="36" width="40" height="10" fill="#f0a020"/><ellipse cx="34" cy="36" rx="20" ry="7" fill="url(#cn1)"/><circle cx="26" cy="24" r="15" fill="url(#cn1)" stroke="#e8961a" stroke-width="2"/><text x="26" y="30" text-anchor="middle" font-size="16" font-weight="700" fill="#c06a00" font-family="sans-serif">৳</text></svg></a>
+      ${host && setting("beans_enabled", true) !== false ? beansCard(w) : ""}<a href="#wallet" class="mc money ${host && setting("beans_enabled", true) !== false ? "hidden" : ""}"><span>আমার ব্যালেন্স</span><b>${tk(w?.earning_paisa)}</b><svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="cn1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset="1" stop-color="#f5a524"/></linearGradient></defs><ellipse cx="34" cy="46" rx="20" ry="7" fill="#e08c14"/><rect x="14" y="36" width="40" height="10" fill="#f0a020"/><ellipse cx="34" cy="36" rx="20" ry="7" fill="url(#cn1)"/><circle cx="26" cy="24" r="15" fill="url(#cn1)" stroke="#e8961a" stroke-width="2"/><text x="26" y="30" text-anchor="middle" font-size="16" font-weight="700" fill="#c06a00" font-family="sans-serif">৳</text></svg></a>
     </div>
     <div id="meGrow"></div>
     <div class="me-create"><b>＋ পোস্ট করুন</b><div><a href="#upload"><i>🎬</i>ভিডিও</a><a href="#newphoto"><i>📷</i>ফটো</a><a href="#newstory"><i>📖</i>স্টোরি</a>

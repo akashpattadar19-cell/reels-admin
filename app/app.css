@@ -1660,3 +1660,10 @@ details.up-rule > div { margin-top: 5px; line-height: 1.45; }
 .me-promo.adm a.mb.img::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,.55), rgba(0,0,0,.05)); }
 .me-promo.adm a.mb > * { position: relative; }
 .me-promo.adm a.mb em { position: absolute; top: 6px; right: 6px; font-style: normal; font-size: 10px; font-weight: 700; background: #fff; color: #db2777; padding: 2px 7px; border-radius: 99px; }
+.mc.beans { background: #fff1e6; color: #c2561a; }
+.mc.beans small { display: block; font-size: 11px; opacity: .85; margin-top: 1px; }
+.wd-lv { display: grid; gap: 6px; }
+.wd-lv .lv { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 10px; background: #f6f3ff; font-size: 13px; }
+.wd-lv .lv.on { background: linear-gradient(135deg, #7c3aed, #db2777); color: #fff; font-weight: 700; }
+.wd-bar { height: 8px; border-radius: 99px; background: #ece6ff; overflow: hidden; margin: 6px 0 2px; }
+.wd-bar i { display: block; height: 100%; background: linear-gradient(90deg, #7c3aed, #db2777); border-radius: 99px; }

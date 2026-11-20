@@ -1,5 +1,15 @@
 // অ্যাডমিন প্যানেলের বাড়তি English (শুধু অ্যাডমিনে লোড হয়, i18n.js-এর আগে)
 window.I18N_EXTRA = {
+"🫘 My Beans (হোস্টের গিফট ও কলের আয়)": "🫘 My Beans (host gift & call income)",
+"Beans চালু": "Beans on",
+"কত কয়েনে ১ Bean": "Coins per 1 Bean",
+"১ Bean = কত টাকা (যেমন ১.০০ – ১.২০)": "1 Bean = how many taka (e.g. 1.00 – 1.20)",
+"কমপক্ষে কত Beans হলে টাকায় উইথড্র করা যাবে": "Minimum Beans before they can be withdrawn as taka",
+"⚡ দ্রুত উইথড্র (রেফার লেভেল — সবার জন্য)": "⚡ Fast withdraw (referral levels — everyone)",
+"যত বেশি সফল রেফার, তত তাড়াতাড়ি আবার উইথড্র। প্রতি লাইনে:": "More successful referrals = withdraw again sooner. One per line:",
+"রেফার সংখ্যা = কত দিনে একবার": "referrals = days between withdrawals",
+"(০.৫ = ১২ ঘণ্টা, ০ = যখন খুশি)।": "(0.5 = 12 hours, 0 = any time).",
+"কমপক্ষে একটি লাইন দিন": "Enter at least one line",
 "🖼 অ্যাপ ব্যানার": "🖼 App banners",
 "🖼 অ্যাপ ব্যানার ও শুরুর নিয়ম": "🖼 App banners & start rules",
 "অ্যাপের \"আমি\" পেজে VIP / সাজান এর জায়গায় এখানে যা লিখবেন বা যে অফার দেবেন তাই দেখাবে। কোনো ব্যানার না থাকলে আগের VIP ও সাজান বাটন দেখাবে।": "Whatever text or offer you write here is shown on the app's Me page in place of VIP / Decorate. With no banners the old VIP and Decorate buttons show.",

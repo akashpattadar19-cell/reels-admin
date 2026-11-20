@@ -1900,6 +1900,13 @@
 "🪙 প্রতিটা ভিডিও অনুমোদন হলে +": "🪙 +",
 "নিয়ম দেখুন": "See rules",
 "নোটিফিকেশন চালু করুন": "Turn on notifications",
+"Beans → টাকা": "Beans → Taka",
+"কল থেকে আয়": "Call income",
+"কত দিনে একবার উইথড্র": "How often you can withdraw",
+"রেফার লেভেল অনুযায়ী ›": "By referral level ›",
+"⚡ দ্রুত উইথড্র লেভেল": "⚡ Fast withdraw level",
+"রেফার করুন ›": "Invite ›",
+"যখন খুশি উইথড্র": "Withdraw any time",
 "আপনি কীভাবে Reels Enjoy ব্যবহার করবেন?": "How will you use Reels Enjoy?",
 "একটি বেছে নিন — পরে প্রোফাইল থেকে বদলাতে পারবেন": "Pick one — you can change it later from your profile",
 "ভিডিও দেখুন, পোস্ট করুন, রেফার করে আয় করুন": "Watch videos, post, earn by inviting friends",
@@ -2397,6 +2404,7 @@
   var D = "([\\d০-৯][\\d০-৯,.]*)";
   var KIND = { "ফটো": "photo", "লেখা": "text", "ভিডিও": "video" };
   var PRE = [
+    [/^আপনি পাবেন 🫘 (\S+) Beans$/g, "You get 🫘 $1 Beans"],
     [new RegExp("^🪙 অনুমোদন হলে \\+" + D + " কয়েন$", "g"), "🪙 +$1 coins when approved"],
     [new RegExp("^" + D + "টি কাজ আপনার অপেক্ষায়$", "g"), "$1 tasks waiting for you"],
     [new RegExp("আজ " + D + " জন নতুন ইউজার · " + D + " ভিউ · " + D + " নতুন ভিডিও", "g"), "Today: $1 new users · $2 views · $3 new videos"],

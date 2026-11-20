@@ -2294,12 +2294,39 @@ routes.hostRules = async () => {
     <h2>🤝 রেফার</h2><div class="list">
       ${row("host_referral_bonus_paisa", "হোস্ট প্রতি সফল রেফারে পাবে", "taka", "referral_bonus_paisa")}
     </div>
+    <h2>🫘 My Beans (হোস্টের গিফট ও কলের আয়)</h2>
+    <p class="muted small">${(() => { const b = Math.floor(100000 / Math.max(1, Number(S.coins_per_bean ?? 100))), mn = num(S.beans_min_withdraw ?? 1000), t = taka(b * Number(S.bean_value_paisa ?? 100));
+      return window.getLang?.() === "en"
+        ? `When users gift a host or pay for a call with coins, those coins reach the host as Beans (the gift % above no longer applies to hosts). Example: ${num(S.coins_per_bean ?? 100)} coins = 1 Bean → 100,000 coins = ${num(b)} Beans = ${t}. Beans don't show as taka until ${mn}; then they are added to the withdraw balance.`
+        : `ইউজার কয়েন দিয়ে হোস্টকে গিফট দিলে বা কল করলে সেই কয়েন হোস্টের কাছে Beans হয়ে জমা হয় (উপরের গিফট % হোস্টের জন্য আর লাগে না)। উদাহরণ: ${num(S.coins_per_bean ?? 100)} কয়েন = ১ Bean → ১,০০,০০০ কয়েন = ${num(b)} Beans = ${t}। Beans ${mn} না হওয়া পর্যন্ত টাকায় দেখাবে না; হলে উইথড্র ব্যালেন্সে যোগ হয়ে যায়।`; })()}</p>
+    <div class="list">
+      ${row("beans_enabled", "Beans চালু", "bool")}
+      ${row("coins_per_bean", "কত কয়েনে ১ Bean", "num")}
+      ${row("bean_value_paisa", "১ Bean = কত টাকা (যেমন ১.০০ – ১.২০)", "taka")}
+      ${row("beans_min_withdraw", "কমপক্ষে কত Beans হলে টাকায় উইথড্র করা যাবে", "num")}
+    </div>
+    <h2>⚡ দ্রুত উইথড্র (রেফার লেভেল — সবার জন্য)</h2>
+    <p class="muted small">যত বেশি সফল রেফার, তত তাড়াতাড়ি আবার উইথড্র। প্রতি লাইনে: <b>রেফার সংখ্যা = কত দিনে একবার</b> (০.৫ = ১২ ঘণ্টা, ০ = যখন খুশি)।</p>
+    <div class="list"><div class="item"><textarea id="wdLv" rows="5" style="width:100%" translate="no">${esc((Array.isArray(S.withdraw_levels) ? S.withdraw_levels : [{ refs: 0, days: 7 }]).map((x) => `${x.refs} = ${x.days}`).join("\n"))}</textarea>
+      <button class="btn sm good" id="wdLvSave" style="margin-top:6px">সেভ</button></div></div>
     <h2>💰 কয়েন সেলার (হোস্ট + এডমিন)</h2>
     <p class="muted small">যে হোস্টকে আপনি সেলার বানাবেন, সে নিজের কয়েন থেকে ইউজারদের কাছে টাকার বিনিময়ে কয়েন বিক্রি করতে পারবে। প্রতি বিক্রিতে কমিশন হিসেবে বাড়তি কয়েন তার স্টক থেকে কাটা যাবে (যেমন ৫% হলে ১০০০ বিক্রিতে ১০৫০ কাটা)। সেলার বানাতে <a href="#sellers">কয়েন সেলার পেজে</a> যান।</p>
     <div class="list">
       ${row("coin_seller_enabled", "কয়েন সেলার চালু", "bool")}
       ${row("seller_commission_pct", "প্রতিটি বিক্রিতে এডমিন কমিশন (সবার জন্য, আলাদা সেলারের জন্য সেলার পেজে)", "pct")}
     </div>`;
+  $("#wdLvSave").onclick = () => {
+    const lv = [];
+    for (const ln of $("#wdLv").value.split("\n")) {
+      if (!ln.trim()) continue;
+      const m = ln.replace(/[০-৯]/g, (d) => "০১২৩৪৫৬৭৮৯".indexOf(d)).match(/^\s*(\d+)\s*=\s*(\d+(?:\.\d+)?)\s*$/);
+      if (!m) return toast("ভুল লাইন: " + ln, true);
+      lv.push({ refs: Number(m[1]), days: Number(m[2]) });
+    }
+    if (!lv.length) return toast("কমপক্ষে একটি লাইন দিন", true);
+    lv.sort((a, b) => a.refs - b.refs); if (lv[0].refs !== 0) lv.unshift({ refs: 0, days: Number(S.withdraw_cooldown_days ?? 7) });
+    act(() => rpc("admin_set_setting", { p_key: "withdraw_levels", p_value: lv }), "সেভ হয়েছে").then(() => routes.hostRules());
+  };
   view.onclick = async (e) => {
     const b = e.target.closest("[data-save]"); if (!b) return;
     const it = b.closest(".item"), raw = it.querySelector("[name=v]").value, kind = it.dataset.kind;

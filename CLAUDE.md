@@ -322,6 +322,14 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
 - Me banners (057): `settings.me_banners` = [{t,t_en,s,s_en,badge,badge_en,link,style,img,ends,on,wide}] replaces the VIP/Decorate pair when
   non-empty (`meBanners()`/`meBannerHtml()`; English users only see banners with English text). Admin "🖼 অ্যাপ ব্যানার" `#banners` edits
   banners (colour presets `BAN_ST`, image upload to `photos`, order, end date) and the start rules.
+- My Beans (058): hosts' gift/call income (types gift_received/call_earning, incl. premium unlock) is redirected inside `_wallet_move` to bucket
+  `beans` (`wallets.beans` = Beans×100) when `beans_enabled`: gross coins (gift_transactions.total_coins / calls.rate_coins per minute, else
+  share ÷ coin price) ÷ `coins_per_bean` (100) — host gift/call % no longer applies. 1 Bean = `bean_value_paisa` (৳1–1.20, admin). Beans count as
+  taka only from `beans_min_withdraw` (1000): `_beans_usable_paisa`; `request_withdraw` auto-converts needed Beans (ledger `beans_convert`);
+  `withdraw_eligibility` returns balance incl. Beans + level; `my_beans()`. Users never convert coins (owner chose "hosts only" — bought coins
+  must never cash out). App: host Me card "My Beans" (`beansCard`), wallet/withdraw show Beans. Admin settings on `#rules/host`.
+- Fast withdraw (058): `settings.withdraw_levels` [{refs, days}] by count of successful referrals (`referral_qualified_at`) →
+  `_withdraw_level(user)` replaces `withdraw_cooldown_days` (days may be fractional, 0 = any time). App `wdLevelCard()` on #withdraw; admin textarea on `#rules/host`.
 - Declined: stock/AI photos of attractive women/men presented as app users (misleading fake users). Use only real, consenting people's photos.
 - Not built on purpose: Chamet "BIG WIN"/"City PK" coin games (betting).
 - Declined: real-money betting games in live (coins are bought with money and earnings withdraw → gambling, illegal in BD/KSA,
