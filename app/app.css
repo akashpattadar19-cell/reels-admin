@@ -1513,3 +1513,21 @@ i-c { display: inline-block; }
 .me .me-promo a b { font-size: 13.5px; white-space: nowrap; }
 .me .me-promo a span { font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .me .me-banner { margin: 0 14px 10px; padding: 10px 14px; }
+/* পাঠযোগ্যতা: বেগুনি অংশ শুধু শিরোনামের পেছনে (লেখা আর রঙের ওপর পড়ে না) */
+.page::before { display: none; }
+.page > h1 { margin: calc(-16px - var(--safe-t)) -16px 14px; padding: calc(16px + var(--safe-t)) 16px 16px; background: var(--band);
+  border-radius: 0 0 24px 24px; color: #fff; box-shadow: 0 8px 22px rgba(91,33,182,.22); }
+.sbar { background: #5B21B6; }
+.page > h1 + .seg, .page > .sbar + h1 + .seg { background: var(--panel2); }
+.page > h1 + .seg button, .page > .sbar + h1 + .seg button { color: var(--muted); }
+.page > h1 + .seg button.on, .page > .sbar + h1 + .seg button.on { background: linear-gradient(135deg, #7C3AED, #A855F7); color: #fff; box-shadow: 0 4px 12px rgba(124,58,237,.3); }
+.page > h1 + .tabs a, .page > .sbar + h1 + .tabs a { background: var(--panel2); color: var(--text); }
+.page > h1 + p, .page > .sbar + h1 + p, .page > h1 + .tiny, .page > .sbar + h1 + .tiny { color: var(--muted); }
+/* আইকনের রং: সাধারণত লেখার রঙেই; সাদা কার্ডের তালিকায় বেগুনি */
+:root { --icon: currentColor; }
+.li, .st-i, .chk-h b, .rt-i, .pr-row span, .me-menu, .card > b:first-child, .card > .row > b, h2, h3, .sh, .acc-ic, .ref-rules span,
+.set-list, .settings-list, .list > a, .stat .k { --icon: #8B3FE0; }
+.hero .li, .hero b, .pool-card *, .vip-plan *, .ssn-banner *, .lvbig *, .chk-d, .chk-d *, .pill, .btn, .btn *, .seg *, .tabs * { --icon: currentColor; }
+.ci-tabs button { color: #6b4fa8; } .ci-tabs button.on { color: #6D28D9; }
+.pool-card .muted, .pool-card .tiny { color: rgba(255,255,255,.82); }
+.hero .muted, .lvbig .muted, .ssn-banner .muted { color: rgba(255,255,255,.8); }
