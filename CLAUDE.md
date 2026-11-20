@@ -288,6 +288,10 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   Coins page `#coins` = hero stats + tabs send/price/offer/play/hist (sessionStorage `coinTab`).
   Admin-only English lives in `i18n-admin.js` (`window.I18N_EXTRA` map + `I18N_EXTRA_PRE` regex rules, loaded before i18n.js only in admin);
   new admin UI text → add there. Admin en crawl must show 0 Bengali except user/admin-written content.
+- User blocking (049, Play UGC rule): `user_blocks`, `block_user(user, on)`, `my_blocks()`, `_is_blocked(a,b)` checked in `send_message`/`call_start`
+  (raises BLOCKED); blocking also removes follows both ways. App: profile ⋯ (`userMenu`: report user via `report_content('user',…)` / block),
+  Settings → `#blocked` list; `rpc()` drops rows whose user_id/creator_id/… is in `BLOCKED` (loaded in `start()`).
+  Play review account: reelsenjoy.app+review@gmail.com (user_no 100009, 2000 coins) — password is in Play Console "Sign in details".
 - Declined: stock/AI photos of attractive women/men presented as app users (misleading fake users). Use only real, consenting people's photos.
 - Not built on purpose: Chamet "BIG WIN"/"City PK" coin games (betting).
 - Declined: real-money betting games in live (coins are bought with money and earnings withdraw → gambling, illegal in BD/KSA,

@@ -275,6 +275,7 @@ const ERR = {
   BAD_NAME: "আপনার নাম লিখুন",
   TRY_LATER: "একটু পরে চেষ্টা করুন",
   ACCOUNT_BANNED: "আপনার অ্যাকাউন্ট ব্লক করা হয়েছে",
+  BLOCKED: "এই ইউজারের সাথে যোগাযোগ বন্ধ (ব্লক করা)",
   JAILED: "আপনার অ্যাকাউন্ট জেলে আছে",
   SUPPORT_OFF: "সাপোর্ট এখন বন্ধ আছে",
   RATE_LIMIT: "একটু ধীরে — কিছুক্ষণ পর আবার চেষ্টা করুন",
@@ -339,8 +340,14 @@ function toast(msg, bad = false) {
   clearTimeout(t._h);
   t._h = setTimeout(() => (t.className = "toast"), 2800);
 }
+// ব্লক করা ইউজারদের কনটেন্ট সব তালিকা থেকে বাদ (Play UGC নিয়ম)
+const BLOCKED = new Set();
+const BK = ["user_id", "creator_id", "owner_id", "author_id", "host_id", "sender_id", "other_id", "from_id", "peer_id"];
+async function loadBlocks() { try { const { data } = await sb.rpc("my_blocks"); BLOCKED.clear(); (data ?? []).forEach((r) => BLOCKED.add(r.user_id)); } catch { /* */ } }
+const unblocked = (rows) => (Array.isArray(rows) && BLOCKED.size ? rows.filter((r) => !(r && typeof r === "object" && BK.some((k) => r[k] && r[k] !== S.me?.id && BLOCKED.has(r[k])))) : rows);
 async function rpc(fn, args = {}) {
-  const { data, error } = await sb.rpc(fn, args);
+  let { data, error } = await sb.rpc(fn, args);
+  if (!error && fn !== "my_blocks") data = unblocked(data);
   if (error) {
     if (String(error.message).includes("ACCOUNT_BANNED")) { await sb.auth.signOut(); showAuth(ERR.ACCOUNT_BANNED); }
     if (String(error.message).includes("JAILED") && S.me) { S.me.jailed = true; setTimeout(() => (location.hash = "#jail"), 50); }
@@ -591,6 +598,7 @@ async function start() {
   $("#auth").classList.add("hidden");
   $("#main").classList.remove("hidden");
   try { Native?.onLogin?.(me.id); } catch { /* old APK */ }
+  await loadBlocks();
   realtime();
   refreshUnread();
   route();
@@ -4243,6 +4251,7 @@ R.settings = async () => {
     <h3 class="sec">নীতিমালা</h3>
     <div class="card list">${POLICIES.map(([k, i, t]) => `<a class="li" href="#policy/${k}"><span>${i} ${t}</span><span>›</span></a>`).join("")}</div>
     <div class="card list">
+      <a class="li" href="#blocked"><span>🚫 ব্লক করা ইউজার</span><span class="muted">${BLOCKED.size ? n(BLOCKED.size) : ""} ›</span></a>
       <a class="li" href="#delacct"><span style="color:#e5484d">🗑️ অ্যাকাউন্ট ডিলিট</span><span class="muted">${delAt ? "⏳ অনুরোধ করা হয়েছে" : ""} ›</span></a>
       <div class="li"><span>📱 অ্যাপ ভার্সন</span><span class="muted">${esc(Native?.appVersion?.() ?? "web")}</span></div>
     </div></div>`;
@@ -4264,6 +4273,18 @@ R.policy = async (key) => {
   } catch { screen.innerHTML = `<div class="page">${header(item[2])}<div class="empty">ইন্টারনেট সংযোগ নেই</div></div>`; }
 };
 
+R.blocked = async () => {
+  screen.innerHTML = `<div class="page"><h1>🚫 ব্লক করা ইউজার</h1><div id="bl"><div class="center"><div class="spinner"></div></div></div></div>`;
+  const rows = (await rpc("my_blocks").catch(() => [])) ?? [];
+  const box = $("#bl");
+  box.innerHTML = rows.length ? `<div class="card">${rows.map((r) => `<div class="li" data-u="${r.user_id}"><a href="#u/${r.user_id}" style="display:flex;gap:10px;align-items:center;color:inherit">${avatar(r)}<span translate="no">${esc(r.full_name || r.username)}<br><small class="muted">@${esc(r.username)}</small></span></a><button class="btn small" data-ub>আনব্লক</button></div>`).join("")}</div>`
+    : `<div class="empty">কাউকে ব্লক করা হয়নি</div>`;
+  box.onclick = async (e) => {
+    const b = e.target.closest("[data-ub]"); if (!b) return;
+    const it = b.closest("[data-u]");
+    try { await rpc("block_user", { p_user: it.dataset.u, p_on: false }); BLOCKED.delete(it.dataset.u); PAGE_CACHE.clear(); it.remove(); toast("আনব্লক করা হয়েছে"); } catch (er) { toast(errMsg(er), true); }
+  };
+};
 R.delacct = async () => {
   const [{ data: p }, { data: w }] = await Promise.all([
     sb.from("profiles").select("deletion_requested_at").eq("id", S.me.id).single(),
@@ -4426,6 +4447,35 @@ R.rules = async () => {
   seasonBanner($("#ssnBox2")).catch(() => {});
   growBox($("#growBox2"), false, () => growBox($("#growBox2"), false)).catch(() => {});
 };
+// প্রোফাইলের ⋯ মেনু: রিপোর্ট / ব্লক
+function userMenu(p) {
+  const bl = BLOCKED.has(p.id);
+  const body = sheet(`<h3 translate="no">@${esc(p.username)}</h3>
+    <button class="btn" style="width:100%;margin-bottom:8px" data-a="rep">🚩 রিপোর্ট করুন</button>
+    <button class="btn" style="width:100%;margin-bottom:8px;${bl ? "" : "color:#dc2626"}" data-a="blk">${bl ? "✅ আনব্লক করুন" : "🚫 ব্লক করুন"}</button>
+    <p class="muted tiny">ব্লক করলে সে আপনাকে মেসেজ বা কল করতে পারবে না, আর তার ভিডিও/পোস্ট আপনার কাছে দেখাবে না।</p>`);
+  body.onclick = async (e) => {
+    const b = e.target.closest("[data-a]"); if (!b) return;
+    if (b.dataset.a === "rep") {
+      const reasons = ["অশ্লীল কনটেন্ট", "হয়রানি/গালি", "স্প্যাম/প্রতারণা", "ভুয়া অ্যাকাউন্ট", "অন্যান্য"];
+      body.innerHTML = `<h3>ইউজার রিপোর্ট</h3>${reasons.map((r) => `<button class="btn" style="width:100%;margin-bottom:8px" data-r="${r}">${r}</button>`).join("")}`;
+      body.onclick = async (ev) => {
+        const r = ev.target.closest("[data-r]"); if (!r) return;
+        try { await rpc("report_content", { p_type: "user", p_target: p.id, p_reason: r.dataset.r }); toast("ধন্যবাদ, রিপোর্ট পাঠানো হয়েছে"); } catch (er) { toast(errMsg(er), true); }
+        closeSheet();
+      };
+      return;
+    }
+    if (!bl && !confirm(L(`@${p.username}-কে ব্লক করবেন?`, `Block @${p.username}?`))) return;
+    try {
+      await rpc("block_user", { p_user: p.id, p_on: !bl });
+      if (bl) BLOCKED.delete(p.id); else BLOCKED.add(p.id);
+      PAGE_CACHE?.clear?.();
+      toast(bl ? "আনব্লক করা হয়েছে" : "ব্লক করা হয়েছে");
+      closeSheet(); route();
+    } catch (er) { toast(errMsg(er), true); }
+  };
+}
 R.u = async (id) => {
   const mine = id === S.me.id;
   screen.innerHTML = `<div class="page"><div class="spinner"></div></div>`;
@@ -4460,7 +4510,8 @@ R.u = async (id) => {
       ${p.interests?.length ? `<div class="int-chips">${p.interests.map((t) => `<span>${esc(t)}</span>`).join("")}</div>` : ""}
       ${mine ? `<div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap"><a class="btn small" href="#myprofile">✏️ প্রোফাইল এডিট</a><button class="btn small" id="accT">⚙️ আমার অ্যাকাউন্ট</button></div>`
         : `<div class="row" style="justify-content:center;gap:8px"><button class="btn" id="fb" style="min-width:130px;${following ? "" : "background:var(--purple);color:#fff;border:0"}">${following ? "ফলোয়িং" : "ফলো করুন"}</button>
-           <a class="btn" href="#chat/${p.id}" style="min-width:110px">💬 মেসেজ</a></div>`}
+           <a class="btn" href="#chat/${p.id}" style="min-width:110px">💬 মেসেজ</a><button class="btn" id="pfMore" aria-label="আরও" style="min-width:44px">⋯</button></div>
+           ${BLOCKED.has(p.id) ? `<p class="muted tiny" style="text-align:center;margin-top:8px">🚫 আপনি এই ইউজারকে ব্লক করেছেন</p>` : ""}`}
     </div>
     ${mine ? `<div id="accBox" class="${S.openAcc ? "" : "hidden"}" style="margin-top:12px">${accountBlock(p)}</div>` : ""}
     ${host && !mine && setting("calls_enabled", true) !== false && p.calls_on !== false ? `<div class="callbtns"><button class="cb vid" id="cbV">📹 ভিডিও কল<small>🪙${n(callRate(p, "video"))}/মিনিট</small></button><button class="cb aud" id="cbA">📞 অডিও কল<small>🪙${n(callRate(p, "audio"))}/মিনিট</small></button></div>` : ""}
@@ -4482,6 +4533,7 @@ R.u = async (id) => {
   }
   $("#lang")?.addEventListener("click", () => window.setLang?.(window.getLang?.() === "en" ? "bn" : "en"));
   $("#lo")?.addEventListener("click", async () => { if (!await ask("লগআউট করবেন?")) return; await sb.auth.signOut(); S.me = null; location.hash = ""; showAuth(); });
+  $("#pfMore")?.addEventListener("click", () => userMenu(p));
   $("#cbV")?.addEventListener("click", () => startCall(p, "video"));
   $("#cbA")?.addEventListener("click", () => startCall(p, "audio"));
   $("#fb")?.addEventListener("click", async (e) => {
