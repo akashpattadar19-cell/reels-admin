@@ -367,7 +367,40 @@ window.I18N_EXTRA = {
 "কোড": "Code",
 "মানে": "Meaning",
 "কোনো ত্রুটি আসেনি। অ্যাপ v1.0.20-এর আগের ভার্সনে কারণ পাঠানো হয় না।": "No errors. App versions before v1.0.20 don't send reasons.",
-"দর্শক পয়েন্ট (পুরো ভিডিও দেখলে)": "Viewer points (full video watched)"
+"দর্শক পয়েন্ট (পুরো ভিডিও দেখলে)": "Viewer points (full video watched)",
+"কে এখন অনলাইন, লাইভে বা কলে — নামে চাপলে তার সব তথ্য ও সব কাজ": "Who is online, live or in a call now — tap a name for all details and actions",
+"অবস্থা": "Status",
+"সাজানো": "Sort",
+"অনলাইন আগে": "Online first",
+"নাম অনুযায়ী": "By name",
+"আজ বেশি সময়": "Most time today",
+"বেশি কয়েন": "Most coins",
+"শেষ দেখা": "Last seen",
+"🔎 নাম, ID বা ফোন": "🔎 Name, ID or phone",
+"রিফ্রেশ": "Refresh",
+"অনলাইন — সব": "Online — all",
+"অনলাইন — লাইভে": "Online — live",
+"অনলাইন — পার্টিতে": "Online — in party",
+"অনলাইন — কলে": "Online — in call",
+"অনলাইন — অবসর": "Online — idle",
+"অফলাইন": "Offline",
+"সীমাবদ্ধ (ব্যান/জেল)": "Restricted (banned/jailed)",
+"অনলাইন": "Online",
+"লাইভে": "Live",
+"পার্টিতে": "In party",
+"কলে": "In call",
+"🔴 লাইভে": "🔴 Live",
+"🎉 পার্টিতে": "🎉 In party",
+"📞 কলে": "📞 In call",
+"অবসর": "Idle",
+"সীমাবদ্ধ": "Restricted",
+"এইমাত্র": "just now",
+"কখনো না": "never",
+"এখন": "now",
+"💎 VIP": "💎 VIP",
+"🧑‍💼 এজেন্ট": "🧑‍💼 Agent",
+"💰 সেলার": "💰 Seller",
+"কেউ নেই": "Nobody"
 };
 window.I18N_EXTRA_PRE = [
 [
@@ -513,5 +546,45 @@ window.I18N_EXTRA_PRE = [
 [
 "\\(পরীক্ষা\\ শেষে\\ আসল\\ ID\\ ফেরত\\ বসাবেন\\)।",
 "(put the real IDs back after testing)."
+],
+[
+"আজ অনলাইন: (\\S+) ঘণ্টা",
+"Online today: $1 h"
+],
+[
+"আজ অনলাইন: (\\S+) মিনিট",
+"Online today: $1 min"
+],
+[
+"^(.+?) \\((\\S+)\\)$",
+"$1 ($2)"
+],
+[
+"শেষ দেখা (\\S+) মিনিট আগে",
+"Last seen $1 min ago"
+],
+[
+"শেষ দেখা (\\S+) ঘণ্টা আগে",
+"Last seen $1 h ago"
+],
+[
+"শেষ দেখা (\\S+) দিন আগে",
+"Last seen $1 d ago"
+],
+[
+"শেষ দেখা এইমাত্র",
+"Last seen just now"
+],
+[
+"শেষ দেখা এখন",
+"Last seen now"
+],
+[
+"শেষ দেখা কখনো না",
+"Never seen"
+],
+[
+"(\\S+) ভিডিও · (\\S+) ফলোয়ার",
+"$1 videos · $2 followers"
 ]
 ];

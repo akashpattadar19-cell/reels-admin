@@ -463,50 +463,76 @@ function userCard(u) {
     <div class="uc-a"><a class="btn sm primary" href="#lookup/${u.user_no}">🔎 সব তথ্য</a><a class="btn sm" href="#coins/${u.user_no}">🪙 কয়েন দিন</a><a class="btn sm" href="#user/${u.id}">⚙️ ম্যানেজ</a></div>
   </div>`;
 }
-routes.users = async (type = "user") => {
-  type = ["user", "host", "seller"].includes(type) ? type : "user";
-  view.innerHTML = `<h1>👥 ইউজার</h1>
-    <div class="tcards">
-      <a class="tcard u ${type === "user" ? "on" : ""}" href="#users/user"><span>👤</span><div><b>ইউজার (নরমাল)</b><em id="tcU">…</em><small id="tcU2"></small></div></a>
-      <a class="tcard h ${type === "host" ? "on" : ""}" href="#users/host"><span>🎤</span><div><b>হোস্ট</b><em id="tcH">…</em><small id="tcH2"></small></div></a>
-    </div>
-    <a class="tcard-mini ${type === "seller" ? "on" : ""}" href="#users/seller">💰 কয়েন সেলার হোস্ট: <b id="tcS">…</b> ›</a>
-    <h2 style="margin-top:14px">${type === "host" ? "🎤 হোস্ট তালিকা" : type === "seller" ? "💰 কয়েন সেলার তালিকা" : "👤 ইউজার তালিকা"}</h2>
-    <div class="toolbar"><input id="q" placeholder="নাম, ইউজারনেম বা ফোন">
-      <select id="st"><option value="">সব</option><option value="active">সক্রিয়</option><option value="banned">ব্যান</option></select>
-      <button class="btn" id="go">খুঁজুন</button>
-      <div class="theme-tg" id="uView" title="দেখার ধরন"><button type="button" data-v="cards">▦</button><button type="button" data-v="table">☰</button></div></div>
-    <div id="list" class="table-wrap"></div><div class="row" style="margin-top:10px"><button class="btn sm" id="more">আরও</button><span id="cnt" class="muted small"></span></div>`;
-  let offset = 0, rows = [];
-  const load = async (reset) => {
-    if (reset) { offset = 0; rows = []; }
-    const data = await act(() => rpc("admin_users", { p_q: $("#q").value.trim(), p_status: $("#st").value, p_limit: 50, p_offset: offset, p_type: type }));
-    rows = rows.concat(data); offset += data.length;
-    $("#cnt").textContent = `${rows.length} / ${data[0]?.total_count ?? rows.length}`;
-    $("#more").classList.toggle("hidden", data.length < 50);
-    const asCards = (localStorage.getItem("usersView") || "cards") === "cards";
-    $("#list").className = asCards ? "ucards" : "table-wrap";
-    if (asCards) { $("#list").innerHTML = rows.length ? rows.map(userCard).join("") : `<div class="empty">কেউ নেই</div>`; return; }
-    $("#list").innerHTML = rows.length ? `<table><tr><th>ID</th><th>ইউজার</th><th>ফোন</th><th>স্ট্যাটাস</th><th class="num">ভিডিও</th><th class="num">কয়েন</th><th class="num">ব্যালেন্স</th><th class="num">পেন্ডিং</th><th class="num">পয়েন্ট</th><th>যোগদান</th></tr>
-      ${rows.map((u) => `<tr><td><a href="#lookup/${u.user_no}"><b>${u.user_no}</b></a></td><td><a href="#user/${u.id}">@${esc(u.username)}</a>${u.account_type === "host" ? ' <span class="pill host">🎤</span>' : ""}${u.coin_seller ? ' <span class="pill seller">💰</span>' : ""}<br><span class="muted small">${esc(u.full_name ?? "")}${u.role === "admin" ? " · অ্যাডমিন" : ""}</span></td>
-        <td>${esc(u.phone ?? "")}</td><td>${pill(u.status)}${u.is_frozen ? ' <span class="pill rejected">ফ্রিজ</span>' : ""}</td>
-        <td class="num">${num(u.videos_count)}</td><td class="num">${num(u.coin_balance)}</td><td class="num">${taka(u.earning_paisa)}</td>
-        <td class="num">${taka(u.pending_paisa)}</td><td class="num">${num(u.points)}</td><td>${dt(u.created_at)}</td></tr>`).join("")}</table>`
-      : `<div class="empty">কেউ নেই</div>`;
-  };
-  $("#go").onclick = () => load(true);
-  $("#q").onkeydown = (e) => e.key === "Enter" && load(true);
-  $("#more").onclick = () => load(false);
-  const uvSync = () => document.querySelectorAll("#uView button").forEach((b) => b.classList.toggle("on", b.dataset.v === (localStorage.getItem("usersView") || "cards")));
-  uvSync();
-  $("#uView").onclick = (e) => { const b = e.target.closest("[data-v]"); if (!b) return; localStorage.setItem("usersView", b.dataset.v); uvSync(); load(true); };
-  load(true);
-  rpc("admin_user_type_counts").then((c) => {
-    $("#tcU").textContent = num(c.user); $("#tcH").textContent = num(c.host); $("#tcS").textContent = num(c.seller);
-    $("#tcU2").textContent = `৭ দিনে নতুন ${num(c.user_new_7d)}`;
-    $("#tcH2").textContent = c.host_requests ? `⏳ ${num(c.host_requests)} জন আবেদন করেছে` : `৭ দিনে নতুন ${num(c.host_new_7d)}`;
-  }).catch(() => {});
+// ইউজার মনিটর (Keeta-র মতো): অবস্থা অনুযায়ী লাইভ তালিকা, নামে চাপলে সব কাজের পেজ
+const USTATE = {
+  all: ["সব", ""], active: ["অনলাইন — সব", "#22C55E"], live: ["অনলাইন — লাইভে", "#EF4444"], party: ["অনলাইন — পার্টিতে", "#EC4899"],
+  call: ["অনলাইন — কলে", "#F59E0B"], online: ["অনলাইন — অবসর", "#22C55E"], offline: ["অফলাইন", "#94A3B8"], restricted: ["সীমাবদ্ধ (ব্যান/জেল)", "#DC2626"],
 };
+const USTATE_TAG = { live: "🔴 লাইভে", party: "🎉 পার্টিতে", call: "📞 কলে", online: "অবসর", offline: "অফলাইন", restricted: "সীমাবদ্ধ" };
+const agoBn = (t) => { if (!t) return "কখনো না"; const m = Math.floor((Date.now() - new Date(t)) / 60000);
+  return m < 1 ? "এইমাত্র" : m < 60 ? `${num(m)} মিনিট আগে` : m < 1440 ? `${num(Math.floor(m / 60))} ঘণ্টা আগে` : `${num(Math.floor(m / 1440))} দিন আগে`; };
+const hrs = (sec) => (sec >= 3600 ? `${(sec / 3600).toFixed(1)} ঘণ্টা` : `${num(Math.round(sec / 60))} মিনিট`);
+function monRow(u) {
+  const nm = u.full_name || u.username, col = AVC[Number(u.user_no || 0) % AVC.length];
+  const on = ["online", "live", "party", "call"].includes(u.state);
+  return `<a class="mrow" href="#lookup/${u.user_no}">
+    <span class="mr-av" translate="no" style="background:${col}">${u.avatar_url ? `<img src="${esc(u.avatar_url)}" alt="" loading="lazy">` : esc(String(nm).charAt(0).toUpperCase())}<i class="${on ? "on" : ""}"></i></span>
+    <span class="mr-b">
+      <span class="mr-t"><b translate="no">${esc(nm)}</b><em class="st-${u.state}">${USTATE_TAG[u.state] || u.state}</em></span>
+      <span class="mr-l"><span translate="no">${esc(u.phone || "")}</span>${u.phone ? " · " : ""}আজ অনলাইন: ${hrs(u.today_seconds || 0)}</span>
+      <span class="mr-l">ID ${u.user_no} · 🪙 ${num(u.coin_balance)} · ${taka(u.earning_paisa)} · ${num(u.videos_count)} ভিডিও · ${num(u.followers_count)} ফলোয়ার</span>
+      <span class="mr-l mr-tags">${u.country_code ? `<span>${flag(u.country_code)} ${esc(COUNTRY_EN[u.country_code] ?? u.country_code)}${u.city ? `, <span translate="no">${esc(u.city)}</span>` : ""}</span>` : ""}
+        ${u.account_type === "host" ? '<span class="pill host">🎤 হোস্ট</span>' : '<span class="pill">👤 ইউজার</span>'}${u.coin_seller ? '<span class="pill seller">💰 সেলার</span>' : ""}${u.agent ? '<span class="pill approved">🧑‍💼 এজেন্ট</span>' : ""}${u.vip ? '<span class="pill pending">💎 VIP</span>' : ""}${u.role === "admin" ? '<span class="pill approved">🛡️ অ্যাডমিন</span>' : ""}
+        <span class="muted">শেষ দেখা ${on ? "এখন" : agoBn(u.last_seen)}</span></span>
+    </span></a>`;
+}
+routes.users = async (type = "all") => {
+  type = ["all", "user", "host", "seller", "agent"].includes(type) ? type : "all";
+  const S = JSON.parse(sessionStorage.getItem("umon") || "{}");
+  view.innerHTML = `<h1>👥 ইউজার</h1><div class="page-sub">কে এখন অনলাইন, লাইভে বা কলে — নামে চাপলে তার সব তথ্য ও সব কাজ</div>
+    <div class="ctabs" id="uType">${[["all", "সব"], ["user", "👤 ইউজার"], ["host", "🎤 হোস্ট"], ["seller", "💰 সেলার"], ["agent", "🧑‍💼 এজেন্ট"]].map(([k, l]) => `<a href="#users/${k}" class="${k === type ? "on" : ""}" data-k="${k}">${l} <b id="tc_${k}"></b></a>`).join("")}</div>
+    <div class="mon-bar">
+      <label class="mb-st"><span>অবস্থা</span><select id="ust">${Object.entries(USTATE).map(([k, [l]]) => `<option value="${k}">${l}</option>`).join("")}</select></label>
+      <label class="mb-st"><span>সাজানো</span><select id="usort"><option value="recent">অনলাইন আগে</option><option value="name">নাম অনুযায়ী</option><option value="time">আজ বেশি সময়</option><option value="coins">বেশি কয়েন</option><option value="seen">শেষ দেখা</option></select></label>
+      <form id="uf" class="mb-q"><input id="q" placeholder="🔎 নাম, ID বা ফোন" value="${esc(S.q || "")}"></form>
+      <button class="btn sm" id="uref" title="রিফ্রেশ">⟳</button>
+    </div>
+    <div class="mon-sum" id="usum"></div>
+    <div id="list" class="mlist"></div><div class="row" style="margin-top:10px"><button class="btn sm" id="more">আরও</button><span id="cnt" class="muted small"></span></div>`;
+  $("#ust").value = S.st || "all"; $("#usort").value = S.sort || "recent";
+  let offset = 0, rows = [];
+  const save = () => sessionStorage.setItem("umon", JSON.stringify({ q: $("#q").value, st: $("#ust").value, sort: $("#usort").value }));
+  const counts = async () => {
+    const c = await rpc("admin_user_state_counts", { p_type: type === "all" ? null : type }).catch(() => ({}));
+    const act2 = ["online", "live", "party", "call"].reduce((a, k) => a + Number(c[k] || 0), 0);
+    const n = (k) => (k === "active" ? act2 : Number(c[k] || 0));
+    [...$("#ust").options].forEach((o) => (o.textContent = `${USTATE[o.value][0]} (${num(n(o.value))})`));
+    $("#usum").innerHTML = ["active", "live", "party", "call", "offline", "restricted"].map((k) =>
+      `<button type="button" data-s="${k}" class="${$("#ust").value === k ? "on" : ""}"><i style="background:${USTATE[k][1]}"></i>${k === "active" ? "অনলাইন" : USTATE[k][0].replace("অনলাইন — ", "")} <b>${num(n(k))}</b></button>`).join("");
+  };
+  const load = async (reset) => {
+    if (reset) { offset = 0; rows = []; $("#list").innerHTML = `<div class="center"><div class="spinner"></div></div>`; }
+    save();
+    const data = await act(() => rpc("admin_user_monitor", { p_q: $("#q").value.trim(), p_state: $("#ust").value, p_type: type === "all" ? null : type, p_sort: $("#usort").value, p_limit: 50, p_offset: offset }));
+    rows = rows.concat(data ?? []); offset += (data ?? []).length;
+    $("#cnt").textContent = `${num(rows.length)} / ${num(data?.[0]?.total_count ?? rows.length)}`;
+    $("#more").classList.toggle("hidden", (data ?? []).length < 50);
+    $("#list").innerHTML = rows.length ? rows.map(monRow).join("") : `<div class="empty">কেউ নেই</div>`;
+  };
+  const all = () => { counts(); load(true); };
+  $("#ust").onchange = all; $("#usort").onchange = () => load(true); $("#uref").onclick = all;
+  $("#uf").onsubmit = (e) => { e.preventDefault(); load(true); };
+  $("#more").onclick = () => load(false);
+  $("#usum").onclick = (e) => { const b = e.target.closest("[data-s]"); if (!b) return; $("#ust").value = $("#ust").value === b.dataset.s ? "all" : b.dataset.s; all(); };
+  all();
+  rpc("admin_user_type_counts").then((c) => {
+    const t = { user: c.user, host: c.host, seller: c.seller, all: Number(c.user || 0) + Number(c.host || 0) };
+    Object.entries(t).forEach(([k, v]) => { const el = $("#tc_" + k); if (el) el.textContent = num(v); });
+  }).catch(() => {});
+  // প্রতি ৩০ সেকেন্ডে নিজে থেকে হালনাগাদ (এই পেজে থাকলে)
+  const h = location.hash, timer = setInterval(() => { if (location.hash !== h) return clearInterval(timer); if (!document.hidden && offset <= 50) all(); }, 30000);
+};
+
 
 // 🔑 এককালীন পাসওয়ার্ড: সার্ভার বানায়, ইউজার লগইন করলেই নিজের নতুন পাসওয়ার্ড দিতে বাধ্য, ২৪ ঘণ্টা পর অচল
 async function giveOtp(p, priv) {
