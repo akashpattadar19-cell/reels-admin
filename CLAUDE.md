@@ -174,7 +174,7 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   `r2-move` (verify_jwt off; auth = header x-cron = `private_config.r2_cron_secret`, or an admin JWT): copies files older than 1 min to R2
   (aws4fetch S3 PUT, same key as the Supabase path), checks the public URL, rewrites `videos.video_url` / `stories.media_url`, deletes the
   Supabase file. `r2_tries` (max 5) per row. Keys in `private_config` r2_account_id/r2_access_key/r2_secret_key/r2_bucket/r2_public_url
-  (r2.dev URL now; R2 on since 2026-11-20, bucket reels-videos; next: custom domain cdn.reelsenjoy.com) set on admin "☁️ ভিডিও স্টোরেজ" (`#storage`, `admin_r2_status`, `admin_r2_retry`, test/run buttons).
+  (R2 on since 2026-11-20, bucket reels-videos, public URL https://cdn.reelsenjoy.com — custom domain, cached; r2.dev URL still works but is rate-limited) set on admin "☁️ ভিডিও স্টোরেজ" (`#storage`, `admin_r2_status`, `admin_r2_retry`, test/run buttons).
   Thumbs/photos/avatars stay on Supabase. Deleting a video does not delete its R2 file. Still TODO: allow 1 s – 59 min videos.
 - Adult/18+ content: owner asked for a paid 18+ folder; declined (illegal in BD/KSA, breaks AdMob policy, CSAM risk). Don't build it.
 - Live & calls (Agora, APK ≥ v1.0.17 grants WebView camera/mic): Agora Web SDK (`agora-rtc-sdk-ng@4` from jsDelivr, lazy) runs in
