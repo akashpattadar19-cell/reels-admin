@@ -11,7 +11,7 @@ Owner works only from a phone (Bengali UI). Everything is free-tier: Supabase + 
 | Android APK shell (AdMob, video compression, share) | private repo `reels-app` |
 | Database, RPCs, cron, storage | Supabase project `reels-enjoy` (ref `smveeoykybpufhvcehjv`, ap-south-1) |
 | Public website (offers, rules, FAQ, contact) | `site/` → https://akashpattadar19-cell.github.io/reels-admin/site/ |
-| Own domain (Cloudflare, bought 2026-11-20) | https://reelsenjoy.com = Worker `reelsenjoy-site` (source `cf-worker/`, auto-built from this repo by Workers Builds, path /cf-worker) proxying site/ at `/` and get/, v/, policy/, download/ from GitHub Pages. App + admin stay on github.io (moving them would log every user out). `share_link` = https://reelsenjoy.com/get/ |
+| Own domain (Cloudflare, bought 2026-11-20) | https://reelsenjoy.com = Worker `reelsenjoy-site` (source `cf-worker/`, auto-built from this repo by Workers Builds, path /cf-worker) proxying site/ at `/` and get/, v/, policy/, download/ from GitHub Pages. App + admin stay on github.io (moving them would log every user out). `share_link` = https://reelsenjoy.com/get/. Email: support@reelsenjoy.com → Cloudflare Email Routing → reelsenjoy.app@gmail.com. |
 | SQL migrations / edge functions (source copy) | `supabase/` |
 
 ## Money rules (all in Postgres functions, never in the client)
