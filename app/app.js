@@ -1275,10 +1275,10 @@ R.upload = () => {
     <label class="pick" id="pickL"><input type="file" id="vf" accept="video/*" class="hidden"><div class="ic">🎬</div>
       <b>ভিডিও বেছে নিন</b><div class="muted tiny">${pro ? `লম্বা ভিডিও কেটে ${maxSec} সেকেন্ডের মধ্যে আনা যাবে` : `সর্বোচ্চ ${maxSec} সেকেন্ড`} · খাড়া (9:16) ভিডিও সবচেয়ে ভালো দেখায়</div></label>
     ${pro ? "" : `<p class="notice tiny">✂️ ভিডিও কাটা, ক্রপ, স্টিকার ও নিজের গান যোগ করতে অ্যাপ আপডেট করুন।</p>`}
-    <div class="up-rule">${Number(setting("upload_reward_coins", 0)) > 0 && !locked("upload") ? `<b>🪙 প্রতিটা ভিডিও অনুমোদন হলে +${n(setting("upload_reward_coins", 0))} কয়েন!</b>` : `<b>📋 ভিডিও আপলোডের নিয়ম</b>`}
+    <details class="up-rule"><summary>${Number(setting("upload_reward_coins", 0)) > 0 && !locked("upload") ? `<b>🪙 অনুমোদন হলে +${n(setting("upload_reward_coins", 0))} কয়েন</b>` : `<b>📋 আপলোডের নিয়ম</b>`}<span>নিয়ম দেখুন</span></summary>
       <div>✅ নিজের তোলা আসল ভিডিও দিন</div>
       <div>❌ ওয়াটারমার্ক, TikTok / অন্য অ্যাপের লোগো, কোনো পেজের নাম থাকলে বাতিল হবে</div>
-      <div>👀 এডমিন দেখে অনুমোদন করলে তবেই সবাই দেখতে পাবে</div></div>
+      <div>👀 এডমিন দেখে অনুমোদন করলে তবেই সবাই দেখতে পাবে</div></details>
     <div id="ved"></div>
     <video id="pv" class="preview hidden" controls playsinline></video>
     <div id="mtools" class="hidden"></div>
@@ -1388,14 +1388,37 @@ R.upload = () => {
 };
 
 // প্রো ভিডিও এডিটর (APK ≥ 1.0.16): কাটা · ক্রপ · স্টিকার · লেখা · গান · সাউন্ড · ফিল্টার
+const VED_IC = {"trim": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"6\" cy=\"6\" r=\"3\"/><circle cx=\"6\" cy=\"18\" r=\"3\"/><path d=\"M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12\"/></svg>", "crop": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 2v14a2 2 0 0 0 2 2h14\"/><path d=\"M18 22V8a2 2 0 0 0-2-2H2\"/></svg>", "emoji": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M8 14s1.5 2 4 2 4-2 4-2\"/><path d=\"M9 9h.01M15 9h.01\"/></svg>", "text": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 7V5h16v2M9 19h6M12 5v14\"/></svg>", "music": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M9 18V5l12-2v13\"/><circle cx=\"6\" cy=\"18\" r=\"3\"/><circle cx=\"18\" cy=\"16\" r=\"3\"/></svg>", "sound": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M11 5 6 9H2v6h4l5 4V5z\"/><path d=\"M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14\"/></svg>", "fx": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"13.5\" cy=\"6.5\" r=\"1.5\"/><circle cx=\"17.5\" cy=\"10.5\" r=\"1.5\"/><circle cx=\"8.5\" cy=\"7.5\" r=\"1.5\"/><circle cx=\"6.5\" cy=\"12.5\" r=\"1.5\"/><path d=\"M12 2a10 10 0 0 0 0 20c1 0 1.7-.8 1.7-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.8-1.7 1.7-1.7H17a5 5 0 0 0 5-5C22 6 17.5 2 12 2z\"/></svg>"};
+const VED_PLAY = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>`;
+const VED_PAUSE = `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="5" width="4" height="14" rx="1"/><rect x="13.5" y="5" width="4" height="14" rx="1"/></svg>`;
+// টাইমলাইনে ভিডিওর ছোট ছোট ফ্রেম (ফিল্মস্ট্রিপ)
+async function filmstrip(url, dur, bar) {
+  try {
+    if (!dur || !bar) return;
+    const n = 10, vid = document.createElement("video");
+    vid.muted = true; vid.playsInline = true; vid.preload = "auto"; vid.src = url;
+    await new Promise((ok, no) => { vid.onloadeddata = ok; vid.onerror = no; setTimeout(no, 8000); });
+    const h = 72, w = Math.round(h * (vid.videoWidth / vid.videoHeight || 0.56));
+    const c = document.createElement("canvas"); c.width = w * n; c.height = h;
+    const g = c.getContext("2d");
+    for (let i = 0; i < n; i++) {
+      vid.currentTime = Math.min(dur - 0.05, (dur * (i + 0.5)) / n);
+      await new Promise((ok) => { vid.onseeked = ok; setTimeout(ok, 1500); });
+      g.drawImage(vid, i * w, 0, w, h);
+      if (bar.isConnected) bar.style.backgroundImage = `url(${c.toDataURL("image/jpeg", 0.7)})`;
+    }
+    vid.removeAttribute("src"); vid.load();
+  } catch { /* ফ্রেম না পেলেও চলবে */ }
+}
 function videoEditor(box, url, maxSec, onValid) {
   const E = { s: 0, e: 0, dur: 0, ratio: "orig", px: 0.5, py: 0.5, stickers: [], sel: null, music: null, mS: 0, mVol: 100, oVol: 100, fx: { f: "none", b: 100, c: 100, s: 100 } };
-  box.innerHTML = `<div class="ved">
+  box.innerHTML = `<div class="ved"><div class="ved-dark">
     <div class="ved-wrap"><div class="ved-stage" id="vs"><video id="vv" playsinline loop src="${url}"></video><div class="ved-ov" id="vo"></div></div></div>
-    <div class="ved-play"><button type="button" id="vpp">▶</button><span id="vtime">0:00</span><div class="ved-bar" id="vbar"><i id="vbsel"></i><b id="vbcur"></b></div><span id="vlen"></span></div>
-    <div class="ved-tabs" id="vt">${[["trim", "✂️", "কাটুন"], ["crop", "⛶", "ক্রপ"], ["emoji", "😀", "ইমোজি"], ["text", "Aa", "লেখা"], ["music", "🎵", "গান"], ["sound", "🔊", "সাউন্ড"], ["fx", "🎨", "ফিল্টার"]]
-      .map(([k, i, l], j) => `<button type="button" data-t="${k}" class="${j === 0 ? "on" : ""}"><b>${i}</b><span>${l}</span></button>`).join("")}</div>
-    <div class="ved-panel" id="vp"></div></div>`;
+    <div class="ved-play"><button type="button" id="vpp">${VED_PLAY}</button><span id="vtime">0:00</span><span class="ved-sep">/</span><span id="vlen"></span></div>
+    <div class="ved-bar" id="vbar"><i id="vbsel"></i><b id="vbcur"></b></div>
+    <div class="ved-tabs" id="vt">${[["trim", "কাটুন"], ["crop", "ক্রপ"], ["emoji", "ইমোজি"], ["text", "লেখা"], ["music", "গান"], ["sound", "সাউন্ড"], ["fx", "ফিল্টার"]]
+      .map(([k, l], j) => `<button type="button" data-t="${k}" class="${j === 0 ? "on" : ""}"><b>${VED_IC[k]}</b><span>${l}</span></button>`).join("")}</div>
+    </div><div class="ved-panel" id="vp"></div></div>`;
   const v = $("#vv", box), stage = $("#vs", box), ov = $("#vo", box);
   let tab = "trim";
   const len = () => Math.max(0, E.e - E.s);
@@ -1405,7 +1428,7 @@ function videoEditor(box, url, maxSec, onValid) {
   const layout = () => {
     const r = ratioVal();
     stage.style.aspectRatio = String(r);
-    stage.style.width = `min(100%, ${(56 * r).toFixed(2)}vh)`;
+    stage.style.width = `min(100%, ${(44 * r).toFixed(2)}vh)`;
     v.style.objectPosition = `${E.px * 100}% ${E.py * 100}%`;
     v.style.filter = fxCss(E.fx);
     v.volume = E.oVol / 100; BGM.volume = E.mVol / 100;
@@ -1419,12 +1442,13 @@ function videoEditor(box, url, maxSec, onValid) {
   const musicStart = () => { if (E.music) bgmPlay(E.music.url, E.mS + Math.max(0, v.currentTime - E.s)); };
   v.addEventListener("loadedmetadata", () => {
     E.dur = v.duration || 0; E.e = Math.min(E.dur, maxSec);
+    filmstrip(url, E.dur, $("#vbar", box));
     layout(); bar(); panel(); onValid(valid());
     if (E.dur > maxSec + 0.5) toast(`ভিডিও ${Math.round(E.dur)} সেকেন্ড — "কাটুন" দিয়ে ${maxSec} সেকেন্ডের মধ্যে আনুন`);
   });
   v.addEventListener("timeupdate", () => { if (v.currentTime > E.e || v.currentTime < E.s - 0.3) { v.currentTime = E.s; if (E.music && !v.paused) bgmPlay(E.music.url, E.mS); } bar(); });
-  v.addEventListener("play", () => { $("#vpp", box).textContent = "⏸"; S.muted = false; if (E.music) { BGM.pause(); BGM._url = null; musicStart(); } });
-  v.addEventListener("pause", () => { $("#vpp", box).textContent = "▶"; BGM.pause(); });
+  v.addEventListener("play", () => { $("#vpp", box).innerHTML = VED_PAUSE; S.muted = false; if (E.music) { BGM.pause(); BGM._url = null; musicStart(); } });
+  v.addEventListener("pause", () => { $("#vpp", box).innerHTML = VED_PLAY; BGM.pause(); });
   $("#vpp", box).onclick = () => (v.paused ? v.play().catch(() => {}) : v.pause());
   $("#vbar", box).onclick = (e) => { const r = $("#vbar", box).getBoundingClientRect(); v.currentTime = Math.max(E.s, Math.min(E.e, ((e.clientX - r.left) / r.width) * E.dur)); };
   // ক্রপ: ভিডিও টেনে সরানো

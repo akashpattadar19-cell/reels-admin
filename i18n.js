@@ -1898,6 +1898,8 @@
 "❌ ওয়াটারমার্ক, TikTok / অন্য অ্যাপের লোগো, কোনো পেজের নাম থাকলে বাতিল হবে": "❌ Videos with a watermark, TikTok / other app logo or any page name will be rejected",
 "👀 এডমিন দেখে অনুমোদন করলে তবেই সবাই দেখতে পাবে": "👀 Everyone can see it after an admin approves it",
 "🪙 প্রতিটা ভিডিও অনুমোদন হলে +": "🪙 +",
+"নিয়ম দেখুন": "See rules",
+"📋 আপলোডের নিয়ম": "📋 Upload rules",
 "কয়েন!": "coins for every approved video!",
 "কয়েন পুরস্কার পেয়েছেন": "coins reward received",
 "ভিডিওতে ওয়াটারমার্ক / অন্য অ্যাপ বা পেজের লোগো আছে": "The video has a watermark / another app's or page's logo",
@@ -2365,6 +2367,7 @@
   var D = "([\\d০-৯][\\d০-৯,.]*)";
   var KIND = { "ফটো": "photo", "লেখা": "text", "ভিডিও": "video" };
   var PRE = [
+    [new RegExp("^🪙 অনুমোদন হলে \\+" + D + " কয়েন$", "g"), "🪙 +$1 coins when approved"],
     [new RegExp("^" + D + "টি কাজ আপনার অপেক্ষায়$", "g"), "$1 tasks waiting for you"],
     [new RegExp("আজ " + D + " জন নতুন ইউজার · " + D + " ভিউ · " + D + " নতুন ভিডিও", "g"), "Today: $1 new users · $2 views · $3 new videos"],
     [new RegExp("^" + D + " জন$", "g"), "$1 users"],
