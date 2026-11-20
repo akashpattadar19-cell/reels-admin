@@ -1,7 +1,7 @@
 :root { --ink: #1d1236; --muted: #6b6290; --bg: #faf8ff; --card: #fff; --line: #ebe6f8; --p1: #7c3aed; --p2: #e34cf0; --gold: #f59e0b; --good: #16a34a; }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; scroll-padding-top: 70px; }
-body { margin: 0; font: 16px/1.6 "Hind Siliguri", system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+body { margin: 0; font: 500 16.5px/1.7 "Inter", "Noto Sans Bengali", system-ui, sans-serif; color: var(--ink); background: var(--bg); }
 a { color: var(--p1); }
 img { max-width: 100%; }
 .hidden { display: none !important; }
