@@ -159,3 +159,5 @@ revoke all on function public.my_beans() from public, anon;
 grant execute on function public.my_beans() to authenticated;
 revoke all on function public._beans_usable_paisa(uuid) from public, anon, authenticated;
 revoke all on function public._withdraw_level(uuid) from public, anon, authenticated;
+
+-- 058b: withdraw_eligibility now includes usable Beans, Beans count and referral level (see DB for full body)
