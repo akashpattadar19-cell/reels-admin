@@ -1127,7 +1127,7 @@ async function launchPosts(arg, tabs) {
 // 📅 প্রতিদিন চেক-ইন ও নতুনদের কাজ (পুরস্কার কয়েন — উইথড্র হয় না)
 async function launchGrow(tabs) {
   const [st, { data: rows }] = await Promise.all([rpc("admin_growth_stats"),
-    sb.from("settings").select("key,value").in("key", ["checkin_enabled", "checkin_rewards", "bonus_need_device", "starter_enabled", "starter_days", "starter_follow_need", "starter_rewards"])]);
+    sb.from("settings").select("key,value").in("key", ["checkin_enabled", "checkin_rewards", "bonus_need_device", "starter_enabled", "starter_days", "starter_follow_need", "starter_rewards", "wealth_enabled", "wealth_levels", "coin_price_paisa"])]);
   const S0 = Object.fromEntries((rows ?? []).map((r) => [r.key, r.value]));
   const cr = Array.isArray(S0.checkin_rewards) ? S0.checkin_rewards : [2, 3, 5, 5, 8, 10, 20];
   const sr = S0.starter_rewards || {};
@@ -1155,6 +1155,12 @@ async function launchGrow(tabs) {
         <div style="flex:1"><label class="small">কতজনকে ফলো</label><input type="number" min="1" id="gFol" value="${Number(S0.starter_follow_need ?? 3)}"></div></div>
       <div class="table-wrap"><table><tr><th>কাজ</th><th>কয়েন</th><th>নিয়েছে</th></tr>${TASKS.map(([k, t]) => `<tr><td>${t}</td><td><input type="number" min="0" class="gS" data-k="${k}" value="${Number(sr[k] ?? 0)}" style="width:80px;margin:0"></td><td>${num(sc[k]?.users ?? 0)} জন · 🪙 ${num(sc[k]?.coins ?? 0)}</td></tr>`).join("")}</table></div>
     </div>
+    <h2>💎 ধনী লেভেল</h2>
+    <div class="card">
+      <label class="row" style="gap:8px"><input type="checkbox" id="gWe" ${S0.wealth_enabled !== false ? "checked" : ""} style="width:auto"> ব্যাজ দেখাবে (প্রোফাইল, চ্যাট, লাইভ)</label>
+      <label class="small">Lv1 থেকে Lv10 — কত কয়েন কেনা বা খরচ (যেটা বেশি)। ১ কয়েন = ${taka(Number(S0.coin_price_paisa ?? 10))}</label>
+      <div class="row" style="gap:4px;flex-wrap:wrap">${(Array.isArray(S0.wealth_levels) ? S0.wealth_levels : [1000, 3000, 10000, 30000, 100000, 300000, 1000000, 3000000, 10000000, 30000000]).map((c, i) => `<input type="number" min="1" class="gW" value="${Number(c)}" title="Lv${i + 1}" style="flex:1 1 30%;min-width:0;padding:8px 4px;text-align:center">`).join("")}</div>
+    </div>
     <div class="card"><label class="row" style="gap:8px"><input type="checkbox" id="gDev" ${S0.bonus_need_device !== false ? "checked" : ""} style="width:auto"> এক মোবাইলে এক অ্যাকাউন্ট (শুধু APK-তে পুরস্কার) — প্রতারণা রোধে চালু রাখুন</label></div>
     <div class="toolbar"><button class="btn good" id="gSave">💾 সেভ করুন</button></div>`;
   $("#gSave").onclick = async () => {
@@ -1166,6 +1172,10 @@ async function launchGrow(tabs) {
       await set("starter_enabled", $("#gSt").checked); await set("starter_days", Math.max(1, Number($("#gDays").value) || 7));
       await set("starter_follow_need", Math.max(1, Number($("#gFol").value) || 3)); await set("starter_rewards", strw);
       await set("bonus_need_device", $("#gDev").checked);
+      await set("wealth_enabled", $("#gWe").checked);
+      const wl = [...view.querySelectorAll(".gW")].map((x) => Math.max(1, Math.round(Number(x.value) || 1)));
+      for (let k = 1; k < wl.length; k++) if (wl[k] <= wl[k - 1]) throw new Error("ধনী লেভেলের সংখ্যা ছোট থেকে বড় ক্রমে দিন");
+      await set("wealth_levels", wl);
     }, "✅ সেভ হয়েছে");
     launchGrow(tabs);
   };
@@ -1845,6 +1855,7 @@ routes.referrals = async (tab = "running") => {
       ${row("referral_bonus_paisa", "প্রতি সফল রেফারে রেফারকারী (ইউজার) পাবে", "taka")}
       ${row("host_referral_bonus_paisa", "প্রতি সফল রেফারে রেফারকারী হোস্ট পাবে", "taka")}
       ${row("referral_welcome_points", "সব টাস্ক শেষ করলে নতুন ইউজার পাবে (পয়েন্ট)", "num")}
+      ${row("ref_topup_pct", "রেফার করা বন্ধু কয়েন কিনলে রেফারকারী কত % কয়েন পাবে, সারাজীবন (০ = বন্ধ)", "num")}
     </div>
     <h2>✅ নতুন ইউজারের টাস্ক (০ = সেই টাস্ক বন্ধ)</h2>
     <p class="muted small">রেফার কোড দেওয়ার পর থেকে নিচের দিনের মধ্যে সব টাস্ক শেষ করলে রেফার সফল হবে। প্রতি ১০ মিনিটে নিজে থেকে যাচাই হয়। সময় শেষ হলে (ভিডিও অনুমোদনের জন্য বাড়তি ৩ দিন) রেফার বাতিল।</p>

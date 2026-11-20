@@ -269,6 +269,13 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   shown for `starter_days` after signup). `bonus_need_device` (default on) = APK device required and one reward per phone (`_my_device`).
   Admin "🚀 লঞ্চ অফার" → `#launch/grow` (settings + `admin_growth_stats`). Video share page `v/?id=&ref=&lang=` (anon `public_video(id)`:
   published, non-premium only) plays a 15 s preview, then "watch in the app" → `get/`; app `videoLink(v)` builds it from `share_link` (get/ → v/).
+- Wealth level & top-up commission (048): `_wallet_move` keeps `profiles.wealth_topup` (cash_in/play_purchase/seller_buy) and `wealth_spent`
+  (all coin spending except seller sale/commission, admin adjust/grant); level = count of `settings.wealth_levels` (10 thresholds) ≤ max(both).
+  App `wealthTag(p)` (gem badge, drawn inside `vipTag`), `#level/w` page; admin thresholds on `#launch/grow`. On cash_in/play_purchase,
+  `_ref_topup_bonus` gives the referrer `ref_topup_pct` % (default 10) as coins (`ref_topup_bonus`, lifetime, skipped for same_device);
+  setting on admin "🎁 রেফার"; `#invite` shows the rule.
+- Visual restyle pending: owner said the app looks cartoonish (emoji icons); 3 mockups sent (1 clean white, 2 dark gold, 3 purple gradient,
+  line SVG icons + gold coin SVG) — waiting for the owner's choice before restyling.
 - Declined: stock/AI photos of attractive women/men presented as app users (misleading fake users). Use only real, consenting people's photos.
 - Not built on purpose: Chamet "BIG WIN"/"City PK" coin games (betting).
 - Declined: real-money betting games in live (coins are bought with money and earnings withdraw → gambling, illegal in BD/KSA,

@@ -2241,7 +2241,14 @@
 "প্রথম ভিডিও পোস্ট করুন (অনুমোদন হলে)": "Post your first video (once approved)",
 "সব কাজ শেষ — বড় বোনাস": "All tasks done — big bonus",
 "🎯 নতুনদের কাজ — কয়েন নিন": "🎯 Starter tasks — get coins",
-"করুন ›": "Do it ›"
+"করুন ›": "Do it ›",
+"🎁 বন্ধুর কয়েন কেনায় কমিশন": "🎁 Commission on a friend's coin purchase",
+"👑 ক্রিয়েটর লেভেল": "👑 Creator level",
+"💎 ধনী লেভেল": "💎 Wealth level",
+"আপনার ধনী লেভেল": "Your wealth level",
+"মোট যত কয়েন কিনেছেন বা খরচ করেছেন (গিফট, কল, VIP, দোকান, বুস্ট) — দুটোর যেটা বেশি, সেটা দিয়ে লেভেল।": "Your level is based on the total coins you bought or spent (gifts, calls, VIP, store, boosts) — whichever is higher.",
+"ধনী লেভেলের ব্যাজ আপনার প্রোফাইল, চ্যাট আর লাইভে সবাই দেখবে।": "Everyone sees your wealth badge on your profile, in chat and in live.",
+"৪. বন্ধু যতবার কয়েন কিনবে, আপনি পাবেন (সারাজীবন)": "4. Every time your friend buys coins, you get (lifetime)"
 };
   var BN = "ঀ-৿";
   var keys = Object.keys(EN).sort(function (a, b) { return b.length - a.length; });
@@ -2255,6 +2262,10 @@
   var D = "([\\d০-৯][\\d০-৯,.]*)";
   var KIND = { "ফটো": "photo", "লেখা": "text", "ভিডিও": "video" };
   var PRE = [
+    [/🎁 বন্ধু @([\w.]+) কয়েন কিনেছে/g, "🎁 Your friend @$1 bought coins"],
+    [/@([\w.]+) কয়েন কিনেছে/g, "@$1 bought coins"],
+    [/কেনা 🪙 (\S+) · খরচ 🪙 (\S+)/g, "Bought 🪙 $1 · Spent 🪙 $2"],
+    [/Lv(\d+) হতে আরও 🪙 (\S+) কয়েন/g, "🪙 $2 more coins to Lv$1"],
     [new RegExp("^দিন " + D + "$", "g"), "Day $1"],
     [new RegExp("🔥 টানা " + D + " দিন", "g"), "🔥 $1-day streak"],
     [new RegExp("আজ পাবেন 🪙 " + D, "g"), "Today: 🪙 $1"],

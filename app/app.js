@@ -191,7 +191,18 @@ function attachSuggest(el) {
 
 const isVip = (p) => !!p?.vip_until && new Date(p.vip_until) > new Date();
 const vipPlan = (p) => (S.vipPlans ?? []).find((x) => x.id === p?.vip_plan_id);
-const vipTag = (p) => (isVip(p) ? `<span class="viptag v-${esc(vipPlan(p)?.color || "gold")}">${esc(vipPlan(p)?.badge || "💎")} ${esc(vipPlan(p)?.name || "VIP")}</span>` : "");
+// 💎 ধনী লেভেল: কয়েন কেনা বা খরচের যেটা বেশি (সার্ভার profiles.wealth_topup / wealth_spent রাখে)
+const WEALTH_DEF = [1000, 3000, 10000, 30000, 100000, 300000, 1000000, 3000000, 10000000, 30000000];
+const wealthSteps = () => { const w = setting("wealth_levels", WEALTH_DEF); return Array.isArray(w) && w.length ? w.map(Number) : WEALTH_DEF; };
+const wealthVal = (p) => Math.max(Number(p?.wealth_topup ?? 0), Number(p?.wealth_spent ?? 0));
+const wealthOf = (p) => wealthSteps().filter((t) => wealthVal(p) >= t).length;
+const GEM = `<svg viewBox="0 0 24 24"><path d="M6.5 4h11l4 5.2L12 20.5 2.5 9.2z" fill="currentColor" fill-opacity=".9"/><path d="M2.5 9.2h19M9 4l3 16.5L15 4M6.5 4 9 9.2 12 4l3 5.2L17.5 4" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1"/></svg>`;
+const wealthTag = (p) => {
+  if (!p || setting("wealth_enabled", true) === false || p.wealth_topup == null) return "";
+  const lv = wealthOf(p); if (!lv) return "";
+  return `<span class="wtag w${lv >= 9 ? 4 : lv >= 7 ? 3 : lv >= 4 ? 2 : 1}">${GEM}Lv${lv}</span>`;
+};
+const vipTag = (p) => wealthTag(p) + (isVip(p) ? `<span class="viptag v-${esc(vipPlan(p)?.color || "gold")}">${esc(vipPlan(p)?.badge || "💎")} ${esc(vipPlan(p)?.name || "VIP")}</span>` : "");
 // কেনা ফ্রেম পরানো অবতার
 const avatarD = (p, cls = "av") => avatar(p, cls + (p?.deco?.frame ? ` fr fr-${String(p.deco.frame).replace(/[^a-z0-9-]/g, "")}` : ""));
 const avatar = (p, cls = "av") => `<div class="${cls}">${p?.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="">` : `<span class="ini">${esc((p?.full_name || p?.username || "?").trim().charAt(0).toUpperCase())}</span>`}</div>`;
@@ -1550,7 +1561,7 @@ async function xhrUpload(bucket, path, blob, type, onProg) {
 const TX = {
   view_earning: "ভিউ থেকে আয়", like_earning: "লাইক থেকে আয়", comment_earning: "কমেন্ট থেকে আয়", gift_received: "গিফট পেয়েছেন",
   gift_sent: "গিফট পাঠিয়েছেন", watch_reward: "ভিডিও দেখে পয়েন্ট", ad_reward_viewer: "অ্যাড দেখে পয়েন্ট", ad_reward_creator: "আপনার ভিডিওতে অ্যাড",
-  points_convert: "পয়েন্ট → টাকা", pending_release: "পেন্ডিং থেকে ব্যালেন্সে", cash_in: "ক্যাশ-ইন (কয়েন)", play_purchase: "Google Play থেকে কয়েন কেনা", vip_purchase: "💎 VIP কেনা", vip_daily: "💎 VIP ফ্রি কয়েন", store_purchase: "🎨 দোকান থেকে কেনা", video_boost: "🚀 ভিডিও বুস্ট", reward_pool: "💰 রিওয়ার্ড পুল", upload_reward: "🎬 ভিডিও আপলোড পুরস্কার", season_prize: "🏆 প্রতিযোগিতার পুরস্কার", admin_coin_grant: "🎁 অ্যাডমিন থেকে কয়েন", checkin_reward: "📅 চেক-ইন পুরস্কার", starter_reward: "🎯 নতুনদের কাজের পুরস্কার", agent_target_bonus: "🧑‍💼 এজেন্ট টার্গেট বোনাস", withdraw_hold: "উইথড্র রিকোয়েস্ট",
+  points_convert: "পয়েন্ট → টাকা", pending_release: "পেন্ডিং থেকে ব্যালেন্সে", cash_in: "ক্যাশ-ইন (কয়েন)", play_purchase: "Google Play থেকে কয়েন কেনা", vip_purchase: "💎 VIP কেনা", vip_daily: "💎 VIP ফ্রি কয়েন", store_purchase: "🎨 দোকান থেকে কেনা", video_boost: "🚀 ভিডিও বুস্ট", reward_pool: "💰 রিওয়ার্ড পুল", upload_reward: "🎬 ভিডিও আপলোড পুরস্কার", season_prize: "🏆 প্রতিযোগিতার পুরস্কার", admin_coin_grant: "🎁 অ্যাডমিন থেকে কয়েন", checkin_reward: "📅 চেক-ইন পুরস্কার", ref_topup_bonus: "🎁 বন্ধুর কয়েন কেনায় কমিশন", starter_reward: "🎯 নতুনদের কাজের পুরস্কার", agent_target_bonus: "🧑‍💼 এজেন্ট টার্গেট বোনাস", withdraw_hold: "উইথড্র রিকোয়েস্ট",
   withdraw_refund: "উইথড্র ফেরত", admin_adjust: "অ্যাডমিন অ্যাডজাস্টমেন্ট", premium_unlock: "প্রিমিয়াম ভিডিও আনলক", welcome_bonus: "নতুন ইউজার বোনাস", jail_release: "জেল থেকে মুক্তি",
 };
 // ================= আয়ের নতুন ফিচার: স্পন্সর, বুস্ট, VIP, দোকান, রিওয়ার্ড পুল =================
@@ -4043,14 +4054,26 @@ R.top = async () => {
     <b>${n(p.followers_count)}<div class="tiny muted" style="font-weight:400">ফলোয়ার</div></b></a>`).join("") || `<div class="empty">কেউ নেই</div>`}</div></div>`;
 };
 
-R.level = async () => {
-  const { data: p } = await sb.from("profiles").select("followers_count").eq("id", S.me.id).single();
+R.level = async (tab = "c") => {
+  const { data: p } = await sb.from("profiles").select("followers_count,wealth_topup,wealth_spent").eq("id", S.me.id).single();
+  const seg = `<div class="seg" style="margin-top:0"><button class="${tab !== "w" ? "on" : ""}" onclick="location.replace('#level')">👑 ক্রিয়েটর লেভেল</button><button class="${tab === "w" ? "on" : ""}" onclick="location.replace('#level/w')">💎 ধনী লেভেল</button></div>`;
+  if (tab === "w") {
+    const steps = wealthSteps(), val = wealthVal(p), lv = wealthOf(p), next = steps[lv], prev = lv ? steps[lv - 1] : 0;
+    screen.innerHTML = `<div class="page">${header("💎 ধনী লেভেল")}${seg}
+      <div class="lvbig wl"><div>আপনার ধনী লেভেল</div><b>Lv${lv}</b><div>কেনা 🪙 ${n(p?.wealth_topup ?? 0)} · খরচ 🪙 ${n(p?.wealth_spent ?? 0)}</div>
+        ${next ? `<div class="progress"><div style="width:${Math.min(100, Math.round(((val - prev) / (next - prev)) * 100))}%"></div></div><div class="tiny" style="margin-top:6px">Lv${lv + 1} হতে আরও 🪙 ${n(next - val)} কয়েন</div>` : `<div class="tiny">সর্বোচ্চ লেভেল 🎉</div>`}</div>
+      <div class="card"><b>লেভেল কীভাবে বাড়ে</b><p class="tiny muted" style="margin:4px 0 8px">মোট যত কয়েন কিনেছেন বা খরচ করেছেন (গিফট, কল, VIP, দোকান, বুস্ট) — দুটোর যেটা বেশি, সেটা দিয়ে লেভেল।</p>
+        <div class="list tiny">${steps.map((t, i) => `<div class="li"><span>${i + 1 === lv ? "👉 " : ""}${wealthTag({ wealth_topup: t, wealth_spent: 0 })}</span><b>🪙 ${n(t)}</b></div>`).join("")}</div></div>
+      <p class="tiny muted">ধনী লেভেলের ব্যাজ আপনার প্রোফাইল, চ্যাট আর লাইভে সবাই দেখবে।</p>
+      <a class="btn primary" href="#cashin" style="display:block;text-align:center">কয়েন কিনুন</a></div>`;
+    return;
+  }
   const f = p?.followers_count ?? 0, lv = levelOf(f), next = LEVELS[lv + 1];
-  screen.innerHTML = `<div class="page">${header("👑 আমার লেভেল")}
+  screen.innerHTML = `<div class="page">${header("👑 আমার লেভেল")}${seg}
     <div class="lvbig"><div>আপনার লেভেল</div><b>Lv${lv}</b><div>${n(f)} জন ফলোয়ার</div>
       ${next ? `<div class="progress"><div style="width:${Math.min(100, Math.round(((f - LEVELS[lv]) / (next - LEVELS[lv])) * 100))}%"></div></div><div class="tiny" style="margin-top:6px">Lv${lv + 1} হতে আরও ${n(next - f)} জন ফলোয়ার লাগবে</div>` : `<div class="tiny">সর্বোচ্চ লেভেল 🎉</div>`}</div>
-    <div class="card"><b>লেভেল কীভাবে বাড়ে</b><div class="list tiny">${LEVELS.map((t, i) => `<div class="li"><span>${i === lv ? "👉 " : ""}Lv${i}</span><b>${n(t)}+ ফলোয়ার</b></div>`).join("")}</div>
-    <p class="tiny muted">ভালো ভিডিও দিন, নিয়মিত পোস্ট করুন — ফলোয়ার বাড়লে লেভেল বাড়বে এবং আপনার ভিডিও বেশি মানুষ দেখবে।</p></div></div>`;
+    <div class="card"><b>লেভেল কীভাবে বাড়ে</b><div class="list tiny">${LEVELS.map((t, i) => `<div class="li"><span>${i === lv ? "👉 " : ""}Lv${i}</span><b>${n(t)}+ ফলোয়ার</b></div>`).join("")}</div></div>
+    <p class="tiny muted">ভালো ভিডিও দিন, নিয়মিত পোস্ট করুন — ফলোয়ার বাড়লে লেভেল বাড়বে এবং আপনার ভিডিও বেশি মানুষ দেখবে।</p></div>`;
 };
 
 R.jail = async () => {
@@ -4292,7 +4315,9 @@ const refRuleItems = () => [["full_watch", "ref_req_full_watch"], ["likes", "ref
 
 R.invite = async () => {
   screen.innerHTML = `<div class="page">${header("🎁 আমার রেফার")}<div class="spinner"></div></div>`;
-  const [r, mine] = await Promise.all([rpc("my_referrals").catch((e) => ({ error: e })), rpc("my_referral_tasks").catch(() => null)]);
+  const [r, mine, { data: rtb }] = await Promise.all([rpc("my_referrals").catch((e) => ({ error: e })), rpc("my_referral_tasks").catch(() => null),
+    sb.from("transactions").select("amount").eq("user_id", S.me.id).eq("type", "ref_topup_bonus").limit(1000)]);
+  const topupCoins = (rtb ?? []).reduce((a2, x) => a2 + Number(x.amount || 0), 0);
   if (r.error) { screen.innerHTML = `<div class="page">${header("🎁 আমার রেফার")}<div class="empty">${esc(errMsg(r.error))}</div></div>`; return; }
   const wb = Number(setting("welcome_bonus_paisa", 0)) > 0 && setting("welcome_bonus_enabled", true) !== false ? Math.round(Number(setting("welcome_bonus_paisa")) / 100) : 0;
   const shareText = L(`Reels Enjoy অ্যাপে ভিডিও দেখে ও বানিয়ে আয় করুন!${wb ? ` নতুন ইউজাররা পাবেন ৳${wb} বোনাস 🎁` : ""}\n\n📲 ডাউনলোড: ${shareLink()}\n🎟️ রেজিস্টার করার সময় আমার রেফার কোড দিন: ${r.code}`, `Watch and make videos on Reels Enjoy and earn!${wb ? ` New users get a ৳${wb} bonus 🎁` : ""}\n\n📲 Download: ${shareLink()}\n🎟️ Enter my referral code when you sign up: ${r.code}`);
@@ -4311,6 +4336,7 @@ R.invite = async () => {
       <div class="li"><span>১. বন্ধু রেজিস্টারের সময় (বা লগইনের পর রেফার পেজে) আপনার কোড দেবে</span></div>
       <div class="li"><span>২. বন্ধু ${n(days)} দিনের মধ্যে নিচের সব টাস্ক শেষ করলে রেফার সফল</span></div>
       <div class="li"><span>৩. প্রতি সফল রেফারে আপনি পাবেন</span><b>${tk(S.me.account_type === "host" && Number(setting("host_referral_bonus_paisa", 0)) > 0 ? setting("host_referral_bonus_paisa") : setting("referral_bonus_paisa"))}</b></div>
+      ${Number(setting("ref_topup_pct", 0)) > 0 ? `<div class="li"><span>৪. বন্ধু যতবার কয়েন কিনবে, আপনি পাবেন (সারাজীবন)</span><b>🪙 ${n(setting("ref_topup_pct", 0))}%</b></div>` : ""}
       <div class="li"><span>বন্ধু পাবে স্বাগত পয়েন্ট</span><b>⭐ ${n(setting("referral_welcome_points"))}</b></div></div>
       ${rules.length ? `<div class="tiny" style="margin:10px 0 4px"><b>বন্ধুর টাস্ক (${n(days)} দিনের মধ্যে)</b></div><div class="ref-rules">${rules.map((x) =>
         `<span>${REF_TASKS[x.k][0]} ${n(x.need)} ${x.k === "active_days" ? `দিন অ্যাপ ব্যবহার (প্রতিদিন ${n(x.mins)} মিনিট)` : REF_TASKS[x.k][1].replace(/^দিন /, "")}</span>`).join("")}</div>` : ""}
