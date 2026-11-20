@@ -109,6 +109,8 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   `private_config.telegram_mod_chat`. Cron `tg-mod` (`tg_mod_cron()`, every min, only when pending videos with `videos.tg_sent_at` null)
   → edge fn (x-cron = `tg_cron_secret`) `modRun()` posts sendVideo (fallback thumb/text + link) with ✅ Approve / ❌ Reject (reason list) buttons;
   callback → `_tg_video_action(admin_uid, id, action, reason)` (service_role only, acts as `telegram_admin_uid`, only while pending) and edits the message.
+  Posts (053): photo/text posts also go there (`posts.tg_sent_at`); published → ✅ ঠিক আছে / 🗑 ডিলিট (reason list), pending → Approve/Reject;
+  `_tg_post_action(admin, id, approve|remove, reason)` → `admin_post_action` (remove = delete if published, reject if pending).
   Anyone in that group can press the buttons. Webhook allowed_updates include callback_query (re-run setup after changing).
 - Account deletion: `request_account_deletion` → cron `process-account-deletions` anonymises after 7 days (`_delete_account`),
   or admin "অ্যাকাউন্ট ডিলিট" page deletes now. Money ledger rows are kept.

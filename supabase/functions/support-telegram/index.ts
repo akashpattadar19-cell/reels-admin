@@ -37,6 +37,37 @@ const reasonKb = (id: number) => ({ inline_keyboard: [
   ...REASONS.map((r, i) => [{ text: "❌ " + r, callback_data: `x:${id}:${i}` }]),
   [{ text: "↩️ ফিরে যান", callback_data: `b:${id}` }]] });
 
+const P_REASONS = ["অশ্লীল বা খারাপ কনটেন্ট", "অন্যের ছবি / লেখা কপি", "স্প্যাম বা বিজ্ঞাপন", "ঘৃণা বা অপমানজনক কথা", "ভুয়া / প্রতারণা"];
+const postKb = (id: number, pending: boolean) => ({ inline_keyboard: [pending
+  ? [{ text: "✅ Approve", callback_data: `pa:${id}` }, { text: "❌ Reject", callback_data: `pd:${id}` }]
+  : [{ text: "✅ ঠিক আছে", callback_data: `pk:${id}` }, { text: "🗑 ডিলিট", callback_data: `pd:${id}` }]] });
+const postReasonKb = (id: number) => ({ inline_keyboard: [
+  ...P_REASONS.map((r, i) => [{ text: "🗑 " + r, callback_data: `px:${id}:${i}` }]),
+  [{ text: "↩️ ফিরে যান", callback_data: `pb:${id}` }]] });
+
+// নতুন ছবি / লেখা পোস্ট গ্রুপে পাঠানো
+async function postRun(token: string, chat: string) {
+  const { data: posts } = await db.from("posts").select("id,user_id,kind,body,image_url,status,contest_id,created_at")
+    .in("status", ["pending", "published"]).is("tg_sent_at", null).lt("created_at", new Date(Date.now() - 10000).toISOString())
+    .order("created_at").limit(10);
+  let sent = 0;
+  for (const po of posts ?? []) {
+    await db.from("posts").update({ tg_sent_at: new Date().toISOString() }).eq("id", po.id).is("tg_sent_at", null);
+    const { data: p } = await db.from("profiles").select("user_no,username,full_name,account_type").eq("id", po.user_id).single();
+    const pending = po.status === "pending";
+    const head = `${po.kind === "photo" ? "📷 নতুন ছবি" : "✍️ নতুন লেখা"} #P${po.id}${po.contest_id ? " · 🏆 কম্পিটিশন" : ""}${pending ? "" : " · প্রকাশিত"}\n👤 ${p?.full_name ?? ""} @${p?.username ?? ""} · ID ${p?.user_no ?? ""}${p?.account_type === "host" ? " · 👑 হোস্ট" : ""}`;
+    const body = String(po.body ?? "");
+    const tail = pending ? "\n\nদেখে সিদ্ধান্ত দিন 👇" : "\n\nখারাপ হলে ডিলিট করুন 👇";
+    let r: any = { ok: false };
+    if (po.kind === "photo" && po.image_url) {
+      r = await tg(token, "sendPhoto", { chat_id: chat, photo: po.image_url, caption: (head + (body ? "\n📝 " + body.slice(0, 700) : "") + tail).slice(0, 1024), reply_markup: postKb(po.id, pending) });
+    }
+    if (!r?.ok) r = await tg(token, "sendMessage", { chat_id: chat, text: (head + (body ? "\n\n" + body.slice(0, 3500) : "") + (po.image_url ? "\n🖼 " + po.image_url : "") + tail), reply_markup: postKb(po.id, pending) });
+    if (r?.ok) sent++;
+  }
+  return sent;
+}
+
 // পেন্ডিং ভিডিওগুলো মডারেশন গ্রুপে পাঠানো
 async function modRun() {
   const token = await cfg("telegram_bot_token"), chat = await cfg("telegram_mod_chat");
@@ -61,12 +92,13 @@ async function modRun() {
     }
     if (r?.ok) sent++;
   }
-  return { sent };
+  const posts = await postRun(token, chat).catch(() => 0);
+  return { sent, posts };
 }
 
 async function editDone(token: string, msg: any, line: string) {
   const isMedia = !!(msg.video || msg.photo);
-  const old = String(isMedia ? msg.caption ?? "" : msg.text ?? "").replace(/\n\nদেখে সিদ্ধান্ত দিন 👇$/, "");
+  const old = String(isMedia ? msg.caption ?? "" : msg.text ?? "").replace(/\n\n(দেখে সিদ্ধান্ত দিন|খারাপ হলে ডিলিট করুন) 👇$/, "");
   const body = { chat_id: msg.chat.id, message_id: msg.message_id, reply_markup: { inline_keyboard: [] } };
   if (isMedia) await tg(token, "editMessageCaption", { ...body, caption: `${old}\n\n${line}` });
   else await tg(token, "editMessageText", { ...body, text: `${old}\n\n${line}` });
@@ -101,6 +133,27 @@ Deno.serve(async (req) => {
       const [k, idS, ri] = String(cq.data ?? "").split(":");
       const id = Number(idS);
       const who = [cq.from?.first_name, cq.from?.last_name].filter(Boolean).join(" ") || cq.from?.username || "admin";
+      if (k === "pd") { await tg(token, "editMessageReplyMarkup", { chat_id: m.chat.id, message_id: m.message_id, reply_markup: postReasonKb(id) }); await ans("কারণ বেছে নিন"); return json({ ok: true }); }
+      if (k === "pb") {
+        const { data: po } = await db.from("posts").select("status").eq("id", id).maybeSingle();
+        await tg(token, "editMessageReplyMarkup", { chat_id: m.chat.id, message_id: m.message_id, reply_markup: postKb(id, po?.status === "pending") }); await ans(""); return json({ ok: true });
+      }
+      if (k === "pk") { await editDone(token, m, `✅ ঠিক আছে — ${who}`); await ans("✅"); return json({ ok: true }); }
+      if (k === "pa" || k === "px") {
+        let admin = await cfg("telegram_admin_uid");
+        if (!admin) { const { data: a } = await db.from("profiles").select("id").eq("role", "admin").eq("status", "active").limit(1).single(); admin = a?.id ?? null; }
+        const reason = k === "px" ? P_REASONS[Number(ri)] ?? P_REASONS[0] : null;
+        const { data: res, error } = await db.rpc("_tg_post_action", { p_admin: admin, p_id: id, p_action: k === "pa" ? "approve" : "remove", p_reason: reason });
+        if (error) { await ans("❌ " + error.message, true); return json({ ok: true }); }
+        if (res === "done") {
+          await editDone(token, m, k === "pa" ? `✅ অ্যাপ্রুভ হয়েছে — ${who}` : `🗑 সরানো হয়েছে — ${who}\nকারণ: ${reason}`);
+          await ans(k === "pa" ? "✅ অ্যাপ্রুভ হয়েছে" : "🗑 সরানো হয়েছে");
+        } else {
+          const st: Record<string, string> = { published: "আগেই প্রকাশিত", rejected: "আগেই রিজেক্ট", deleted: "আগেই ডিলিট", missing: "পোস্ট পাওয়া যায়নি" };
+          await editDone(token, m, `ℹ️ ${st[res] ?? res}`); await ans("ℹ️ " + (st[res] ?? res), true);
+        }
+        return json({ ok: true });
+      }
       if (k === "r") { await tg(token, "editMessageReplyMarkup", { chat_id: m.chat.id, message_id: m.message_id, reply_markup: reasonKb(id) }); await ans("কারণ বেছে নিন"); return json({ ok: true }); }
       if (k === "b") { await tg(token, "editMessageReplyMarkup", { chat_id: m.chat.id, message_id: m.message_id, reply_markup: modKb(id) }); await ans(""); return json({ ok: true }); }
       if (k === "a" || k === "x") {
