@@ -478,3 +478,13 @@ img.logo { background: none; box-shadow: 0 6px 16px rgba(236,72,153,.35); object
 #umap.dk .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.9) saturate(.6); }
 html[data-theme=light] #umap.dk .leaflet-tile-pane { filter: none; }
 #uMode { flex-wrap: nowrap; } #uMode button { white-space: nowrap; padding: 6px 10px; }
+
+/* অ্যাপ ব্যানার এডিটর */
+.ban-ed { display: grid; gap: 4px; }
+.ban-ed input, .ban-ed select { width: 100%; }
+.ban-prev { position: relative; border-radius: 14px; padding: 12px 14px; color: #fff; display: grid; gap: 2px; min-height: 56px; margin-bottom: 6px; overflow: hidden; }
+.ban-prev b { font-size: 15px; text-shadow: 0 1px 2px rgba(0,0,0,.35); } .ban-prev span { font-size: 12px; opacity: .95; text-shadow: 0 1px 2px rgba(0,0,0,.35); }
+.ban-prev em { position: absolute; top: 6px; right: 6px; font-style: normal; font-size: 10px; font-weight: 700; background: #fff; color: #db2777; padding: 2px 7px; border-radius: 99px; }
+.ban-sts { display: flex; gap: 8px; flex-wrap: wrap; }
+.ban-sts button { width: 32px; height: 32px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; }
+.ban-sts button.on { border-color: var(--text, #fff); box-shadow: 0 0 0 2px #7c3aed; }

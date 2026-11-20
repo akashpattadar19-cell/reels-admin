@@ -609,10 +609,67 @@ async function start() {
     if (di.id) rpc("register_device", { p_device_id: di.id, p_brand: di.brand, p_model: di.model, p_os: di.os, p_app: di.app })
       .then((r) => { if (r?.welcome_paisa > 0) showWelcome(r.welcome_paisa); }).catch(() => {});
   } catch { /* old APK */ }
-  if (!checkUpdate()) { requireLocation(); requireNotif(); setTimeout(async () => { if ($("#notifGate")) return; if (!(await checkinPopup())) offerPopup(); }, 2500); }
+  if (!me.start_choice_done && me.start_choice_done !== undefined) startChoice();
+  if (!checkUpdate()) { requireLocation(); requireNotif(); setTimeout(async () => { if ($("#notifGate") || $("#startGate")) return; if (!(await checkinPopup())) offerPopup(); }, 2500); }
   pendingCall();
   try { const pr = Native?.takeRoute?.(); if (pr) setTimeout(() => (location.hash = pr), 300); } catch { /* old APK */ }
   setTimeout(() => { try { if (isPlay()) Native?.playRestore?.(); } catch { /* old APK */ } }, 3000);
+}
+
+// ---------- প্রথম লগইন: ইউজার নাকি হোস্ট? (নিয়ম এডমিন থেকে) ----------
+function startChoice() {
+  if ($("#startGate")) return;
+  const g = document.createElement("div"); g.id = "startGate"; g.className = "st-gate";
+  const rules = (k) => String(settingL(k, "") || "").split("\n").map((x) => x.trim()).filter(Boolean);
+  const pick = () => {
+    g.innerHTML = `<div class="st-box"><div class="st-logo">👋</div>
+      <h2>আপনি কীভাবে Reels Enjoy ব্যবহার করবেন?</h2><p class="tiny">একটি বেছে নিন — পরে প্রোফাইল থেকে বদলাতে পারবেন</p>
+      <button class="st-card u" data-t="user"><i>👤</i><span><b>ইউজার</b><small>ভিডিও দেখুন, পোস্ট করুন, রেফার করে আয় করুন</small></span><em>›</em></button>
+      <button class="st-card h" data-t="host"><i>👑</i><span><b>হোস্ট</b><small>লাইভ, পার্টি ও কল করে গিফট থেকে আয় করুন</small></span><em>›</em></button></div>`;
+    g.querySelectorAll("[data-t]").forEach((b) => (b.onclick = () => show(b.dataset.t)));
+  };
+  const show = (t) => {
+    const host = t === "host", list = rules(host ? "start_rules_host" : "start_rules_user");
+    g.innerHTML = `<div class="st-box"><div class="st-logo ${host ? "h" : "u"}">${host ? "👑" : "👤"}</div>
+      <h2>${host ? "হোস্টের নিয়ম" : "ইউজারের নিয়ম"}</h2>
+      <ol class="st-rules" translate="no">${list.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>
+      ${host && String(setting("host_auto_approve", false)) !== "true" ? `<p class="tiny st-note">⏳ হোস্ট হতে অ্যাডমিনের অনুমোদন লাগবে। ততক্ষণ ইউজার হিসেবে সব ব্যবহার করতে পারবেন।</p>` : ""}
+      <button class="btn primary" id="stOk">${host ? "রাজি — হোস্ট হতে চাই" : "রাজি — চালিয়ে যান"}</button>
+      <button class="btn" id="stBack" style="width:100%;margin-top:8px">← ফিরে যান</button></div>`;
+    $("#stBack", g).onclick = pick;
+    $("#stOk", g).onclick = async (e) => {
+      e.target.disabled = true;
+      try {
+        const r = await rpc("choose_start_type", { p_type: t });
+        S.me.start_choice_done = true;
+        if (r === "host") S.me.account_type = "host"; else if (r === "pending") S.me.host_requested_at = new Date().toISOString();
+        g.remove();
+        toast(r === "pending" ? "✅ হোস্ট আবেদন পাঠানো হয়েছে" : r === "host" ? "🎤 আপনি এখন হোস্ট" : "👤 স্বাগতম!");
+        if (location.hash === "#me" || location.hash === "") route();
+      } catch (er) { toast(errMsg(er), true); e.target.disabled = false; }
+    };
+  };
+  pick();
+  document.body.appendChild(g);
+}
+
+// ---------- Me পেজের ব্যানার: এডমিন যা লিখবেন / অফার দেবেন ----------
+const BAN_STYLES = { gold: "linear-gradient(135deg,#f59e0b,#b45309)", pink: "linear-gradient(135deg,#a855f7,#ec4899)", purple: "linear-gradient(135deg,#7c3aed,#4f46e5)",
+  blue: "linear-gradient(135deg,#0ea5e9,#2563eb)", green: "linear-gradient(135deg,#10b981,#047857)", red: "linear-gradient(135deg,#f43f5e,#be123c)", dark: "linear-gradient(135deg,#1f2937,#111827)" };
+function meBanners() {
+  let list = S.settings?.me_banners;
+  if (typeof list === "string") { try { list = JSON.parse(list); } catch { list = []; } }
+  const now = Date.now();
+  return (Array.isArray(list) ? list : []).filter((b) => b && b.on !== false && (b.t || b.img) && (!b.ends || new Date(b.ends).getTime() > now));
+}
+function meBannerHtml(b) {
+  const en = isEn(), t = en ? (b.t_en || "") : (b.t || ""), sub = en ? (b.s_en || "") : (b.s || "");
+  if (!t && !b.img) return "";
+  const href = /^https?:\/\//.test(b.link || "") ? b.link : (b.link && b.link.startsWith("#") ? b.link : "");
+  const ext = href.startsWith("http");
+  const bg = b.img ? `url('${esc(b.img)}') center/cover` : (BAN_STYLES[b.style] || BAN_STYLES.purple);
+  return `<a class="mb ${b.wide ? "wide" : ""} ${b.img ? "img" : ""}" ${href ? `href="${esc(href)}"` : ""} ${ext ? `target="_blank" rel="noopener"` : ""} style="background:${bg}" translate="no">
+    ${b.badge ? `<em>${esc(en ? (b.badge_en || b.badge) : b.badge)}</em>` : ""}<b>${esc(t)}</b>${sub ? `<span>${esc(sub)}</span>` : ""}</a>`;
 }
 
 function showWelcome(paisa) {
@@ -911,7 +968,7 @@ R.tag = async (raw = "", tab = "v", sort = "top") => {
     const rows = await rpc("tag_posts", { p_tag: tag, p_limit: 90 }).catch(() => []);
     $("#tg").innerHTML = rows.length ? `<div class="grid3">${rows.map((v) => v.kind === "photo"
       ? `<a href="#post/${v.id}"><img src="${esc(v.image_url)}" loading="lazy" alt=""><span class="vc">❤️ ${n(v.likes_count)}</span></a>`
-      : `<a href="#post/${v.id}" class="tmini3" style="background:${BGS[v.bg] ?? BGS.g1}" translate="no">${esc(v.body).slice(0, 80)}</a>`).join("")}</div>` : `<div class="empty">এই ট্যাগে এখনো কোনো ফটো বা লেখা নেই</div>`;
+      : `<a href="#post/${v.id}" class="tmini3" ${tStyle(v.bg)} translate="no">${esc(v.body).slice(0, 80)}</a>`).join("")}</div>` : `<div class="empty">এই ট্যাগে এখনো কোনো ফটো বা লেখা নেই</div>`;
   }
 };
 // ট্রেন্ডিং ট্যাগ তালিকা
@@ -967,6 +1024,17 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
   const obs = new IntersectionObserver((entries) => {
     for (const en of entries) if (en.isIntersecting && en.intersectionRatio >= 0.6) activate(en.target);
   }, { root: feedEl, threshold: [0.6] });
+  // ডানে/বামে সোয়াইপ: ফলোয়িং ⇄ আপনার জন্য
+  if (type === "foryou" || type === "following") {
+    let sx = 0, sy = 0, st0 = 0;
+    feedEl.addEventListener("touchstart", (e) => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; st0 = Date.now(); }, { passive: true });
+    feedEl.addEventListener("touchend", (e) => {
+      const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+      if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.8 || Date.now() - st0 > 700) return;
+      if (dx > 0 && type === "foryou") location.hash = "#following";
+      else if (dx < 0 && type === "following") location.hash = "#feed";
+    }, { passive: true });
+  }
 
   async function more() {
     if (st.loading || st.done) return;
@@ -2641,7 +2709,41 @@ async function compressImage(file, max = 1280, q = 0.85) {
 // ---------------- POSTS (ফটো / টেক্সট) ----------------
 const TEXT_CATS = [["", "সব"], ["shayari", "💌 শায়েরি"], ["golpo", "📖 গল্প"], ["joke", "😂 মজার কথা"], ["kobita", "🖋️ কবিতা"], ["romantic", "❤️ রোমান্টিক"]];
 const BGS = { g1: "linear-gradient(135deg,#8b5cf6,#ec4899)", g2: "linear-gradient(135deg,#0ea5e9,#6366f1)", g3: "linear-gradient(135deg,#f59e0b,#ef4444)",
-  g4: "linear-gradient(135deg,#10b981,#0e7490)", g5: "linear-gradient(135deg,#1f2937,#4b5563)", g6: "linear-gradient(135deg,#f472b6,#fb7185)" };
+  g4: "linear-gradient(135deg,#10b981,#0e7490)", g5: "linear-gradient(135deg,#1f2937,#4b5563)", g6: "linear-gradient(135deg,#f472b6,#fb7185)",
+  g7: "linear-gradient(135deg,#ff9a9e,#fad0c4)", g8: "linear-gradient(135deg,#a1c4fd,#c2e9fb)", g9: "linear-gradient(135deg,#fbc2eb,#a6c1ee)",
+  g10: "linear-gradient(135deg,#f6d365,#fda085)", g11: "linear-gradient(135deg,#84fab0,#8fd3f4)", g12: "linear-gradient(160deg,#0f2027,#203a43,#2c5364)",
+  g13: "linear-gradient(135deg,#ff512f,#dd2476)", g14: "linear-gradient(135deg,#11998e,#38ef7d)", g15: "linear-gradient(135deg,#fc466b,#3f5efb)",
+  g16: "linear-gradient(135deg,#232526,#414345)", g17: "linear-gradient(180deg,#141e30,#243b55)", g18: "linear-gradient(135deg,#ee9ca7,#ffdde1)",
+  s1: "#111827", s2: "#ffffff", s3: "#fef3c7", s4: "#e11d48", s5: "#1d4ed8", s6: "#047857",
+  p1: "radial-gradient(rgba(255,255,255,.25) 2px,transparent 2px) 0 0/18px 18px,linear-gradient(135deg,#7c3aed,#db2777)",
+  p2: "repeating-linear-gradient(45deg,rgba(255,255,255,.08) 0 12px,transparent 12px 24px),linear-gradient(135deg,#0ea5e9,#2563eb)",
+  p3: "radial-gradient(circle at 20% 20%,rgba(255,255,255,.35) 0 60px,transparent 61px),radial-gradient(circle at 85% 80%,rgba(255,255,255,.25) 0 80px,transparent 81px),linear-gradient(135deg,#f97316,#e11d48)",
+  p4: "linear-gradient(rgba(255,255,255,.07) 1px,transparent 1px) 0 0/22px 22px,linear-gradient(90deg,rgba(255,255,255,.07) 1px,transparent 1px) 0 0/22px 22px,#0f172a",
+  p5: "radial-gradient(circle at 50% 120%,#fde68a 0 30%,transparent 31%),linear-gradient(180deg,#1e3a8a,#7c3aed)",
+  p6: "conic-gradient(from 200deg at 50% 50%,#22d3ee,#a78bfa,#f472b6,#fbbf24,#22d3ee)" };
+// লেখা পোস্টের ডিজাইন: bg = "<রং>.<ফন্ট>.<লেখার রং>.<সাজানো>.<ইফেক্ট>" (পুরনো পোস্টে শুধু রং)
+const TFONTS = { f0: ["Hind Siliguri", "সাধারণ"], f1: ["Galada", "হাতের লেখা"], f2: ["Tiro Bangla", "ক্লাসিক"], f3: ["Baloo Da 2", "গোল"], f4: ["Noto Serif Bengali", "বইয়ের"], f5: ["Mina", "আধুনিক"] };
+const TCOLS = { w: "#ffffff", k: "#111827", y: "#fde047", p: "#f9a8d4", c: "#67e8f9", o: "#fb923c", g: "#86efac" };
+const TFX = { n: "সাধারণ", s: "ছায়া", o: "আউটলাইন", g: "নিয়ন", b: "বক্স", h: "হাইলাইট" };
+const LIGHT_BG = new Set(["g7", "g8", "g9", "g10", "g11", "g18", "s2", "s3"]);
+const fontsLoaded = new Set(["f0"]);
+function ensureTFont(k) {
+  if (!TFONTS[k] || fontsLoaded.has(k)) return;
+  fontsLoaded.add(k);
+  const l = document.createElement("link"); l.rel = "stylesheet";
+  l.href = `https://fonts.googleapis.com/css2?family=${TFONTS[k][0].replace(/ /g, "+")}:wght@400;600;700&display=swap`;
+  document.head.appendChild(l);
+}
+function tParse(bg) {
+  const [b = "g1", f = "f0", c = "", a = "c", x = "n"] = String(bg || "g1").split(".");
+  return { b: BGS[b] ? b : "g1", f: TFONTS[f] ? f : "f0", c: TCOLS[c] ? c : (LIGHT_BG.has(b) ? "k" : "w"), a: a === "l" ? "l" : "c", x: TFX[x] ? x : "n" };
+}
+const tEnc = (t) => [t.b, t.f, t.c, t.a, t.x].join(".");
+// style="..." আর class — সব লেখা পোস্ট / মিনি কার্ডে একই রূপ
+function tStyle(bg) {
+  const t = tParse(bg); ensureTFont(t.f);
+  return `style="background:${BGS[t.b]};font-family:'${TFONTS[t.f][0]}','Hind Siliguri',sans-serif;color:${TCOLS[t.c]};--tc:${TCOLS[t.c]};text-align:${t.a === "l" ? "left" : "center"}" data-tfx="${t.x}"`;
+}
 const postCard = (v, i) => `<a class="dcard ${i % 4 === 1 || i % 4 === 2 ? "tall" : ""}" href="#post/${v.id}">
   <div class="ph"><img src="${esc(v.image_url)}" loading="lazy" alt="">
     <div class="tags">${v.country_code ? `<span>${flagOf(v.country_code)} ${esc(v.country_code)}</span>` : ""}<span>❤️ ${n(v.likes_count)}</span><span class="lv">✦Lv${v.level ?? 0}</span></div></div>
@@ -2713,7 +2815,7 @@ R.post = async (id) => {
     <div class="pcard" id="pc">
       <a class="pwho" href="#u/${v.user_id}">${avatar(v)}<span><b translate="no">${esc(v.full_name || v.username)}</b><div class="tiny muted">${flagOf(v.country_code)} Lv${v.level} · ${ago(v.created_at)}</div></span></a>
       ${v.kind === "photo" ? `<img class="pimg" src="${esc(v.image_url)}" alt="">${v.body ? `<p translate="no">${rich(v.body)}</p>` : ""}`
-        : `<div class="tbody" style="background:${BGS[v.bg] ?? BGS.g1}" translate="no">${rich(v.body)}</div>`}
+        : `<div class="tbody" ${tStyle(v.bg)} translate="no"><span class="tx">${rich(v.body)}</span></div>`}
       ${postActions(v)}</div></div>`;
   bindPost($("#pc"), v);
   if (v.kind === "text") secureOn();
@@ -2750,7 +2852,7 @@ R.texts = (cat = "") => {
       for (const v of rows) {
         const d = document.createElement("div"); d.className = "pcard";
         d.innerHTML = `<a class="pwho" href="#u/${v.user_id}">${avatar(v)}<span><b translate="no">${esc(v.full_name || v.username)}</b><div class="tiny muted">${esc((TEXT_CATS.find(([k]) => k === v.category) ?? ["", ""])[1])} · ${ago(v.created_at)}</div></span></a>
-          <div class="tbody" style="background:${BGS[v.bg] ?? BGS.g1}" translate="no">${esc(v.body)}</div>${postActions(v)}`;
+          <div class="tbody" ${tStyle(v.bg)} translate="no"><span class="tx">${esc(v.body)}</span></div>${postActions(v)}`;
         $("#tl").appendChild(d); bindPost(d, v);
       }
       if (rows.length) st.before = rows[rows.length - 1].id;
@@ -2768,26 +2870,63 @@ R.texts = (cat = "") => {
 
 function composeText(cat) {
   const maxL = Number(setting("text_max_lines", 6)), maxC = Number(setting("text_max_chars", 600));
-  let bg = "g1";
+  let T = tParse(localStorage.getItem("tDesign") || "g1");
+  let tab = "bg";
+  const TABS = [["bg", "🎨", "রং"], ["font", "🔤", "ফন্ট"], ["col", "✏️", "লেখার রং"], ["fx", "✨", "ইফেক্ট"]];
   const body = sheet(`<h3>✍️ নতুন লেখা</h3>
     <select id="tc">${TEXT_CATS.filter(([k]) => k).map(([k, l]) => `<option value="${k}" ${k === cat ? "selected" : ""}>${l}</option>`).join("")}</select>
-    <div class="tprev" id="tp" style="background:${BGS.g1}"><textarea id="tt" maxlength="${maxC}" placeholder="এখানে লিখুন… (সর্বোচ্চ ${maxL} লাইন)"></textarea></div>
-    <div class="bgs">${Object.entries(BGS).map(([k, v]) => `<button data-bg="${k}" style="background:${v}" class="${k === "g1" ? "on" : ""}"></button>`).join("")}</div>
+    <div class="tprev tbody" id="tp"><textarea id="tt" maxlength="${maxC}" placeholder="এখানে লিখুন… (সর্বোচ্চ ${maxL} লাইন)"></textarea></div>
+    <div class="td-tabs" id="tdT">${TABS.map(([k, i, l]) => `<button type="button" data-t="${k}">${i} ${l}</button>`).join("")}
+      <button type="button" data-al="1" id="tdA" title="সাজানো">≡</button><button type="button" data-rnd="1" title="এলোমেলো">🎲</button></div>
+    <div class="td-pan" id="tdP"></div>
     <div class="row tiny muted"><span id="lc">0/${maxL} লাইন</span><span id="cc">0/${maxC}</span></div>
-    <p class="notice tiny" translate="no">${esc(settingL("text_notice", ""))}</p>
+    ${settingL("text_notice", "") ? `<p class="notice tiny" translate="no">${esc(settingL("text_notice", ""))}</p>` : ""}
     <button class="btn primary" id="tsend">পোস্ট করুন</button>`);
-  const ta = $("#tt", body);
+  const ta = $("#tt", body), tp = $("#tp", body);
   attachSuggest(ta);
+  const apply = () => {
+    const box = document.createElement("div"); box.innerHTML = `<div ${tStyle(tEnc(T))}></div>`;
+    const src = box.firstChild;
+    tp.setAttribute("style", src.getAttribute("style")); tp.dataset.tfx = src.dataset.tfx;
+    ta.style.color = TCOLS[T.c]; ta.style.textAlign = T.a === "l" ? "left" : "center"; ta.style.fontFamily = tp.style.fontFamily;
+    $("#tdA", body).textContent = T.a === "l" ? "⇤" : "≡";
+    try { localStorage.setItem("tDesign", tEnc(T)); } catch { /* */ }
+  };
+  const pan = () => {
+    body.querySelectorAll("#tdT [data-t]").forEach((b) => b.classList.toggle("on", b.dataset.t === tab));
+    const P = $("#tdP", body);
+    if (tab === "bg") P.innerHTML = `<div class="td-bgs">${Object.entries(BGS).map(([k, v]) => `<button type="button" data-v="${k}" style="background:${v}" class="${k === T.b ? "on" : ""}"></button>`).join("")}</div>`;
+    else if (tab === "font") { Object.keys(TFONTS).forEach(ensureTFont); P.innerHTML = `<div class="td-chips">${Object.entries(TFONTS).map(([k, [fam, l]]) => `<button type="button" data-v="${k}" class="${k === T.f ? "on" : ""}" style="font-family:'${fam}','Hind Siliguri'">${l} <span translate="no">অআ</span></button>`).join("")}</div>`; }
+    else if (tab === "col") P.innerHTML = `<div class="td-cols">${Object.entries(TCOLS).map(([k, v]) => `<button type="button" data-v="${k}" style="background:${v}" class="${k === T.c ? "on" : ""}"></button>`).join("")}</div>`;
+    else P.innerHTML = `<div class="td-chips">${Object.entries(TFX).map(([k, l]) => `<button type="button" data-v="${k}" class="${k === T.x ? "on" : ""}">${l}</button>`).join("")}</div>`;
+  };
+  $("#tdT", body).onclick = (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.al) { T.a = T.a === "l" ? "c" : "l"; apply(); return; }
+    if (b.dataset.rnd) {
+      const pick = (o) => { const k = Object.keys(o); return k[Math.floor(Math.random() * k.length)]; };
+      T.b = pick(BGS); T.f = pick(TFONTS); T.x = pick(TFX); T.c = LIGHT_BG.has(T.b) ? "k" : (Math.random() < 0.6 ? "w" : pick(TCOLS));
+      if (LIGHT_BG.has(T.b) === false && T.c === "k") T.c = "w";
+      apply(); pan(); return;
+    }
+    tab = b.dataset.t; pan();
+  };
+  $("#tdP", body).onclick = (e) => {
+    const b = e.target.closest("[data-v]"); if (!b) return;
+    const v = b.dataset.v;
+    if (tab === "bg") { const wasLight = LIGHT_BG.has(T.b); T.b = v; if (LIGHT_BG.has(v) && T.c === "w") T.c = "k"; else if (!LIGHT_BG.has(v) && wasLight && T.c === "k") T.c = "w"; }
+    else if (tab === "font") T.f = v; else if (tab === "col") T.c = v; else T.x = v;
+    apply(); pan();
+  };
   const count = () => { const l = ta.value.split("\n").length; $("#lc", body).textContent = `${l}/${maxL} লাইন`; $("#lc", body).style.color = l > maxL ? "#e5484d" : ""; $("#cc", body).textContent = `${ta.value.length}/${maxC}`; };
   ta.oninput = count;
-  $(".bgs", body).onclick = (e) => { const b = e.target.closest("[data-bg]"); if (!b) return; bg = b.dataset.bg; $("#tp", body).style.background = BGS[bg];
-    body.querySelectorAll(".bgs button").forEach((x) => x.classList.toggle("on", x === b)); };
+  apply(); pan();
   $("#tsend", body).onclick = async (e) => {
     const t = ta.value.trim();
     if (!t) return toast(ERR.EMPTY_TEXT, true);
     if (t.split("\n").length > maxL) return toast(`সর্বোচ্চ ${maxL} লাইন লেখা যাবে`, true);
     e.target.disabled = true;
-    try { await rpc("create_post", { p_kind: "text", p_body: t, p_image_path: null, p_image_url: null, p_category: $("#tc", body).value, p_bg: bg, p_contest: null });
+    try { await rpc("create_post", { p_kind: "text", p_body: t, p_image_path: null, p_image_url: null, p_category: $("#tc", body).value, p_bg: tEnc(T), p_contest: null });
       closeSheet(); toast("✅ পোস্ট হয়েছে"); R.texts(cat); }
     catch (er) { toast(errMsg(er), true); e.target.disabled = false; }
   };
@@ -4250,7 +4389,7 @@ R.me = async () => {
   const cc = p.country_code;
   const host = p.account_type === "host";
   screen.innerHTML = `<div class="me">
-    <div class="me-head" ${p.cover_url ? `style="background:linear-gradient(180deg,rgba(184,178,255,.25),#f7f6fb 96%),url('${esc(p.cover_url)}') center/cover"` : ""}>
+    <div class="me-head ${p.cover_url ? "has-cover" : ""}" ${p.cover_url ? `style="background:linear-gradient(180deg,rgba(25,8,55,.30) 0%,rgba(25,8,55,.55) 45%,rgba(25,8,55,.82) 100%),url('${esc(p.cover_url)}') center/cover"` : ""}>
       <div class="me-av">${avatarD(p)}</div>
       <h2 translate="no">${esc(p.full_name || p.username)} ${p.is_verified ? "✔️" : ""}</h2>${vipTag(p)}
       <div class="me-sub">@${esc(p.username)} · <span data-copy="${p.user_no}">ID ${p.user_no} ⧉</span>${host ? ` · 🎤 হোস্ট` : ""}</div>
@@ -4264,8 +4403,8 @@ R.me = async () => {
     <div id="meGrow"></div>
     <div class="me-create"><b>＋ পোস্ট করুন</b><div><a href="#upload"><i>🎬</i>ভিডিও</a><a href="#newphoto"><i>📷</i>ফটো</a><a href="#newstory"><i>📖</i>স্টোরি</a>
       <a href="#texts" onclick="setTimeout(()=>document.getElementById('newT')?.click(),300)"><i>✍️</i>লেখা</a></div></div>
-    <div class="me-promo">${setting("vip_enabled", true) !== false ? `<a href="#vip" class="vipb"><b>💎 VIP</b><span>${isVip(p) ? `${new Date(p.vip_until).toLocaleDateString(window.getLang?.() === "en" ? "en-GB" : "bn-BD")} পর্যন্ত` : "বাড়তি পয়েন্ট, ফ্রি কয়েন"}</span></a>` : ""}
-      ${setting("store_enabled", true) !== false ? `<a href="#store" class="storeb"><b>🎨 সাজান</b><span>ফ্রেম · এন্ট্রি · বাবল</span></a>` : ""}</div>
+    ${meBanners().length ? `<div class="me-promo adm">${meBanners().map(meBannerHtml).join("")}</div>` : `<div class="me-promo">${setting("vip_enabled", true) !== false ? `<a href="#vip" class="vipb"><b>💎 VIP</b><span>${isVip(p) ? `${new Date(p.vip_until).toLocaleDateString(window.getLang?.() === "en" ? "en-GB" : "bn-BD")} পর্যন্ত` : "বাড়তি পয়েন্ট, ফ্রি কয়েন"}</span></a>` : ""}
+      ${setting("store_enabled", true) !== false ? `<a href="#store" class="storeb"><b>🎨 সাজান</b><span>ফ্রেম · এন্ট্রি · বাবল</span></a>` : ""}</div>`}
     ${p.coin_seller ? `<a href="#seller" class="me-banner seller"><span>💰 কয়েন সেলার প্যানেল</span><b>বিক্রি করুন ›</b></a>` : ""}
     ${!p.referred_by && refDaysLeft(p) > 0 ? `<div class="me-ref"><span>🎁 বন্ধুর রেফার কোড দিন</span><input id="meRef" inputmode="numeric" maxlength="12" placeholder="ID নম্বর"><button id="meRefOk">যুক্ত করুন</button></div>` : ""}
     <a href="#invite" class="me-banner"><span>রেফার করে আয় করুন</span><b>${tk(refs?.earned_paisa ?? 0)} ›</b></a>
@@ -4660,7 +4799,7 @@ R.u = async (id) => {
     const rows = await rpc("feed_posts", { p_kind: k, p_before: null, p_limit: 50, p_category: null, p_contest: null, p_user: id, p_sort: "new" }).catch(() => []);
     $("#ptab").innerHTML = !rows.length ? `<div class="empty">কিছু নেই</div>` : k === "photo"
       ? `<div class="grid3">${rows.map((v) => `<a href="#post/${v.id}"><img src="${esc(v.image_url)}" loading="lazy" alt=""><span class="vc">❤️ ${n(v.likes_count)}</span></a>`).join("")}</div>`
-      : `<div class="nocopy" style="margin-top:12px">${rows.map((v) => `<a class="tmini" href="#post/${v.id}" style="background:${BGS[v.bg] ?? BGS.g1}" translate="no">${esc(v.body)}</a>`).join("")}</div>`;
+      : `<div class="nocopy" style="margin-top:12px">${rows.map((v) => `<a class="tmini" href="#post/${v.id}" ${tStyle(v.bg)} translate="no">${esc(v.body)}</a>`).join("")}</div>`;
   }));
   let last = vids[vids.length - 1]?.id;
   $("#mr")?.addEventListener("click", async (e) => {

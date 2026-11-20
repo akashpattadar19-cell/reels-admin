@@ -1238,6 +1238,79 @@ const SITE_FIELDS = [
 ];
 const SITE_SOCIAL = [["whatsapp", "💬 WhatsApp নম্বর", "+8801…"], ["facebook", "📘 Facebook পেজের লিংক", "https://facebook.com/…"], ["youtube", "▶️ YouTube লিংক", "https://youtube.com/…"],
   ["tiktok", "🎵 TikTok লিংক", "https://tiktok.com/@…"], ["instagram", "📸 Instagram লিংক", "https://instagram.com/…"]];
+// ---------- অ্যাপ ব্যানার (Me পেজ) + প্রথম লগইনের নিয়ম ----------
+const BAN_ST = [["purple", "বেগুনি", "linear-gradient(135deg,#7c3aed,#4f46e5)"], ["gold", "সোনালি", "linear-gradient(135deg,#f59e0b,#b45309)"], ["pink", "গোলাপি", "linear-gradient(135deg,#a855f7,#ec4899)"],
+  ["blue", "নীল", "linear-gradient(135deg,#0ea5e9,#2563eb)"], ["green", "সবুজ", "linear-gradient(135deg,#10b981,#047857)"], ["red", "লাল", "linear-gradient(135deg,#f43f5e,#be123c)"], ["dark", "কালো", "linear-gradient(135deg,#1f2937,#111827)"]];
+routes.banners = async () => {
+  loading();
+  const keys = ["me_banners", "start_rules_user", "start_rules_user_en", "start_rules_host", "start_rules_host_en"];
+  const { data } = await sb.from("settings").select("key,value").in("key", keys);
+  const M = Object.fromEntries((data ?? []).map((x) => [x.key, x.value]));
+  let list = Array.isArray(M.me_banners) ? M.me_banners.map((b) => ({ ...b })) : [];
+  const bannerItem = (b, i) => `<div class="item ban-ed" data-i="${i}">
+      <div class="ban-prev" style="background:${b.img ? `url('${esc(b.img)}') center/cover` : (BAN_ST.find((x) => x[0] === b.style)?.[2] || BAN_ST[0][2])}"><b>${esc(b.t || "শিরোনাম")}</b><span>${esc(b.s || "")}</span>${b.badge ? `<em>${esc(b.badge)}</em>` : ""}</div>
+      <label class="small muted">শিরোনাম (বাংলা)</label><input data-f="t" value="${esc(b.t || "")}" placeholder="যেমন: 💎 VIP অফার">
+      <label class="small muted">Title (English)</label><input data-f="t_en" value="${esc(b.t_en || "")}" placeholder="e.g. 💎 VIP offer">
+      <label class="small muted">ছোট লেখা (বাংলা)</label><input data-f="s" value="${esc(b.s || "")}" placeholder="যেমন: আজ ৫০% ছাড়">
+      <label class="small muted">Sub text (English)</label><input data-f="s_en" value="${esc(b.s_en || "")}">
+      <label class="small muted">ব্যাজ (ঐচ্ছিক) বাংলা / English</label><div class="row" style="gap:6px"><input data-f="badge" value="${esc(b.badge || "")}" placeholder="নতুন"><input data-f="badge_en" value="${esc(b.badge_en || "")}" placeholder="NEW"></div>
+      <label class="small muted">চাপলে কোথায় যাবে</label><select data-f="link">${[["", "কোথাও না"], ["#vip", "VIP"], ["#store", "সাজান (স্টোর)"], ["#cashin", "কয়েন কিনুন"], ["#invite", "রেফার"], ["#offers", "অফার"], ["#season/creator", "সিজন"], ["#rules", "টাস্ক"], ["#wallet", "ওয়ালেট"], ["#upload", "ভিডিও আপলোড"], ["#golive", "লাইভ"], ["#support", "সাপোর্ট"]].map(([v, l]) => `<option value="${v}" ${v === (b.link || "") ? "selected" : ""}>${l}</option>`).join("")}
+        ${b.link && !b.link.startsWith("#") ? `<option value="${esc(b.link)}" selected>${esc(b.link)}</option>` : ""}<option value="__url">অন্য লিংক (https://…)</option></select>
+      <label class="small muted">রং</label><div class="ban-sts">${BAN_ST.map(([k, l, g]) => `<button type="button" data-st="${k}" title="${l}" class="${(b.style || "purple") === k ? "on" : ""}" style="background:${g}"></button>`).join("")}</div>
+      <label class="small muted">ছবি (ঐচ্ছিক — দিলে রঙের বদলে ছবি)</label><div class="row" style="gap:6px"><input type="file" accept="image/*" data-img>${b.img ? `<button type="button" class="btn sm" data-noimg>ছবি সরান</button>` : ""}</div>
+      <label class="small muted">শেষ হবে (ঐচ্ছিক)</label><input type="datetime-local" data-f="ends" value="${b.ends ? new Date(new Date(b.ends).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ""}">
+      <div class="row" style="gap:12px;margin-top:8px;flex-wrap:wrap"><label><input type="checkbox" data-c="on" ${b.on !== false ? "checked" : ""}> চালু</label><label><input type="checkbox" data-c="wide" ${b.wide ? "checked" : ""}> পুরো চওড়া</label>
+        <span style="flex:1"></span><button type="button" class="btn sm" data-up>↑</button><button type="button" class="btn sm" data-dn>↓</button><button type="button" class="btn sm bad" data-del>🗑 ডিলিট</button></div></div>`;
+  const ruleBox = (k, l) => `<div class="item"><b>${l}</b><div class="small muted">প্রতি লাইনে একটি নিয়ম</div>
+      <label class="small muted" style="display:block;margin-top:6px">বাংলা</label><textarea data-r="${k}" rows="6" style="width:100%">${esc(M[k] ?? "")}</textarea>
+      <label class="small muted" style="display:block;margin-top:6px">English</label><textarea data-r="${k}_en" rows="6" style="width:100%">${esc(M[k + "_en"] ?? "")}</textarea></div>`;
+  const read = () => {
+    view.querySelectorAll(".ban-ed").forEach((el) => {
+      const b = list[Number(el.dataset.i)];
+      el.querySelectorAll("[data-f]").forEach((x) => { const v = x.value.trim(); if (x.dataset.f === "ends") b.ends = v ? new Date(v).toISOString() : null; else if (x.dataset.f === "link") { if (v !== "__url") b.link = v; } else b[x.dataset.f] = v; });
+      el.querySelectorAll("[data-c]").forEach((x) => (b[x.dataset.c] = x.checked));
+    });
+  };
+  const draw = () => {
+    view.innerHTML = `<h1>🖼 অ্যাপ ব্যানার ও শুরুর নিয়ম</h1>
+      <div class="card small" style="margin-bottom:12px">অ্যাপের "আমি" পেজে VIP / সাজান এর জায়গায় এখানে যা লিখবেন বা যে অফার দেবেন তাই দেখাবে। কোনো ব্যানার না থাকলে আগের VIP ও সাজান বাটন দেখাবে।
+        ইংরেজি ঘর খালি রাখলে ইংরেজি ইউজাররা সেই ব্যানার দেখবে না (এক ভাষা নিয়ম)।</div>
+      <h2>🖼 আমি পেজের ব্যানার</h2>
+      <div class="list" id="banL">${list.map(bannerItem).join("") || `<div class="empty">কোনো ব্যানার নেই — আগের VIP / সাজান দেখাচ্ছে</div>`}</div>
+      <button class="btn" id="banAdd" style="width:100%;margin:8px 0">＋ নতুন ব্যানার</button>
+      <h2>👋 প্রথম লগইন — ইউজার / হোস্ট নিয়ম</h2>
+      <div class="card small" style="margin-bottom:8px">নতুন অ্যাকাউন্ট প্রথমবার অ্যাপে ঢুকলে "ইউজার" নাকি "হোস্ট" কার্ড দেখবে; যেটিতে চাপবে সেটির নিয়ম দেখে রাজি হলে অ্যাপে ঢুকবে। হোস্ট বেছে নিলে হোস্ট আবেদন যাবে।</div>
+      <div class="list">${ruleBox("start_rules_user", "👤 ইউজারের নিয়ম")}${ruleBox("start_rules_host", "👑 হোস্টের নিয়ম")}</div>
+      <button class="btn good" id="banSave" style="margin:14px 0 30px;width:100%">💾 সব সেভ করুন</button>`;
+    $("#banAdd").onclick = () => { read(); list.push({ t: "", t_en: "", s: "", s_en: "", link: "#vip", style: "purple", on: true }); draw(); };
+    view.querySelectorAll(".ban-ed").forEach((el) => {
+      const i = Number(el.dataset.i);
+      el.querySelector("[data-del]").onclick = () => { if (!confirm("এই ব্যানার মুছবেন?")) return; read(); list.splice(i, 1); draw(); };
+      el.querySelector("[data-up]").onclick = () => { read(); if (i > 0) [list[i - 1], list[i]] = [list[i], list[i - 1]]; draw(); };
+      el.querySelector("[data-dn]").onclick = () => { read(); if (i < list.length - 1) [list[i + 1], list[i]] = [list[i], list[i + 1]]; draw(); };
+      el.querySelector(".ban-sts").onclick = (e) => { const b = e.target.closest("[data-st]"); if (!b) return; read(); list[i].style = b.dataset.st; draw(); };
+      el.querySelector("[data-noimg]")?.addEventListener("click", () => { read(); list[i].img = null; draw(); });
+      el.querySelector('[data-f="link"]').onchange = (e) => { if (e.target.value !== "__url") return; const u = prompt("লিংক দিন (https://…)", "https://"); read(); if (u && /^https:\/\//.test(u)) list[i].link = u.trim(); draw(); };
+      el.querySelector("[data-img]").onchange = async (e) => {
+        const f = e.target.files[0]; if (!f) return;
+        read();
+        const path = `${S.me.id}/banner-${Date.now()}.${(f.name.split(".").pop() || "jpg").toLowerCase()}`;
+        const { error } = await sb.storage.from("photos").upload(path, f, { contentType: f.type || "image/jpeg" });
+        if (error) return toast(errMsg(error), true);
+        list[i].img = sb.storage.from("photos").getPublicUrl(path).data.publicUrl; draw(); toast("ছবি যোগ হয়েছে — সেভ করতে ভুলবেন না");
+      };
+      el.querySelectorAll("input[data-f=t],input[data-f=s],input[data-f=badge]").forEach((x) => (x.oninput = () => { const pv = el.querySelector(".ban-prev"); pv.querySelector("b").textContent = el.querySelector("[data-f=t]").value || "শিরোনাম"; pv.querySelector("span").textContent = el.querySelector("[data-f=s]").value; }));
+    });
+    $("#banSave").onclick = () => act(async () => {
+      read();
+      const clean = list.filter((b) => b.t || b.img).map((b) => Object.fromEntries(Object.entries(b).filter(([, v]) => v !== "" && v !== null && v !== undefined)));
+      await rpc("admin_set_setting", { p_key: "me_banners", p_value: clean });
+      for (const el of view.querySelectorAll("[data-r]")) await rpc("admin_set_setting", { p_key: el.dataset.r, p_value: el.value.trim() });
+    }, "সেভ হয়েছে").then(() => routes.banners());
+  };
+  draw();
+};
+
 routes.website = async () => {
   loading();
   const { data } = await sb.from("settings").select("key,value").in("key", ["site_texts", "site_theme"]);
