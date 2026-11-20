@@ -274,8 +274,12 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   App `wealthTag(p)` (gem badge, drawn inside `vipTag`), `#level/w` page; admin thresholds on `#launch/grow`. On cash_in/play_purchase,
   `_ref_topup_bonus` gives the referrer `ref_topup_pct` % (default 10) as coins (`ref_topup_bonus`, lifetime, skipped for same_device);
   setting on admin "🎁 রেফার"; `#invite` shows the rule.
-- Visual restyle pending: owner said the app looks cartoonish (emoji icons); 3 mockups sent (1 clean white, 2 dark gold, 3 purple gradient,
-  line SVG icons + gold coin SVG) — waiting for the owner's choice before restyling.
+- Visual style (049, owner chose mockup "style 3"): purple band behind every `.page` header (`.page::before`, `--band`), white cards with soft
+  shadow, orange→pink CTA (`--cta`), Inter for Latin + Hind Siliguri for Bengali. Emoji in UI text become line icons at runtime: `iconize()`
+  in app.js (MutationObserver registered after i18n's, so translation happens first) maps `EICON` emoji → `<i class="ei ei-NAME">` (CSS mask
+  icons at the end of app.css) and 🪙 → `<i class="coin">` (gold SVG). Skips `ESKIP` (translate="no", inputs, gifts, editor, stickers, captions,
+  chat bubbles). Icon colour = `--icon` (purple), containers with coloured backgrounds set `--icon: currentColor`. Keep writing emoji in code; add new
+  ones to `EICON` + an icon path in the generator if needed.
 - Declined: stock/AI photos of attractive women/men presented as app users (misleading fake users). Use only real, consenting people's photos.
 - Not built on purpose: Chamet "BIG WIN"/"City PK" coin games (betting).
 - Declined: real-money betting games in live (coins are bought with money and earnings withdraw → gambling, illegal in BD/KSA,

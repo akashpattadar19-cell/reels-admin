@@ -298,6 +298,35 @@ function errMsg(e) {
   for (const k of Object.keys(ERR)) if (m.includes(k)) return ERR[k];
   return m;
 }
+// ---------------- আইকন: UI-র কার্টুন ইমোজি → পরিষ্কার লাইন আইকন, 🪙 → সোনালি কয়েন (ইউজারের লেখা, গিফট, স্টিকার বাদ) ----------------
+const EICON = {"✅": "check", "✔": "tick", "🎁": "gift", "👑": "crown", "🎬": "video", "❤": "heart", "🤍": "heart", "💖": "heart", "💜": "heart", "💛": "heart", "🧡": "heart", "📞": "phone", "💬": "chat", "⏳": "clock", "⌛": "clock", "⏱": "clock", "⏰": "clock", "🎉": "party", "🏆": "trophy", "⭐": "star", "🧑‍💼": "brief", "💼": "brief", "💎": "gem", "🔒": "lock", "🔐": "lock", "🔓": "unlock", "🎤": "mic", "🎙": "mic", "📷": "camera", "💰": "money", "💸": "money", "🎵": "music", "🎶": "music", "🚀": "rocket", "✍": "pen", "✏": "pen", "🖋": "pen", "🗑": "trash", "📹": "videocam", "🎥": "videocam", "👁": "eye", "👀": "eye", "🎨": "palette", "🔥": "flame", "📢": "mega", "📣": "mega", "🖼": "image", "🔇": "mute", "🔊": "volume", "🤝": "users", "⚔": "swords", "📲": "mobile", "📱": "mobile", "📖": "book", "❌": "xcircle", "🚫": "ban", "📵": "ban", "⚠": "alert", "✨": "sparkle", "⬇": "down", "⬆": "up", "🔔": "bell", "🙋": "hand", "🌐": "globe", "👥": "users", "👤": "user", "👨": "user", "👩": "user", "🧒": "user", "📋": "clip", "📜": "clip", "🧾": "clip", "📄": "clip", "🎯": "target", "📅": "cal", "📊": "chart", "📈": "chart", "✂": "scissors", "🎧": "headset", "📍": "pin", "📌": "pin", "📤": "share", "🔁": "refresh", "🔄": "refresh", "💡": "bulb", "📎": "clip", "🏠": "home", "🚪": "logout", "🎟": "ticket", "🏁": "flag", "👉": "arrow", "📁": "folder", "💌": "mail", "⏸": "pause", "🪑": "seat", "✈": "plane", "☀": "sun", "📦": "box", "🎭": "theater", "📺": "tv", "↗": "share", "📸": "camera", "🔍": "eye", "🔎": "eye", "🔗": "share", "🎂": "party", "🏅": "trophy"};
+const EKEYS = Object.keys(EICON).concat(["🪙"]).sort((a, b) => b.length - a.length).map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+const ERX = new RegExp("(" + EKEYS.join("|") + ")\uFE0F?", "g"), ETEST = new RegExp(EKEYS.join("|"));
+const ESKIP = '[translate="no"],input,textarea,select,option,script,style,.ved,.gifts,.gift-fly,.heart-pop,.big-heart,.lv-hearts,.stk,.noicon,.emo,.bub,.stv-text,.tbody,.cap,.lv-msgs,.cmt span';
+function iconText(t) {
+  const v = t.nodeValue, el = t.parentElement;
+  if (!v || !ETEST.test(v) || !el || el.closest(ESKIP)) return;
+  const frag = document.createDocumentFragment(); let last = 0;
+  v.replace(ERX, (m, k, off) => {
+    if (off > last) frag.appendChild(document.createTextNode(v.slice(last, off)));
+    const i = document.createElement("i"); i.className = k === "🪙" ? "coin" : "ei ei-" + EICON[k]; i.setAttribute("aria-hidden", "true");
+    frag.appendChild(i); last = off + m.length; return m;
+  });
+  if (last < v.length) frag.appendChild(document.createTextNode(v.slice(last)));
+  t.replaceWith(frag);
+}
+function iconize(root) {
+  if (!root) return;
+  if (root.nodeType === 3) return iconText(root);
+  if (root.nodeType !== 1 || root.closest(ESKIP)) return;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), list = []; let t;
+  while ((t = w.nextNode())) if (ETEST.test(t.nodeValue)) list.push(t);
+  list.forEach(iconText);
+}
+// i18n-এর পরে চলে (আগে অনুবাদ, তারপর আইকন) — i18n.js-এর observer আগে তৈরি হয়েছে
+iconize(document.body);
+new MutationObserver((ms) => ms.forEach((m) => (m.type === "characterData" ? iconText(m.target) : m.addedNodes.forEach(iconize))))
+  .observe(document.body, { childList: true, subtree: true, characterData: true });
 const isEn = () => window.getLang?.() === "en";
 const L = (bn, en) => (isEn() ? en : bn);
 const trx = (x) => (isEn() && window.t ? window.t(String(x ?? "")) : x); // DOM-এর বাইরের লেখা (নেটিভ নোটিফিকেশন)
