@@ -609,7 +609,7 @@ async function start() {
     if (di.id) rpc("register_device", { p_device_id: di.id, p_brand: di.brand, p_model: di.model, p_os: di.os, p_app: di.app })
       .then((r) => { if (r?.welcome_paisa > 0) showWelcome(r.welcome_paisa); }).catch(() => {});
   } catch { /* old APK */ }
-  if (!checkUpdate()) { requireLocation(); requireNotif(); setTimeout(async () => { if (!(await checkinPopup())) offerPopup(); }, 2500); }
+  if (!checkUpdate()) { requireLocation(); requireNotif(); setTimeout(async () => { if ($("#notifGate")) return; if (!(await checkinPopup())) offerPopup(); }, 2500); }
   pendingCall();
   try { const pr = Native?.takeRoute?.(); if (pr) setTimeout(() => (location.hash = pr), 300); } catch { /* old APK */ }
   setTimeout(() => { try { if (isPlay()) Native?.playRestore?.(); } catch { /* old APK */ } }, 3000);
