@@ -474,3 +474,7 @@ img.logo { background: none; box-shadow: 0 6px 16px rgba(236,72,153,.35); object
 .um-pin img, .um-pin b { width: 100%; height: 100%; object-fit: cover; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 16px; }
 .um-pop { font: 13px/1.5 Inter, "Hind Siliguri", sans-serif; } .um-pop a { font-weight: 700; }
 .leaflet-container { font-family: Inter, "Hind Siliguri", sans-serif; }
+
+#umap.dk .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.9) saturate(.6); }
+html[data-theme=light] #umap.dk .leaflet-tile-pane { filter: none; }
+#uMode { flex-wrap: nowrap; } #uMode button { white-space: nowrap; padding: 6px 10px; }

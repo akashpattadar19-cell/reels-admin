@@ -542,7 +542,8 @@ routes.users = async (type = "all") => {
     if (!MAP) {
       const dark = document.documentElement.dataset.theme !== "light";
       MAP = L.map("umap", { zoomControl: true, attributionControl: true }).setView([23.8, 60], 3);
-      L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark ? "dark_all" : "light_all"}/{z}/{x}/{y}{r}.png`, { maxZoom: 18, subdomains: "abcd", attribution: "© OpenStreetMap © CARTO" }).addTo(MAP);
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(MAP);
+      $("#umap").classList.toggle("dk", dark);
       LAYER = L.layerGroup().addTo(MAP);
     }
     setTimeout(() => MAP.invalidateSize(), 50);
