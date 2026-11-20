@@ -400,7 +400,11 @@ window.I18N_EXTRA = {
 "💎 VIP": "💎 VIP",
 "🧑‍💼 এজেন্ট": "🧑‍💼 Agent",
 "💰 সেলার": "💰 Seller",
-"কেউ নেই": "Nobody"
+"কেউ নেই": "Nobody",
+"📋 তালিকা": "📋 List",
+"🗺 ম্যাপ": "🗺 Map",
+"সব তথ্য ও কাজ ›": "All details & actions ›",
+"ম্যাপ লোড হয়নি — ইন্টারনেট দেখুন": "Map didn't load — check the internet"
 };
 window.I18N_EXTRA_PRE = [
 [
@@ -586,5 +590,9 @@ window.I18N_EXTRA_PRE = [
 [
 "(\\S+) ভিডিও · (\\S+) ফলোয়ার",
 "$1 videos · $2 followers"
+],
+[
+"📍 (\\S+) জন",
+"📍 $1 users"
 ]
 ];

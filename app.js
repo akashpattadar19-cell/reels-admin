@@ -496,9 +496,11 @@ routes.users = async (type = "all") => {
       <label class="mb-st"><span>সাজানো</span><select id="usort"><option value="recent">অনলাইন আগে</option><option value="name">নাম অনুযায়ী</option><option value="time">আজ বেশি সময়</option><option value="coins">বেশি কয়েন</option><option value="seen">শেষ দেখা</option></select></label>
       <form id="uf" class="mb-q"><input id="q" placeholder="🔎 নাম, ID বা ফোন" value="${esc(S.q || "")}"></form>
       <button class="btn sm" id="uref" title="রিফ্রেশ">⟳</button>
+      <div class="theme-tg" id="uMode"><button type="button" data-m="list">📋 তালিকা</button><button type="button" data-m="map">🗺 ম্যাপ</button></div>
     </div>
     <div class="mon-sum" id="usum"></div>
-    <div id="list" class="mlist"></div><div class="row" style="margin-top:10px"><button class="btn sm" id="more">আরও</button><span id="cnt" class="muted small"></span></div>`;
+    <div class="umon" id="umon"><div class="um-l"><div id="list" class="mlist"></div><div class="row" style="margin-top:10px"><button class="btn sm" id="more">আরও</button><span id="cnt" class="muted small"></span></div></div>
+      <div class="um-m"><div id="umap"></div><div class="um-leg">${["live", "party", "call", "online", "offline"].map((k) => `<span><i style="background:${USTATE[k][1]}"></i>${USTATE_TAG[k]}</span>`).join("")}<em id="umapN"></em></div></div></div>`;
   $("#ust").value = S.st || "all"; $("#usort").value = S.sort || "recent";
   let offset = 0, rows = [];
   const save = () => sessionStorage.setItem("umon", JSON.stringify({ q: $("#q").value, st: $("#ust").value, sort: $("#usort").value }));
@@ -519,12 +521,55 @@ routes.users = async (type = "all") => {
     $("#more").classList.toggle("hidden", (data ?? []).length < 50);
     $("#list").innerHTML = rows.length ? rows.map(monRow).join("") : `<div class="empty">কেউ নেই</div>`;
   };
-  const all = () => { counts(); load(true); };
+  // ম্যাপ (Leaflet, প্রয়োজনে লোড)
+  let MAP = null, LAYER = null, fitted = false;
+  const mode = () => localStorage.getItem("umonMode") || "list";
+  const wide = () => innerWidth >= 1100;
+  const applyMode = () => {
+    const m = mode(), box = $("#umon");
+    box.classList.toggle("split", wide()); box.classList.toggle("only-map", !wide() && m === "map"); box.classList.toggle("only-list", !wide() && m !== "map");
+    document.querySelectorAll("#uMode button").forEach((b) => b.classList.toggle("on", b.dataset.m === m));
+    $("#uMode").classList.toggle("hidden", wide());
+    if (wide() || m === "map") drawMap();
+  };
+  const loadLeaflet = () => window.L ? Promise.resolve() : new Promise((ok, no) => {
+    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(l);
+    const sc = document.createElement("script"); sc.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc);
+  });
+  const drawMap = async () => {
+    try { await loadLeaflet(); } catch { $("#umap").innerHTML = `<div class="empty">ম্যাপ লোড হয়নি — ইন্টারনেট দেখুন</div>`; return; }
+    if (!$("#umap")) return;
+    if (!MAP) {
+      const dark = document.documentElement.dataset.theme !== "light";
+      MAP = L.map("umap", { zoomControl: true, attributionControl: true }).setView([23.8, 60], 3);
+      L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark ? "dark_all" : "light_all"}/{z}/{x}/{y}{r}.png`, { maxZoom: 18, subdomains: "abcd", attribution: "© OpenStreetMap © CARTO" }).addTo(MAP);
+      LAYER = L.layerGroup().addTo(MAP);
+    }
+    setTimeout(() => MAP.invalidateSize(), 50);
+    const pts = (await rpc("admin_user_map", { p_type: type === "all" ? null : type, p_state: $("#ust").value, p_limit: 3000 }).catch(() => [])) ?? [];
+    LAYER.clearLayers();
+    const ll = [];
+    pts.forEach((u) => {
+      const j = (Number(u.user_no) % 97) / 97 - 0.5, k = (Number(u.user_no) % 89) / 89 - 0.5; // একই জায়গার লোক যেন একদম না ঢাকে
+      const lat = Number(u.lat) + j * 0.01, lon = Number(u.lon) + k * 0.01, nm = u.full_name || u.username, col = USTATE[u.state]?.[1] || "#94A3B8";
+      const html = `<div class="um-pin" style="border-color:${col}">${u.avatar_url ? `<img src="${esc(u.avatar_url)}">` : `<b style="background:${AVC[Number(u.user_no) % AVC.length]}">${esc(String(nm).charAt(0).toUpperCase())}</b>`}</div>`;
+      const mk = L.marker([lat, lon], { icon: L.divIcon({ html, className: "um-ic", iconSize: [40, 40], iconAnchor: [20, 20] }), zIndexOffset: u.state === "offline" ? 0 : 1000 });
+      mk.bindPopup(`<div class="um-pop"><b translate="no">${esc(nm)}</b><br><span style="color:${col};font-weight:700">${USTATE_TAG[u.state] || u.state}</span> · ID ${u.user_no}<br>
+        ${flag(u.country_code)} <span translate="no">${esc(u.city || "")}</span><br><small>শেষ দেখা ${["online", "live", "party", "call"].includes(u.state) ? "এখন" : agoBn(u.last_seen)}</small><br>
+        <a href="#lookup/${u.user_no}">সব তথ্য ও কাজ ›</a></div>`);
+      LAYER.addLayer(mk); ll.push([lat, lon]);
+    });
+    $("#umapN").textContent = `📍 ${num(pts.length)} জন`;
+    if (ll.length && !fitted) { MAP.fitBounds(ll, { padding: [30, 30], maxZoom: 11 }); fitted = true; }
+  };
+  $("#uMode").onclick = (e) => { const b = e.target.closest("[data-m]"); if (!b) return; localStorage.setItem("umonMode", b.dataset.m); applyMode(); };
+  addEventListener("resize", () => { if ($("#umon")) applyMode(); });
+  const all = () => { counts(); load(true); if (MAP && (wide() || mode() === "map")) drawMap(); };
   $("#ust").onchange = all; $("#usort").onchange = () => load(true); $("#uref").onclick = all;
   $("#uf").onsubmit = (e) => { e.preventDefault(); load(true); };
   $("#more").onclick = () => load(false);
   $("#usum").onclick = (e) => { const b = e.target.closest("[data-s]"); if (!b) return; $("#ust").value = $("#ust").value === b.dataset.s ? "all" : b.dataset.s; all(); };
-  all();
+  all(); applyMode();
   rpc("admin_user_type_counts").then((c) => {
     const t = { user: c.user, host: c.host, seller: c.seller, all: Number(c.user || 0) + Number(c.host || 0) };
     Object.entries(t).forEach(([k, v]) => { const el = $("#tc_" + k); if (el) el.textContent = num(v); });

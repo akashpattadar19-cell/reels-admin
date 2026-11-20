@@ -286,7 +286,8 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   Dashboard: hero with pending-work chips, KPI cards, SVG charts (`CH.line/bars/donut`, data from `admin_income_report` 60 days,
   `admin_user_type_counts`, `admin_analytics(30)`). Users page `#users/<all|user|host|seller|agent>` = Keeta-style monitor list (050: `admin_user_monitor(q,state,type,sort)`,
   `admin_user_state_counts(type)`, `_user_state(user)` = live|party|call|online (last_seen < 3 min; `track_time` now bumps last_seen)|offline|restricted;
-  status dropdown with counts + chips, sort, auto-refresh 30 s; row → `#lookup/<user_no>`). `userCard` kept but unused.
+  status dropdown with counts + chips, sort, auto-refresh 30 s; row → `#lookup/<user_no>`). Map (051): Leaflet 1.9.4 from unpkg (lazy) + CARTO tiles, `admin_user_map(type,state)` (approx
+  location, deterministic jitter so pins don't overlap); split view ≥1100 px, phone toggle 📋/🗺 (localStorage `umonMode`). `userCard` kept but unused.
   Coins page `#coins` = hero stats + tabs send/price/offer/play/hist (sessionStorage `coinTab`).
   Admin-only English lives in `i18n-admin.js` (`window.I18N_EXTRA` map + `I18N_EXTRA_PRE` regex rules, loaded before i18n.js only in admin);
   new admin UI text → add there. Admin en crawl must show 0 Bengali except user/admin-written content.
