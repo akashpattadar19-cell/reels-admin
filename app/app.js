@@ -642,21 +642,21 @@ function beansCard(w) {
 // ---------- প্রথম লগইন: ইউজার নাকি হোস্ট? (নিয়ম এডমিন থেকে) ----------
 function startChoice() {
   if ($("#startGate")) return;
-  const g = document.createElement("div"); g.id = "startGate"; g.className = "st-gate";
+  const g = document.createElement("div"); g.id = "startGate"; g.className = "sg-gate";
   const rules = (k) => String(settingL(k, "") || "").split("\n").map((x) => x.trim()).filter(Boolean);
   const pick = () => {
-    g.innerHTML = `<div class="st-box"><div class="st-logo">👋</div>
+    g.innerHTML = `<div class="sg-box"><div class="sg-logo">👋</div>
       <h2>আপনি কীভাবে Reels Enjoy ব্যবহার করবেন?</h2><p class="tiny">একটি বেছে নিন — পরে প্রোফাইল থেকে বদলাতে পারবেন</p>
-      <button class="st-card u" data-t="user"><i>👤</i><span><b>ইউজার</b><small>ভিডিও দেখুন, পোস্ট করুন, রেফার করে আয় করুন</small></span><em>›</em></button>
-      <button class="st-card h" data-t="host"><i>👑</i><span><b>হোস্ট</b><small>লাইভ, পার্টি ও কল করে গিফট থেকে আয় করুন</small></span><em>›</em></button></div>`;
+      <button class="sg-card u" data-t="user"><i>👤</i><span><b>ইউজার</b><small>ভিডিও দেখুন, পোস্ট করুন, রেফার করে আয় করুন</small></span><em>›</em></button>
+      <button class="sg-card h" data-t="host"><i>👑</i><span><b>হোস্ট</b><small>লাইভ, পার্টি ও কল করে গিফট থেকে আয় করুন</small></span><em>›</em></button></div>`;
     g.querySelectorAll("[data-t]").forEach((b) => (b.onclick = () => show(b.dataset.t)));
   };
   const show = (t) => {
     const host = t === "host", list = rules(host ? "start_rules_host" : "start_rules_user");
-    g.innerHTML = `<div class="st-box"><div class="st-logo ${host ? "h" : "u"}">${host ? "👑" : "👤"}</div>
+    g.innerHTML = `<div class="sg-box"><div class="sg-logo ${host ? "h" : "u"}">${host ? "👑" : "👤"}</div>
       <h2>${host ? "হোস্টের নিয়ম" : "ইউজারের নিয়ম"}</h2>
-      <ol class="st-rules" translate="no">${list.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>
-      ${host && String(setting("host_auto_approve", false)) !== "true" ? `<p class="tiny st-note">⏳ হোস্ট হতে অ্যাডমিনের অনুমোদন লাগবে। ততক্ষণ ইউজার হিসেবে সব ব্যবহার করতে পারবেন।</p>` : ""}
+      <ol class="sg-rules" translate="no">${list.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>
+      ${host && String(setting("host_auto_approve", false)) !== "true" ? `<p class="tiny sg-note">⏳ হোস্ট হতে অ্যাডমিনের অনুমোদন লাগবে। ততক্ষণ ইউজার হিসেবে সব ব্যবহার করতে পারবেন।</p>` : ""}
       <button class="btn primary" id="stOk">${host ? "রাজি — হোস্ট হতে চাই" : "রাজি — চালিয়ে যান"}</button>
       <button class="btn" id="stBack" style="width:100%;margin-top:8px">← ফিরে যান</button></div>`;
     $("#stBack", g).onclick = pick;

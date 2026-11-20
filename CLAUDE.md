@@ -317,7 +317,7 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
 - Text post design (057): `posts.bg` = "<bg>.<font>.<textColour>.<align>.<fx>" (old posts = bg key only); `BGS` (gradients g1–g18, solids s1–s6,
   patterns p1–p6), `TFONTS` (Google fonts loaded lazily by `ensureTFont`), `TCOLS`, `TFX` (shadow/outline/neon/box/highlight); `tStyle(bg)` renders
   every text card. Composer `composeText` has tabs রং/ফন্ট/লেখার রং/ইফেক্ট + align + 🎲 random; last design kept in localStorage `tDesign`.
-- First-login choice (057): `profiles.start_choice_done` (existing users true) → app `startChoice()` gate (#startGate): User/Host cards → rules
+- First-login choice (057): `profiles.start_choice_done` (existing users true) → app `startChoice()` gate (#startGate, CSS prefix `sg-` — `.st-card` is the starter-tasks card): User/Host cards → rules
   from `settings.start_rules_user/_host(_en)` (one per line) → `choose_start_type(p_type)` (host = `set_account_type('host')`, admin approval).
 - Me banners (057): `settings.me_banners` = [{t,t_en,s,s_en,badge,badge_en,link,style,img,ends,on,wide}] replaces the VIP/Decorate pair when
   non-empty (`meBanners()`/`meBannerHtml()`; English users only see banners with English text). Admin "🖼 অ্যাপ ব্যানার" `#banners` edits
