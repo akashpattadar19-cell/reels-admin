@@ -992,6 +992,46 @@ function route() {
   R[name](a, b, c);
 }
 window.addEventListener("hashchange", route);
+// নিচের দিকে টেনে রিফ্রেশ (পেজের একদম উপরে থাকলে)
+(() => {
+  const NO = new Set(["chat", "live", "party", "call", "story", "newstory", "upload", "newphoto", "newtext", "golive", "goparty", "edit", "myprofile", "withdraw", "jail", "delacct", "callprice"]);
+  const ind = document.createElement("div");
+  ind.className = "ptr"; ind.innerHTML = `<i></i>`;
+  document.body.appendChild(ind);
+  let y0 = null, x0 = 0, dy = 0, sc = null, busy = false;
+  const name = () => (location.hash.slice(1) || "home").split("/")[0];
+  document.addEventListener("touchstart", (e) => {
+    y0 = null; if (busy || e.touches.length > 1 || NO.has(name())) return;
+    if (document.querySelector(".sheet.open, .modal, .ask-bg, .ofpop, .upd-gate, #notifGate, #startGate")) return;
+    sc = e.target.closest?.("#feed") || (e.target.closest?.("#screen") ? screen : null);
+    if (!sc || sc.scrollTop > 0) return;
+    if (e.target.closest("input, textarea, select, [contenteditable], .chiprow, .cat-row, .stories, .seg")) return;
+    y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; dy = 0;
+  }, { passive: true });
+  document.addEventListener("touchmove", (e) => {
+    if (y0 === null) return;
+    const t = e.touches[0], d = t.clientY - y0;
+    if (sc.scrollTop > 0 || d < 0 || Math.abs(t.clientX - x0) > Math.abs(d)) { if (dy) { ind.style.cssText = ""; } y0 = dy < 10 ? null : y0; dy = 0; return; }
+    dy = Math.min(d * 0.5, 110);
+    ind.style.transition = "none";
+    ind.style.transform = `translate(-50%, ${dy}px) rotate(${dy * 3}deg)`;
+    ind.style.opacity = Math.min(1, dy / 60);
+    ind.classList.toggle("ready", dy >= 65);
+  }, { passive: true });
+  document.addEventListener("touchend", () => {
+    if (y0 === null) return; y0 = null;
+    ind.style.transition = "";
+    if (dy < 65) { ind.style.cssText = ""; ind.classList.remove("ready"); dy = 0; return; }
+    busy = true; dy = 0;
+    ind.classList.add("spin"); ind.style.transform = "translate(-50%, 70px)"; ind.style.opacity = 1;
+    try { refreshNow(); } catch { /* */ }
+    setTimeout(() => { busy = false; ind.classList.remove("spin", "ready"); ind.style.cssText = ""; }, 900);
+  }, { passive: true });
+})();
+function refreshNow() {
+  PAGE_CACHE.delete(location.hash);
+  route();
+}
 const back = () => (history.length > 1 ? history.back() : (location.hash = "#home"));
 // এডমিনের লেখা নোটিশ: English বেছে নিলে <key>_en থাকলে সেটা দেখায়
 const settingL = (k, d = "") => window.getLang?.() === "en" ? (setting(k + "_en", "") || "") : setting(k, d);
@@ -1081,6 +1121,8 @@ R.v = async (videoId) => {
   location.replace(`#watch/${data.user_id}/${videoId}`);
 };
 
+const seenVids = () => { try { return new Set(JSON.parse(localStorage.getItem("seenV") || "[]")); } catch { return new Set(); } };
+const markSeen = (id) => { try { const a = JSON.parse(localStorage.getItem("seenV") || "[]").filter((x) => x !== id); a.push(id); localStorage.setItem("seenV", JSON.stringify(a.slice(-400))); } catch { /* */ } };
 function openFeed({ type, user = null, startId = null, category = "" }) {
   screen.classList.add("full");
   screen.innerHTML = `
@@ -1116,7 +1158,13 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
     if (st.loading || st.done) return;
     st.loading = true;
     try {
-      const rows = await rpc("feed", { p_type: type === "user" || type === "play" ? "foryou" : type, p_before: st.before, p_limit: 8, p_user: user, p_category: category || null });
+      let rows = await rpc("feed", { p_type: type === "user" || type === "play" ? "foryou" : type, p_before: st.before, p_limit: mixIn && !st.slides.length ? 20 : 8, p_user: user, p_category: category || null });
+      // রিফ্রেশ/নতুন করে খুললে একই ভিডিও একই ক্রমে আসে না: না-দেখা আগে, বাকিগুলো এলোমেলো
+      if (mixIn && rows.length > 1) {
+        const seen = seenVids(), sh = (a) => a.map((x) => [Math.random(), x]).sort((p, q) => p[0] - q[0]).map((x) => x[1]);
+        rows = [...sh(rows.filter((r) => !seen.has(r.id))), ...sh(rows.filter((r) => seen.has(r.id)))];
+        rows._minId = Math.min(...rows.map((r) => r.id));
+      }
       if (!rows.length) {
         st.done = true;
         if (!st.slides.length) {
@@ -1157,7 +1205,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
           if (x.orig_muted) vd.muted = true;
         }
       });
-      if (rows.length) st.before = rows[rows.length - 1].id;
+      if (rows.length) st.before = rows._minId ?? rows[rows.length - 1].id;
     } catch (e) { toast(errMsg(e), true); }
     st.loading = false;
   }
@@ -1265,6 +1313,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
 
   function activate(el) {
     if (st.active === el) return;
+    if (el._v?.id && !el._sponsor) markSeen(el._v.id);
     if (st.active) { st.active.querySelector("video")?.pause(); st.active.querySelector(".paused-ic")?.remove(); }
     if (el._sponsor) {
       st.active = el; bgmStop();
@@ -2939,7 +2988,7 @@ R.texts = (cat = "") => {
           <div class="tbody" ${tStyle(v.bg)} translate="no"><span class="tx">${esc(v.body)}</span></div>${postActions(v)}`;
         $("#tl").appendChild(d); bindPost(d, v);
       }
-      if (rows.length) st.before = rows[rows.length - 1].id;
+      if (rows.length) st.before = rows._minId ?? rows[rows.length - 1].id;
       if (rows.length < 15) st.done = true;
       $("#tm").innerHTML = st.done && !$("#tl").children.length ? `<div class="empty">এখনো কোনো লেখা নেই — প্রথম লেখাটি আপনিই দিন ✍️</div>` : "";
     } catch (e) { $("#tm").innerHTML = `<div class="empty">${esc(errMsg(e))}</div>`; }
@@ -4394,7 +4443,7 @@ R.home = (tab = "video") => {
         if (!c0) return;
         (c0.offsetHeight <= c1.offsetHeight ? c0 : c1).insertAdjacentHTML("beforeend", tab === "photo" ? postCard(v, st.count++) : card(v, st.count++));
       }
-      if (rows.length) st.before = rows[rows.length - 1].id;
+      if (rows.length) st.before = rows._minId ?? rows[rows.length - 1].id;
       if (rows.length < 20) st.done = true;
       $("#dmore").innerHTML = st.done && !st.count ? `<div class="empty">${tab === "photo" ? "এখনো কোনো ছবি নেই — 📷 চেপে প্রথম ছবি দিন" : tab === "premium" ? "👑 এখনো কোনো প্রিমিয়াম ভিডিও নেই।<br>হোস্টরা ＋ চেপে ভিডিও দেওয়ার সময় \"প্রিমিয়াম ভিডিও\" চালু করলে, অ্যাডমিন অনুমোদনের পর এখানে দেখা যাবে।" : "এখনো কোনো ভিডিও নেই"}</div>` : "";
     } catch (e) { $("#dmore").innerHTML = `<div class="empty">${esc(errMsg(e))}</div>`; }
