@@ -210,6 +210,7 @@ const avatar = (p, cls = "av") => `<div class="${cls}">${p?.avatar_url ? `<img s
 const ERR = {
   "Invalid login credentials": "মোবাইল নম্বর বা পাসওয়ার্ড ভুল",
   INSUFFICIENT_COINS: "কয়েন যথেষ্ট নেই — আগে কয়েন কিনুন",
+  BONUS_COINS_GIFT: "❌ রিজেক্ট: এই মোবাইলে একাধিক অ্যাকাউন্ট — ফ্রি/বোনাস কয়েন দিয়ে গিফট বা কল করা যাবে না (জালিয়াতি প্রতিরোধ)। কেনা কয়েন দিয়ে গিফট দিতে পারবেন; ফ্রি কয়েন প্রিমিয়াম ভিডিও দেখতে কাজে লাগবে।",
   INCOME_LOCKED: "এই সুবিধা শীঘ্রই চালু হবে 🔒", NOT_ENDED: "সিজন এখনো শেষ হয়নি",
   POOL_MODE: "এখন রিওয়ার্ড পুল চালু — পয়েন্ট দিয়ে প্রতিদিন পুলের ভাগ পাবেন", VIP_OFF: "VIP এখন বন্ধ", NOT_VIP: "এটা শুধু VIP-দের জন্য",
   ALREADY_CLAIMED: "এই পুরস্কার আগেই নিয়েছেন", NEED_APP: "এই পুরস্কার শুধু Reels Enjoy অ্যাপে (APK) পাওয়া যায়",
@@ -614,6 +615,49 @@ async function start() {
   pendingCall();
   try { const pr = Native?.takeRoute?.(); if (pr) setTimeout(() => (location.hash = pr), 300); } catch { /* old APK */ }
   setTimeout(() => { try { if (isPlay()) Native?.playRestore?.(); } catch { /* old APK */ } }, 3000);
+}
+
+// ---------- নতুন অফার: দৈনিক টার্গেট, টপ রেফার ----------
+const newRefBonus = () => L(`${tk(setting("ref_new_user_paisa", 1000))} (হোস্টের রেফারে ${tk(setting("host_ref_new_user_paisa", 1500))})`, `${tk(setting("ref_new_user_paisa", 1000))} (${tk(setting("host_ref_new_user_paisa", 1500))} if a host invited you)`);
+const DT_LABEL = { video_post: ["🎬", "ভিডিও পোস্ট", "Post videos", "#upload"], text_post: ["✍️", "লেখা পোস্ট", "Text posts", "#texts"],
+  watch: ["▶️", "ভিডিও পুরো দেখুন", "Watch videos fully", "#feed"], like: ["❤️", "ভিডিওতে লাইক", "Like videos", "#feed"],
+  comment: ["💬", "ভিডিওতে কমেন্ট", "Comment on videos", "#feed"], tlike: ["🤍", "লেখায় লাইক", "Like text posts", "#texts"],
+  tcomment: ["🗨️", "লেখায় কমেন্ট", "Comment on text posts", "#texts"], share: ["↗️", "শেয়ার করুন", "Share", "#feed"] };
+async function dailyTaskCard(box, compact = false) {
+  if (!box) return;
+  const st = await rpc("daily_task_status");
+  if (!st?.enabled || !st.items?.length) { box.innerHTML = ""; return; }
+  const doneN = st.items.filter((x) => x.have >= x.need).length, total = st.items.length;
+  if (compact && st.claimed) { box.innerHTML = ""; return; }
+  const btn = st.claimed ? `<div class="dt-ok">${L("✅ আজকের কয়েন নেওয়া হয়েছে — কাল আবার আসুন", "✅ Today's coins collected — come back tomorrow")}</div>`
+    : st.done ? `<button class="btn primary" id="dtClaim" style="width:100%">🪙 ${L(`${n(st.coins)} কয়েন নিন`, `Get ${st.coins} coins`)}</button>`
+    : `<div class="tiny muted">${L(`সব টার্গেট পূরণ হলে 🪙 ${n(st.coins)} কয়েন — দিনে একবার`, `Finish every target for 🪙 ${st.coins} coins — once a day`)}</div>`;
+  box.innerHTML = compact
+    ? `<a class="card dt-card dt-mini" href="#rules"><div class="row"><b>🎯 ${L("আজকের টার্গেট", "Today's target")}</b><span class="dt-pill">${n(doneN)}/${n(total)}</span></div>
+        <div class="wd-bar"><i style="width:${Math.round(doneN / total * 100)}%"></i></div><div class="tiny muted">${L(`সব পূরণ হলে 🪙 ${n(st.coins)} কয়েন`, `🪙 ${st.coins} coins when all done`)} ›</div></a>`
+    : `<div class="card dt-card"><div class="row"><b>🎯 ${st.host ? L("হোস্টের দৈনিক টার্গেট", "Host daily target") : L("আজকের টার্গেট", "Today's target")}</b><span class="dt-pill">🪙 ${n(st.coins)}</span></div>
+        <div class="dt-list">${st.items.map((x) => { const t = DT_LABEL[x.k] || ["⭐", x.k, x.k, "#feed"], ok = x.have >= x.need;
+          return `<a class="dt-i ${ok ? "ok" : ""}" href="${t[3]}"><span class="dt-ic">${t[0]}</span><span class="dt-t">${L(t[1], t[2])}<div class="wd-bar"><i style="width:${Math.round(x.have / x.need * 100)}%"></i></div></span><b>${ok ? "✅" : `${n(x.have)}/${n(x.need)}`}</b></a>`; }).join("")}</div>
+        ${btn}</div>`;
+  $("#dtClaim", box)?.addEventListener("click", async (e) => {
+    e.target.disabled = true;
+    try { const r = await rpc("daily_task_claim"); toast(L(`🎉 ${n(r.coins)} কয়েন যোগ হয়েছে`, `🎉 ${r.coins} coins added`)); dailyTaskCard(box, compact); }
+    catch (er) { toast(errMsg(er), true); e.target.disabled = false; }
+  });
+}
+async function refTopCard(box) {
+  if (!box) return;
+  const t = await rpc("my_ref_top");
+  if (!t?.enabled || !t.tiers?.length) { box.innerHTML = ""; return; }
+  const dfmt = (d) => new Date(d + "T00:00:00").toLocaleDateString(isEn() ? "en-GB" : "bn-BD", { day: "numeric", month: "short" });
+  const next = t.tiers.find((x) => !(t.refs >= x.refs && t.active_pct >= x.active));
+  box.innerHTML = `<div class="card rtop"><div class="row"><b>🏆 ${t.kind === "host" ? L(`টপ ${n(t.top)} হোস্ট রেফার বোনাস`, `Top ${t.top} host referral bonus`) : L(`টপ ${n(t.top)} ইউজার রেফার বোনাস`, `Top ${t.top} user referral bonus`)}</b>
+      <span class="dt-pill">${dfmt(t.start)} – ${dfmt(t.end)}</span></div>
+    <div class="tiny muted" style="margin:2px 0 8px">${L("প্রতি ১০ দিনে (মাসে ৩ বার) — সবচেয়ে বেশি রেফার করা", "Every 10 days (3 times a month) — the most referrals")} ${t.kind === "host" ? L(`${n(t.top)} জন হোস্ট`, `${t.top} hosts`) : L(`${n(t.top)} জন ইউজার`, `${t.top} users`)} ${L("পাবেন", "win")}</div>
+    <div class="rtop-me"><div><b>${n(t.refs)}</b><span>${L("রেফার", "Referrals")}</span></div><div><b>${n(t.active_pct)}%</b><span>${L("এক্টিভ", "Active")}</span></div><div><b>${t.rank ? "#" + n(t.rank) : "—"}</b><span>${L("র‍্যাংক", "Rank")}</span></div></div>
+    <div class="wd-lv">${t.tiers.map((x) => `<div class="lv ${t.refs >= x.refs && t.active_pct >= x.active ? "on" : ""}"><span>${L(`${n(x.refs)} রেফার + ${n(x.active)}% এক্টিভ`, `${x.refs} referrals + ${x.active}% active`)}</span><b>${tk(x.paisa)}</b></div>`).join("")}</div>
+    ${next ? `<div class="tiny" style="margin-top:8px">${L(`পরের ধাপ: আরও ${n(Math.max(0, next.refs - t.refs))} জন রেফার, এক্টিভ ${n(next.active)}%`, `Next: ${Math.max(0, next.refs - t.refs)} more referrals, ${next.active}% active`)}</div>` : ""}
+    <div class="tiny muted" style="margin-top:6px">${L("এক্টিভ = যাদের রেফার সফল হয়েছে (টাস্ক শেষ)। একই মোবাইলের বাড়তি অ্যাকাউন্ট গোনা হয় না।", "Active = referrals that succeeded (tasks done). Extra accounts on the same phone don't count.")}</div></div>`;
 }
 
 // ---------- My Beans (হোস্ট): গিফট/কলের কয়েন → Beans; ১০০০ হলে টাকায় উইথড্র ----------
@@ -2463,6 +2507,8 @@ R.withdraw = async () => {
     <div class="card hero"><div class="k">উইথড্রযোগ্য ব্যালেন্স</div><div class="v">${tk(el.balance_paisa)}</div>
       ${el.beans > 0 ? `<div class="tiny" style="color:#e9defc">${L(`ব্যালেন্স ${tk(el.earning_paisa)} + 🫘 ${n(el.beans)} Beans ${el.beans_paisa ? `= ${tk(el.beans_paisa)}` : `(${n(el.min_beans)} হলে যোগ হবে)`}`, `Balance ${tk(el.earning_paisa)} + 🫘 ${el.beans} Beans ${el.beans_paisa ? `= ${tk(el.beans_paisa)}` : `(added at ${el.min_beans})`}`)}</div>` : ""}
       <div class="tiny" style="color:#d5cbee">সর্বনিম্ন ${tk(el.min_paisa)} · ${wdDays(el.cooldown_days ?? setting("withdraw_cooldown_days", 7))}${el.fee_pct ? ` · চার্জ ${el.fee_pct}%` : ""}</div></div>
+    ${el.level?.fast ? `<div class="card wd-fast"><b>${L("⚡ দ্রুত উইথড্র চালু আছে", "⚡ Fast withdraw is on")}</b><div class="tiny">${L("আপনার ভালো কাজের জন্য এডমিন চালু করেছেন — অপেক্ষা কম, আপনার পেমেন্ট আগে যাবে।", "Turned on by the admin for your good work — shorter wait, you get paid first.")}</div></div>`
+      : `<div class="card"><div class="tiny">${L(`সবার জন্য ${n(el.cooldown_days ?? 15)} দিনে একবার উইথড্র। যারা মন দিয়ে কাজ করবে ও সবচেয়ে বেশি চেষ্টা করবে, এডমিন যাচাই করে তাদের ⚡ দ্রুত উইথড্র চালু করবেন।`, `Everyone can withdraw once every ${el.cooldown_days ?? 15} days. For those who work hard and try their best, the admin checks and turns on ⚡ fast withdraw.`)}</div></div>`}
     ${wdLevelCard(el.level)}
     <div class="card"><div class="row"><b>📱 আমার উইথড্র নম্বর</b><button class="btn small" id="addAcc" type="button">＋ নম্বর যোগ</button></div>
       <div id="accList" class="acc-list">${saved.length ? saved.map((a, i) => `<label class="acc"><input type="radio" name="acc" value="${a.id}" ${i === 0 ? "checked" : ""}>
@@ -4428,7 +4474,7 @@ R.me = async () => {
       <a href="#cashin" class="mc coins"><span>আমার কয়েন</span><b>${n(w?.coin_balance)}</b><svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="gm1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9f0ff"/><stop offset="1" stop-color="#5aa9ff"/></linearGradient><linearGradient id="gm2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd3ff"/><stop offset="1" stop-color="#3b82f6"/></linearGradient></defs><path d="M14 22 24 10h16l10 12-18 30z" fill="url(#gm1)"/><path d="M14 22h36L32 52z" fill="url(#gm2)" opacity=".9"/><path d="M24 10l-4 12 12 30 12-30-4-12" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.5"/><path d="M14 22h36" stroke="#fff" stroke-opacity=".8" stroke-width="1.5"/></svg></a>
       ${host && setting("beans_enabled", true) !== false ? beansCard(w) : ""}<a href="#wallet" class="mc money ${host && setting("beans_enabled", true) !== false ? "hidden" : ""}"><span>আমার ব্যালেন্স</span><b>${tk(w?.earning_paisa)}</b><svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="cn1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset="1" stop-color="#f5a524"/></linearGradient></defs><ellipse cx="34" cy="46" rx="20" ry="7" fill="#e08c14"/><rect x="14" y="36" width="40" height="10" fill="#f0a020"/><ellipse cx="34" cy="36" rx="20" ry="7" fill="url(#cn1)"/><circle cx="26" cy="24" r="15" fill="url(#cn1)" stroke="#e8961a" stroke-width="2"/><text x="26" y="30" text-anchor="middle" font-size="16" font-weight="700" fill="#c06a00" font-family="sans-serif">৳</text></svg></a>
     </div>
-    <div id="meGrow"></div>
+    <div id="meGrow"></div><div id="meDT"></div>
     <div class="me-create"><b>＋ পোস্ট করুন</b><div><a href="#upload"><i>🎬</i>ভিডিও</a><a href="#newphoto"><i>📷</i>ফটো</a><a href="#newstory"><i>📖</i>স্টোরি</a>
       <a href="#texts" onclick="setTimeout(()=>document.getElementById('newT')?.click(),300)"><i>✍️</i>লেখা</a></div></div>
     ${meBanners().length ? `<div class="me-promo adm">${meBanners().map(meBannerHtml).join("")}</div>` : `<div class="me-promo">${setting("vip_enabled", true) !== false ? `<a href="#vip" class="vipb"><b>💎 VIP</b><span>${isVip(p) ? `${new Date(p.vip_until).toLocaleDateString(window.getLang?.() === "en" ? "en-GB" : "bn-BD")} পর্যন্ত` : "বাড়তি পয়েন্ট, ফ্রি কয়েন"}</span></a>` : ""}
@@ -4449,6 +4495,7 @@ R.me = async () => {
       <a href="#settings"><i class="mi c6"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></i>সেটিংস<em>›</em></a>
     </div></div>`;
   growBox($("#meGrow"), true, () => growBox($("#meGrow"), true, null, false), false).catch(() => {});
+  dailyTaskCard($("#meDT"), true).catch(() => {});
   // নতুনদের কাজ বাকি থাকলে "আমার টাস্ক"-এ লাল বিন্দু
   rpc("starter_status").then((st) => { if (st?.enabled && (st.items || []).some((x) => !x.claimed)) $('.me-menu a[href="#rules"] em')?.insertAdjacentHTML("afterbegin", '<i class="red"></i>'); }).catch(() => {});
   $("#meRefOk")?.addEventListener("click", async (e) => {
@@ -4650,7 +4697,7 @@ R.invite = async () => {
     ${offer ? `<div class="ref-offer"><span>🔥</span><div translate="no">${esc(offer)}</div></div>` : ""}
     ${S.me?.agent_status === "approved" ? `<a class="card ag-cta" href="#agent"><span>🧑‍💼</span><div><b>${S.me?.agent_status === "approved" ? "এজেন্ট ড্যাশবোর্ড" : "এজেন্ট হয়ে বেশি বোনাস নিন"}</b><small>নিজের লিংক · প্রতি ${n(setting("agent_target_refs", 20))} জনে বাড়তি পুরস্কার</small></div><em>›</em></a>` : ""}
     ${mine && !mine.qualified && !mine.blocked ? `<div class="card ref-mine"><b>🎯 আপনার টাস্ক (@${esc(mine.referrer)}-এর রেফারে যুক্ত)</b>
-      <div class="tiny muted" style="margin:2px 0 8px">⏳ ${refLeft(mine.end)} · সব শেষ করলে আপনি পাবেন ⭐ ${n(setting("referral_welcome_points"))} পয়েন্ট</div>${refTaskList(mine)}</div>` : ""}
+      <div class="tiny muted" style="margin:2px 0 8px">⏳ ${refLeft(mine.end)} · সব শেষ করলে আপনি পাবেন ${newRefBonus()}</div>${refTaskList(mine)}</div>` : ""}
     <div class="card hero" style="text-align:center"><div class="k">আপনার রেফার কোড</div>
       <div class="v" data-copy="${r.code}" style="letter-spacing:2px">${r.code} ⧉</div>
       <button class="btn" id="shr" style="background:#fff;color:#4b1c7a;border:0">📤 বন্ধুদের পাঠান</button></div>
@@ -4660,10 +4707,13 @@ R.invite = async () => {
       <div class="li"><span>২. বন্ধু ${n(days)} দিনের মধ্যে নিচের সব টাস্ক শেষ করলে রেফার সফল</span></div>
       <div class="li"><span>৩. প্রতি সফল রেফারে আপনি পাবেন</span><b>${tk(S.me.account_type === "host" && Number(setting("host_referral_bonus_paisa", 0)) > 0 ? setting("host_referral_bonus_paisa") : setting("referral_bonus_paisa"))}</b></div>
       ${Number(setting("ref_topup_pct", 0)) > 0 ? `<div class="li"><span>৪. বন্ধু যতবার কয়েন কিনবে, আপনি পাবেন (সারাজীবন)</span><b>🪙 ${n(setting("ref_topup_pct", 0))}%</b></div>` : ""}
-      <div class="li"><span>বন্ধু পাবে স্বাগত পয়েন্ট</span><b>⭐ ${n(setting("referral_welcome_points"))}</b></div></div>
+      <div class="li"><span>বন্ধু (নতুন জন) পাবে</span><b>${tk(S.me.account_type === "host" ? setting("host_ref_new_user_paisa", 1500) : setting("ref_new_user_paisa", 1000))}</b></div>
+      ${S.me.account_type === "host" && Number(setting("host_ref_every_n", 0)) > 0 ? `<div class="li"><span>${L(`প্রতি ${n(setting("host_ref_every_n"))} জন সফল রেফারে বাড়তি`, `Extra for every ${setting("host_ref_every_n")} successful referrals`)}</span><b>${tk(setting("host_ref_every_paisa"))}</b></div>` : ""}
+      ${Number(setting("ref_referrer_min_videos", 0)) + Number(setting("ref_referrer_min_texts", 0)) > 0 ? `<div class="li"><span>${L(`⚠️ টাকা পেতে আপনাকেও কমপক্ষে ${n(setting("ref_referrer_min_videos"))}টি ভিডিও ও ${n(setting("ref_referrer_min_texts"))}টি লেখা পোস্ট করতে হবে`, `⚠️ To get paid you also need at least ${setting("ref_referrer_min_videos")} videos and ${setting("ref_referrer_min_texts")} text posts`)}</span></div>` : ""}</div>
       ${rules.length ? `<div class="tiny" style="margin:10px 0 4px"><b>বন্ধুর টাস্ক (${n(days)} দিনের মধ্যে)</b></div><div class="ref-rules">${rules.map((x) =>
         `<span>${REF_TASKS[x.k][0]} ${n(x.need)} ${x.k === "active_days" ? `দিন অ্যাপ ব্যবহার (প্রতিদিন ${n(x.mins)} মিনিট)` : REF_TASKS[x.k][1].replace(/^দিন /, "")}</span>`).join("")}</div>` : ""}
       <div class="tiny muted" style="margin-top:8px">⚠️ একই মোবাইলে খোলা দ্বিতীয় অ্যাকাউন্টের রেফার গণ্য হবে না। বন্ধুকে অ্যাপ (APK) থেকে লগইন করতে হবে।</div></div>
+    <div id="rtopBox"></div>
     ${r.tiers.length ? `<div class="card"><b>🏆 বাড়তি বোনাস</b><div class="list">${r.tiers.map((t) => `<div class="li"><span>${n(t.referrals)} জন সফল রেফার</span>
       <span>${t.awarded ? "✅ " : ""}<b>${tk(t.bonus_paisa)}</b></span></div>
       ${t.awarded ? "" : `<div class="progress" style="margin:0 0 6px"><div style="width:${Math.min(100, Math.round((r.qualified / t.referrals) * 100))}%"></div></div>`}`).join("")}</div></div>` : ""}
@@ -4672,6 +4722,7 @@ R.invite = async () => {
         <span class="pill ${x.qualified ? "paid" : x.blocked ? "rejected" : "pending"}">${x.qualified ? "✅ সফল" : x.blocked === "same_device" ? "❌ বাতিল (একই মোবাইল)" : x.blocked === "expired" ? "⌛ সময় শেষ" : x.blocked ? "❌ বাতিল" : "চলছে"}</span></div>
         ${x.progress ? refTaskList(x.progress, true) : ""}</div>`).join("") : `<div class="card"><div class="empty">এখনো কেউ নেই — কোড শেয়ার করুন</div></div>`}
   </div>`;
+  refTopCard($("#rtopBox")).catch(() => {});
   $("#shr").onclick = async () => {
     try {
       if (Native?.share) Native.share(shareText);
@@ -4689,12 +4740,9 @@ R.rules = async () => {
     <div id="ssnBox2"></div>
     ${S.ads.rewarded_points && Native?.showRewarded && !locked("ads") ? `<div class="card hero"><b>🎬 অ্যাড দেখে পয়েন্ট নিন</b><div class="tiny" style="margin:4px 0 10px">প্রতি অ্যাডে ⭐ ${n(S.ads.rewarded_points.viewer_points)} · দিনে ${n(S.ads.rewarded_points.daily_cap)} বার</div><a class="btn" href="#wallet" style="background:#fff;color:#5b2bd0;border:0">ওয়ালেটে গিয়ে অ্যাড দেখুন</a></div>` : ""}
     <div id="poolBox2"></div>
-    ${mine && !mine.qualified && !mine.blocked ? `<a class="card ref-mine" href="#invite" style="display:block"><b>🎯 রেফার টাস্ক — ⭐ ${n(setting("referral_welcome_points"))} পয়েন্ট পাবেন</b>
+    ${mine && !mine.qualified && !mine.blocked ? `<a class="card ref-mine" href="#invite" style="display:block"><b>🎯 রেফার টাস্ক — ${newRefBonus()} পাবেন</b>
       <div class="tiny muted" style="margin:2px 0 8px">⏳ ${refLeft(mine.end)}</div>${refTaskList(mine, true)}</a>` : ""}
-    <div class="card"><b>✅ প্রতিদিনের টাস্ক</b><div class="list tiny">
-      <div class="li"><span>ভিডিও পুরোটা দেখুন (ছোট-বড় যেকোনো ভিডিও)</span>${locked("watch") ? soon() : `<b>⭐ ${n(setting("watch_points"))} / ভিডিও</b>`}</div>
-      <div class="li"><span>ভিডিও আপলোড করুন</span><a href="#upload" class="btn small">আপলোড</a></div>
-      <div class="li"><span>বন্ধুকে রেফার করুন</span><a href="#invite" class="btn small">রেফার</a></div></div></div>
+    <div id="dtBox"></div>
     <div class="card"><b>🎬 ভিডিও বানিয়ে (ক্রিয়েটর)</b><div class="list tiny">
       <div class="li"><span>প্রতি ১০০০ ভিউ</span>${locked("views") ? soon() : `<b>${tk(setting("view_rate_paisa_per_1000"))}</b>`}</div>
       <div class="li"><span>প্রতি লাইক</span>${locked("likes") ? soon() : `<b>${tk(setting("like_rate_paisa"))}</b>`}</div>
@@ -4707,16 +4755,26 @@ R.rules = async () => {
       ${locked("watch") ? "" : `<div class="li"><span>দিনে সর্বোচ্চ</span><b>⭐ ${n(setting("viewer_daily_points_cap"))}</b></div>`}
       ${rew ? `<div class="li"><span>অ্যাড দেখে (দিনে সর্বোচ্চ ${n(rew.daily_cap)} বার)</span>${locked("ads") ? soon() : `<b>⭐ ${n(rew.viewer_points)}</b>`}</div>` : ""}
       <div class="li"><span>${n(setting("points_convert_min"))} পয়েন্ট</span>${locked("convert") ? soon() : `<b>${tk(setting("points_convert_min") * setting("point_value_paisa"))}</b>`}</div></div></div>
+    ${S.me.account_type === "host" && setting("host_engage", {})?.enabled ? `<div class="card"><b>👑 হোস্টের ভিডিওতে</b><div class="list tiny">
+      <div class="li"><span>${L("প্রতি লাইক / কমেন্ট / শেয়ার (একজন একবার)", "Per like / comment / share (once per person)")}</span><b>🪙 ${n(setting("host_engage", {}).coins)}</b></div>
+      ${Number(setting("host_engage", {}).daily_cap) > 0 ? `<div class="li"><span>${L("দিনে সর্বোচ্চ", "Daily maximum")}</span><b>🪙 ${n(setting("host_engage", {}).daily_cap)}</b></div>` : ""}
+      <div class="li"><span>${L("যত বেশি রেফার ও ভিডিও পোস্ট, তত বেশি আয়", "More referrals and videos = more income")}</span></div></div></div>` : ""}
     <div class="card"><b>🤝 রেফার</b><div class="list tiny">
-      <div class="li"><span>প্রতি সফল রেফার</span><b>${tk(setting("referral_bonus_paisa"))}</b></div>
+      <div class="li"><span>প্রতি সফল রেফার</span><b>${tk(S.me.account_type === "host" ? setting("host_referral_bonus_paisa", 1000) : setting("referral_bonus_paisa"))}</b></div>
+      <div class="li"><span>বন্ধু (নতুন জন) পাবে</span><b>${tk(S.me.account_type === "host" ? setting("host_ref_new_user_paisa", 1500) : setting("ref_new_user_paisa", 1000))}</b></div>
+      ${S.me.account_type === "host" && Number(setting("host_ref_every_n", 0)) > 0 ? `<div class="li"><span>${L(`প্রতি ${n(setting("host_ref_every_n"))} জন সফল রেফারে বাড়তি`, `Extra for every ${setting("host_ref_every_n")} successful referrals`)}</span><b>${tk(setting("host_ref_every_paisa"))}</b></div>` : ""}
+      <div class="li"><span>${L(`দুজনকেই কমপক্ষে ${n(setting("ref_req_video_posts", 2))}টি ভিডিও ও ${n(setting("ref_req_text_posts", 2))}টি লেখা পোস্ট করতে হবে`, `Both must post at least ${setting("ref_req_video_posts", 2)} videos and ${setting("ref_req_text_posts", 2)} text posts`)}</span></div>
+      <div class="li"><span>${L("১০ দিনের টপ রেফার বোনাস", "10-day top referral bonus")}</span><a class="btn small" href="#invite">${L("দেখুন", "See")}</a></div>
       ${(tiers ?? []).map((t) => `<div class="li"><span>${n(t.referrals)} জন সফল রেফার হলে বাড়তি</span><b>${tk(t.bonus_paisa)}</b></div>`).join("")}</div></div>
     <div class="card"><b>💸 উইথড্র</b><div class="list tiny">
       <div class="li"><span>সর্বনিম্ন উইথড্র</span><b>${tk(setting("withdraw_min_paisa"))}</b></div>
       <div class="li"><span>কত দিন পরপর</span><b>${n(setting("withdraw_cooldown_days"))} দিন</b></div>
+      <div class="li"><span>${L("⚡ যারা মন দিয়ে কাজ করবে ও সবচেয়ে বেশি চেষ্টা করবে, এডমিন যাচাই করে তাদের দ্রুত উইথড্র চালু করবেন (অপেক্ষা কম, পেমেন্ট আগে)", "⚡ For those who work hard and try their best, the admin checks and turns on fast withdraw (shorter wait, paid first)")}</span></div>
       <div class="li"><span>আয় ব্যালেন্সে আসে</span><b>${n(setting("pending_hold_hours"))} ঘণ্টা পরে</b></div></div></div></div>`;
   poolCard($("#poolBox2")).catch(() => {});
   seasonBanner($("#ssnBox2")).catch(() => {});
   growBox($("#growBox2"), false, () => growBox($("#growBox2"), false)).catch(() => {});
+  dailyTaskCard($("#dtBox")).catch(() => {});
 };
 // প্রোফাইলের ⋯ মেনু: রিপোর্ট / ব্লক
 function userMenu(p) {

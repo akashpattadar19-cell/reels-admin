@@ -22,7 +22,7 @@ Owner works only from a phone (Bengali UI). Everything is free-tier: Supabase + 
 - Viewer earns points only for a FULL watch (037): `record_view` at min_watch_ms counts the view (creator income, referral) but gives no points;
   app calls `claim_watch_reward` when watched ≥ `watch_full_pct` (95) % of `duration_sec` → `watch_points` once per video per day (daily cap),
   server also checks real elapsed time since the view row (`video_views.rewarded_at`). Earlier: valid view (≥ min_watch_ms, once per video per day, daily cap) and AdMob rewarded ads (server-verified via `admob-ssv` edge function → `grant_ad_reward`).
-- Withdraw: `request_withdraw` holds money immediately; 7-day cooldown counted from last non-rejected request; one open request max; admin approve → paid (TrxID) or reject (refund).
+- Withdraw: `request_withdraw` holds money immediately; cooldown (15 days since 059, fast-withdraw users less) counted from last non-rejected request; one open request max; admin approve → paid (TrxID) or reject (refund).
 - Cash-in: manual — user sends bKash/Nagad to numbers in settings and submits TrxID; admin approves → coins.
 - All rates/limits live in `settings` and are editable from the admin panel.
 
@@ -330,6 +330,22 @@ App `start()`: must_change_pw → `#pwForm` (new password ×2 → `auth.updateUs
   must never cash out). App: host Me card "My Beans" (`beansCard`), wallet/withdraw show Beans. Admin settings on `#rules/host`.
 - Fast withdraw (058): `settings.withdraw_levels` [{refs, days}] by count of successful referrals (`referral_qualified_at`) →
   `_withdraw_level(user)` replaces `withdraw_cooldown_days` (days may be fractional, 0 = any time). App `wdLevelCard()` on #withdraw; admin textarea on `#rules/host`.
+- Offers & targets (059, admin "🎯 অফার ও টার্গেট" `#targets/<set|top|fast>`; other income stays 🔒 via income_locks — owner: "customers first"):
+  - Referral: referrer ৳10 (`referral_bonus_paisa` / `host_referral_bonus_paisa`), new user ৳10 (`ref_new_user_paisa`) or ৳15 when a host invited
+    (`host_ref_new_user_paisa`), host +৳40 every 3 successes (`host_ref_every_n/_paisa`); new user must post `ref_req_video_posts`/`ref_req_text_posts`
+    (2/2, other ref_req_* = 0) and the referrer too (`ref_referrer_min_videos/texts`, payout waits until met) — in `_check_referral`. referral_tiers disabled.
+  - Daily target (coins, once per BD day, one per phone): `settings.daily_task_user/host` {video_post,text_post,watch,like,comment,tlike,tcomment,share,coins}
+    → `_daily_task_items`, `daily_task_status()`, `daily_task_claim()` (`daily_task_claims`, ledger `daily_task_reward`). App `dailyTaskCard()` on #rules + compact on Me.
+  - Host engagement coins: triggers on likes/comments/shares → `_host_engage` pays the host `host_engage.coins` (20) once per actor/video/kind, daily cap,
+    only actors that are the first account on their phone (`_device_primary`) and not on the host's phone (`host_engage_rewards`).
+  - Top referral bonus every 10 days (1–10, 11–20, 21–end): `ref_top_user` (top 10) / `ref_top_host` (top 5) {top, tiers[{refs, active %, paisa}]};
+    active = qualified referrals; `_ref_top_board`, cron `ref-top-settle` 00:30 BD → `ref_top_settle()` (`ref_top_periods`, `ref_top_awards`), `my_ref_top()`
+    (app `refTopCard` on #invite), `admin_ref_top`.
+  - Withdraw: everyone `withdraw_cooldown_days` 15; admin turns on per-user fast withdraw on the lookup page (`admin_set_fast_withdraw`, `profiles.fast_withdraw`)
+    → `fast_withdraw_days` (1) and ⚡ requests sorted first on admin withdrawals.
+  - Free coins: `wallets.bonus_coins` tracks reward coins (checkin/starter/upload/vip_daily/ref_topup/daily_task/host_engage). Accounts that are not the
+    first account on their phone cannot spend free coins on gift_sent/call_charge/seller_sale (`BONUS_COINS_GIFT` "❌ রিজেক্ট") — bought coins still gift; free coins
+    still work for premium etc. (owner's rule).
 - Declined: stock/AI photos of attractive women/men presented as app users (misleading fake users). Use only real, consenting people's photos.
 - Not built on purpose: Chamet "BIG WIN"/"City PK" coin games (betting).
 - Declined: real-money betting games in live (coins are bought with money and earnings withdraw → gambling, illegal in BD/KSA,

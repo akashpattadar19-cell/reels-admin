@@ -354,14 +354,16 @@ routes.withdrawals = async (tab = "pending") => {
     <button class="btn sm" id="csv">CSV ডাউনলোড</button></div>
     <div id="list" class="list"><div class="empty">লোড হচ্ছে…</div></div>`;
   const { data, error } = await sb.from("withdraw_requests")
-    .select("*, profiles!withdraw_requests_user_id_fkey(username, full_name, user_private(phone))")
+    .select("*, profiles!withdraw_requests_user_id_fkey(username, full_name, fast_withdraw, user_private(phone))")
     .eq("status", tab).order("id", { ascending: tab === "pending" || tab === "approved" }).limit(200);
   if (error) return toast(errMsg(error), true);
+  // ⚡ দ্রুত উইথড্র পাওয়া ইউজারদের রিকোয়েস্ট সবার আগে
+  if (tab === "pending" || tab === "approved") data.sort((a, b) => (b.profiles?.fast_withdraw ? 1 : 0) - (a.profiles?.fast_withdraw ? 1 : 0));
   const list = $("#list");
   if (!data.length) list.innerHTML = `<div class="empty">কিছু নেই</div>`;
   else list.innerHTML = data.map((w) => `
     <div class="item" data-k="${esc(w.method)}" data-kl="${esc(METHOD[w.method] ?? w.method)}" data-amt="${w.payable_paisa}" data-ts="${w.created_at}">
-      <div class="top"><span class="amt">${taka(w.payable_paisa)}</span>${pill(w.status)}</div>
+      <div class="top"><span class="amt">${taka(w.payable_paisa)}</span>${w.profiles?.fast_withdraw ? `<span class="pill paid">⚡ দ্রুত</span>` : ""}${pill(w.status)}</div>
       <div class="meta">
         <b>${METHOD[w.method]}</b> → ${copyable(w.account_number)} ${w.account_name ? "· " + esc(w.account_name) : ""}<br>
         <a href="#user/${w.user_id}">@${esc(w.profiles?.username)}</a> · ${esc(w.profiles?.user_private?.phone ?? "")}
@@ -888,6 +890,8 @@ routes.lookup = async (no) => {
         <span>👑 প্রিমিয়াম ফ্রি দেখা: <b>${p.premium_access ? "✅ চালু" : "❌ বন্ধ"}</b></span>
         ${p.premium_access ? `<button class="btn sm warn" data-c="pa_off">বন্ধ করুন</button>` : `<button class="btn sm good" data-c="pa_on" ${p.account_type === "host" ? "" : "disabled title='আগে হোস্ট বানান'"}>অনুমতি দিন</button>`}
       </div>
+      <div style="margin-bottom:12px" id="fwBox"><b>⚡ দ্রুত উইথড্র</b> <span class="muted small">(চালু করলে অপেক্ষা কম, তার রিকোয়েস্ট তালিকায় সবার আগে)</span>
+        <div class="row" style="gap:8px;margin-top:4px"><span id="fwSt" class="muted small">…</span><button class="btn sm good" data-c="fw_on">চালু</button><button class="btn sm" data-c="fw_off">বন্ধ</button></div></div>
       <div style="margin-bottom:12px"><b>দিনে আপলোড সীমা</b> <span class="muted small">(খালি রাখলে সবার জন্য নির্ধারিত সীমা)</span>
         <div class="row" style="flex-wrap:nowrap;gap:8px"><input id="ul" type="number" min="0" value="${p.daily_upload_limit ?? ""}" placeholder="ডিফল্ট"><button class="btn sm good" data-c="limit">সেভ</button></div></div>
       ${p.jailed ? `<div style="background:var(--pill-bad);color:var(--pill-bad-t);border-radius:10px;padding:10px"><b>🚫 জেলে আছে</b>
@@ -923,6 +927,7 @@ routes.lookup = async (no) => {
     if ($("#usage")) $("#usage").textContent = `আজ ${hms(today)} · ৩০ দিনে ${hms(all)}`;
   });
   rpc("admin_user_tags", { p_user_no: p.user_no }).then((t) => { if ($("#utags")) $("#utags").innerHTML = t.length ? t.map((x) => `<span class="pill" translate="no">#${esc(x.tag)} ×${x.uses}</span>`).join(" ") : "কোনো ট্যাগ ব্যবহার করেনি"; }).catch(() => {});
+  sb.from("profiles").select("fast_withdraw").eq("id", p.id).maybeSingle().then(({ data }) => { if ($("#fwSt")) $("#fwSt").innerHTML = data?.fast_withdraw ? `<span class="pill paid">⚡ চালু আছে</span>` : "বন্ধ"; });
   sb.from("settings").select("value").eq("key", "jail_release_coins").maybeSingle().then(({ data }) => { if ($("#jf") && data) $("#jf").value = data.value; });
   $("#ctl").onclick = async (e) => {
     const b = e.target.closest("[data-c]"); if (!b) return;
@@ -932,6 +937,7 @@ routes.lookup = async (no) => {
     else if (c === "crate") { const v = $("#crc").value.trim(); await act(() => rpc("admin_set_call_commission", { p_user: p.id, p_commission: v === "" ? null : Number(v) }), "সেভ হয়েছে"); }
     else if (c === "sell_on" || c === "sell_off") await act(() => rpc("admin_set_coin_seller", { p_user: p.id, p_on: c === "sell_on", p_pct: c === "sell_on" ? p.seller_commission_pct ?? null : null }), "হয়েছে");
     else if (c === "pa_on" || c === "pa_off") await act(() => rpc("admin_set_premium_access", { p_user: p.id, p_on: c === "pa_on" }), "হয়েছে");
+    else if (c === "fw_on" || c === "fw_off") await act(() => rpc("admin_set_fast_withdraw", { p_user: p.id, p_on: c === "fw_on" }), "হয়েছে");
     else if (c === "limit") { const v = $("#ul").value.trim(); await act(() => rpc("admin_set_upload_limit", { p_user: p.id, p_limit: v === "" ? null : Number(v) }), "সেভ হয়েছে"); }
     else if (c === "unjail") { if (!confirm("জেল থেকে মুক্ত করবেন?")) return; await act(() => rpc("admin_jail_user", { p_user: p.id, p_jail: false, p_reason: null, p_fee: null }), "মুক্ত করা হয়েছে"); }
     else if (c === "jail") {
@@ -1238,6 +1244,112 @@ const SITE_FIELDS = [
 ];
 const SITE_SOCIAL = [["whatsapp", "💬 WhatsApp নম্বর", "+8801…"], ["facebook", "📘 Facebook পেজের লিংক", "https://facebook.com/…"], ["youtube", "▶️ YouTube লিংক", "https://youtube.com/…"],
   ["tiktok", "🎵 TikTok লিংক", "https://tiktok.com/@…"], ["instagram", "📸 Instagram লিংক", "https://instagram.com/…"]];
+// ---------- 🎯 অফার ও টার্গেট (রেফার, দৈনিক টার্গেট, হোস্টের কয়েন, টপ রেফার, উইথড্র) ----------
+const DT_KEYS = [["video_post", "ভিডিও পোস্ট"], ["text_post", "লেখা পোস্ট"], ["watch", "ভিডিও পুরো দেখা"], ["like", "ভিডিওতে লাইক"], ["comment", "ভিডিওতে কমেন্ট"],
+  ["tlike", "লেখায় লাইক"], ["tcomment", "লেখায় কমেন্ট"], ["share", "শেয়ার"], ["coins", "🪙 পুরস্কার (কয়েন)"]];
+routes.targets = async (tab = "set") => {
+  loading();
+  const { data: st } = await sb.from("settings").select("key,value");
+  const S2 = Object.fromEntries((st ?? []).map((x) => [x.key, x.value]));
+  const tabs = `<div class="tabs">${[["set", "⚙️ নিয়ম"], ["top", "🏆 টপ রেফার"], ["fast", "⚡ দ্রুত উইথড্র"]].map(([k, l]) => `<a class="btn sm ${k === tab ? "on" : ""}" href="#targets/${k}">${l}</a>`).join("")}</div>`;
+  if (tab === "top") {
+    const [u, h] = await Promise.all([rpc("admin_ref_top", { p_kind: "user" }), rpc("admin_ref_top", { p_kind: "host" })]);
+    const board = (b, title) => `<h2>${title} <span class="muted small">${b.start} – ${b.end}</span></h2>
+      <div class="list">${(b.rows ?? []).map((r) => `<div class="item"><div class="top"><b>#${r.rank} <a href="#lookup/${r.user_no}">@${esc(r.username)}</a></b>${r.tier_paisa ? `<span class="pill paid">${taka(r.tier_paisa)}</span>` : ""}</div>
+        <div class="meta">${num(r.refs)} রেফার · ${num(r.active)} সফল (${r.active_pct}%)</div></div>`).join("") || `<div class="empty">এই ১০ দিনে এখনো কেউ নেই</div>`}</div>`;
+    view.innerHTML = `<h1>🎯 অফার ও টার্গেট</h1>${tabs}<p class="muted small">প্রতি ১০ দিন শেষে (রাত ১২:৩০) টপ ইউজার ও হোস্টরা নিজে থেকেই বোনাস পাবে (পেন্ডিং হয়ে ব্যালেন্সে)।</p>
+      ${board(u, "👤 ইউজার")}${board(h, "👑 হোস্ট")}`;
+    return;
+  }
+  if (tab === "fast") {
+    const { data: fl } = await sb.from("profiles").select("id,user_no,username,full_name,account_type,fast_withdraw_at").eq("fast_withdraw", true).order("fast_withdraw_at", { ascending: false }).limit(200);
+    view.innerHTML = `<h1>🎯 অফার ও টার্গেট</h1>${tabs}
+      <p class="muted small">যারা মন দিয়ে কাজ করে, তাদের ইউজার পেজ (🔎 লুকআপ) থেকে "⚡ দ্রুত উইথড্র" চালু করুন। তারা ${num(S2.fast_withdraw_days ?? 1)} দিনে একবার উইথড্র করতে পারবে, আর তাদের রিকোয়েস্ট সবার আগে দেখাবে।</p>
+      <div class="list">${(fl ?? []).map((x) => `<div class="item"><div class="top"><b><a href="#lookup/${x.user_no}">@${esc(x.username)}</a></b><span class="pill">${x.account_type === "host" ? "👑 হোস্ট" : "👤 ইউজার"}</span></div>
+        <div class="meta">ID ${x.user_no} · ${x.fast_withdraw_at ? dt(x.fast_withdraw_at) : ""}</div>
+        <div class="actions"><button class="btn sm bad" data-off="${x.id}">বন্ধ করুন</button></div></div>`).join("") || `<div class="empty">এখনো কাউকে দেওয়া হয়নি</div>`}</div>`;
+    view.onclick = (e) => { const b = e.target.closest("[data-off]"); if (!b) return; act(() => rpc("admin_set_fast_withdraw", { p_user: b.dataset.off, p_on: false }), "বন্ধ হয়েছে").then(() => routes.targets("fast")); };
+    return;
+  }
+  const num1 = (k, label, kind) => { const v = S2[k] ?? 0, shown = kind === "taka" ? Number(v) / 100 : v;
+    return `<div class="item" data-key="${k}" data-kind="${kind}"><div class="top"><b>${label}</b></div><div class="row" style="flex-wrap:nowrap">
+      <input name="v" type="number" step="${kind === "taka" ? "0.01" : "any"}" min="0" value="${esc(shown)}">${kind === "taka" ? '<span class="muted">৳</span>' : ""}<button class="btn sm good" data-save>সেভ</button></div></div>`; };
+  const dtForm = (key, title) => { const c = S2[key] || {};
+    return `<div class="item" data-json="${key}"><b>${title}</b><div class="muted small">০ = এই কাজ লাগবে না · সব পূরণ হলে দিনে একবার কয়েন</div>
+      <div class="dt-grid">${DT_KEYS.map(([k, l]) => `<label class="small">${l}<input type="number" min="0" data-f="${k}" value="${esc(c[k] ?? 0)}"></label>`).join("")}</div>
+      <button class="btn sm good" data-savejson>সেভ</button></div>`; };
+  const topForm = (key, title) => { const c = S2[key] || {};
+    return `<div class="item" data-top="${key}"><b>${title}</b>
+      <label class="small">কতজন পাবে (টপ)<input type="number" min="0" data-f="top" value="${esc(c.top ?? 0)}"></label>
+      <label class="small">ধাপ — প্রতি লাইনে: <b>রেফার, এক্টিভ %, টাকা</b> (যেমন <code>25, 15, 150</code>)</label>
+      <textarea data-f="tiers" rows="4" style="width:100%" translate="no">${esc((c.tiers ?? []).map((t) => `${t.refs}, ${t.active}, ${t.paisa / 100}`).join("\n"))}</textarea>
+      <button class="btn sm good" data-savetop>সেভ</button></div>`; };
+  const he = S2.host_engage || {};
+  view.innerHTML = `<h1>🎯 অফার ও টার্গেট</h1>${tabs}
+    <p class="muted small">অ্যাপে এই অফারগুলোই চালু। বাকি আয়ের নিয়ম (ভিউ, লাইক থেকে টাকা ইত্যাদি) "🚀 লঞ্চ অফার" পেজে 🔒 শীঘ্রই আসছে রাখা আছে।</p>
+    <h2>🤝 রেফার</h2><div class="list">
+      ${num1("referral_bonus_paisa", "👤 ইউজার রেফার করলে — যে রেফার করেছে পাবে", "taka")}
+      ${num1("ref_new_user_paisa", "👤 ইউজারের রেফারে — নতুন জন পাবে", "taka")}
+      ${num1("host_referral_bonus_paisa", "👑 হোস্ট রেফার করলে — হোস্ট পাবে", "taka")}
+      ${num1("host_ref_new_user_paisa", "👑 হোস্টের রেফারে — নতুন জন পাবে", "taka")}
+      ${num1("host_ref_every_n", "👑 হোস্ট প্রতি কতজন সফল রেফারে বাড়তি বোনাস", "num")}
+      ${num1("host_ref_every_paisa", "👑 সেই বাড়তি বোনাস", "taka")}
+      ${num1("ref_req_video_posts", "নতুন জনকে কমপক্ষে কয়টি ভিডিও পোস্ট করতে হবে", "num")}
+      ${num1("ref_req_text_posts", "নতুন জনকে কমপক্ষে কয়টি লেখা পোস্ট করতে হবে", "num")}
+      ${num1("ref_referrer_min_videos", "যে রেফার করেছে তারও কমপক্ষে কয়টি ভিডিও", "num")}
+      ${num1("ref_referrer_min_texts", "যে রেফার করেছে তারও কমপক্ষে কয়টি লেখা", "num")}
+      ${num1("ref_window_days", "নতুন জন কত দিনের মধ্যে কাজ শেষ করবে", "num")}
+    </div>
+    <h2>🎯 দৈনিক টার্গেট (কয়েন)</h2><div class="list">${dtForm("daily_task_user", "👤 ইউজার")}${dtForm("daily_task_host", "👑 হোস্ট")}</div>
+    <h2>👑 হোস্টের ভিডিওতে লাইক/কমেন্ট/শেয়ারে কয়েন</h2>
+    <p class="muted small">একজন একটি ভিডিওতে প্রতিটি কাজের জন্য একবারই গোনা হয়। একই মোবাইলের বাড়তি অ্যাকাউন্ট আর হোস্টের নিজের মোবাইলের অ্যাকাউন্ট গোনা হয় না।</p>
+    <div class="list"><div class="item" data-he="1"><div class="dt-grid">
+      <label class="small">চালু<select data-f="enabled"><option value="true" ${he.enabled ? "selected" : ""}>চালু</option><option value="false" ${he.enabled ? "" : "selected"}>বন্ধ</option></select></label>
+      <label class="small">প্রতিটিতে কয়েন<input type="number" min="0" data-f="coins" value="${esc(he.coins ?? 0)}"></label>
+      <label class="small">হোস্ট দিনে সর্বোচ্চ (০ = সীমা নেই)<input type="number" min="0" data-f="daily_cap" value="${esc(he.daily_cap ?? 0)}"></label></div>
+      <button class="btn sm good" data-savehe>সেভ</button></div></div>
+    <h2>🏆 ১০ দিনের টপ রেফার বোনাস (মাসে ৩ বার)</h2>
+    <div class="list">${topForm("ref_top_user", "👤 ইউজার")}${topForm("ref_top_host", "👑 হোস্ট")}</div>
+    <h2>💸 উইথড্র</h2><div class="list">
+      ${num1("withdraw_cooldown_days", "সবার জন্য কত দিনে একবার", "num")}
+      ${num1("fast_withdraw_days", "⚡ দ্রুত উইথড্র পাওয়াদের জন্য কত দিনে একবার (০ = যখন খুশি)", "num")}
+      ${num1("withdraw_min_paisa", "সর্বনিম্ন উইথড্র", "taka")}
+    </div>`;
+  view.onclick = async (e) => {
+    const sv = e.target.closest("[data-save]");
+    if (sv) {
+      const it = sv.closest(".item"), raw = it.querySelector("[name=v]").value, kind = it.dataset.kind;
+      const value = kind === "taka" ? Math.round(Number(raw) * 100) : Number(raw);
+      if (isNaN(value) || value < 0) return toast("সঠিক সংখ্যা দিন", true);
+      const keys = it.dataset.key === "withdraw_cooldown_days" ? [["withdraw_cooldown_days", value], ["withdraw_levels", [{ refs: 0, days: value }]]] : [[it.dataset.key, value]];
+      return act(async () => { for (const [k, v] of keys) await rpc("admin_set_setting", { p_key: k, p_value: v }); }, "সেভ হয়েছে");
+    }
+    const sj = e.target.closest("[data-savejson]");
+    if (sj) {
+      const it = sj.closest("[data-json]"), o = {};
+      for (const el of it.querySelectorAll("[data-f]")) { const v = Number(el.value); if (isNaN(v) || v < 0) return toast("সঠিক সংখ্যা দিন", true); o[el.dataset.f] = Math.round(v); }
+      return act(() => rpc("admin_set_setting", { p_key: it.dataset.json, p_value: o }), "সেভ হয়েছে");
+    }
+    const sh = e.target.closest("[data-savehe]");
+    if (sh) {
+      const it = sh.closest("[data-he]"), f = (k) => it.querySelector(`[data-f=${k}]`).value;
+      return act(() => rpc("admin_set_setting", { p_key: "host_engage", p_value: { enabled: f("enabled") === "true", coins: Math.max(0, Math.round(Number(f("coins")) || 0)), daily_cap: Math.max(0, Math.round(Number(f("daily_cap")) || 0)) } }), "সেভ হয়েছে");
+    }
+    const stp = e.target.closest("[data-savetop]");
+    if (stp) {
+      const it = stp.closest("[data-top]"), tiers = [];
+      for (const ln of it.querySelector("[data-f=tiers]").value.split("\n")) {
+        if (!ln.trim()) continue;
+        const m = ln.replace(/[০-৯]/g, (d) => "০১২৩৪৫৬৭৮৯".indexOf(d)).split(/[,\s]+/).filter(Boolean).map(Number);
+        if (m.length !== 3 || m.some((x) => isNaN(x) || x < 0)) return toast("ভুল লাইন: " + ln, true);
+        tiers.push({ refs: Math.round(m[0]), active: Math.round(m[1]), paisa: Math.round(m[2] * 100) });
+      }
+      tiers.sort((a, b) => a.refs - b.refs);
+      return act(() => rpc("admin_set_setting", { p_key: it.dataset.top, p_value: { top: Math.round(Number(it.querySelector("[data-f=top]").value) || 0), tiers } }), "সেভ হয়েছে");
+    }
+  };
+};
+
 // ---------- অ্যাপ ব্যানার (Me পেজ) + প্রথম লগইনের নিয়ম ----------
 const BAN_ST = [["purple", "বেগুনি", "linear-gradient(135deg,#7c3aed,#4f46e5)"], ["gold", "সোনালি", "linear-gradient(135deg,#f59e0b,#b45309)"], ["pink", "গোলাপি", "linear-gradient(135deg,#a855f7,#ec4899)"],
   ["blue", "নীল", "linear-gradient(135deg,#0ea5e9,#2563eb)"], ["green", "সবুজ", "linear-gradient(135deg,#10b981,#047857)"], ["red", "লাল", "linear-gradient(135deg,#f43f5e,#be123c)"], ["dark", "কালো", "linear-gradient(135deg,#1f2937,#111827)"]];

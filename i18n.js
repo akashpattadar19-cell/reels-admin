@@ -1900,6 +1900,15 @@
 "🪙 প্রতিটা ভিডিও অনুমোদন হলে +": "🪙 +",
 "নিয়ম দেখুন": "See rules",
 "নোটিফিকেশন চালু করুন": "Turn on notifications",
+"বন্ধু (নতুন জন) পাবে": "Your friend (new user) gets",
+"❌ রিজেক্ট: এই মোবাইলে একাধিক অ্যাকাউন্ট — ফ্রি/বোনাস কয়েন দিয়ে গিফট বা কল করা যাবে না (জালিয়াতি প্রতিরোধ)। কেনা কয়েন দিয়ে গিফট দিতে পারবেন; ফ্রি কয়েন প্রিমিয়াম ভিডিও দেখতে কাজে লাগবে।": "❌ Rejected: more than one account on this phone — free/bonus coins can't be used for gifts or calls (fraud protection). You can gift with bought coins; free coins work for premium videos.",
+"⚡ দ্রুত উইথড্র চালু হয়েছে!": "⚡ Fast withdraw is on!",
+"আপনার ভালো কাজের জন্য এখন অপেক্ষা ছাড়াই দ্রুত উইথড্র করতে পারবেন, আর আপনার পেমেন্ট আগে যাবে।": "Thanks to your good work you can now withdraw faster, and your payment goes first.",
+"🏆 টপ রেফার বোনাস!": "🏆 Top referral bonus!",
+"রেফার সফল হয়েছে": "Referral succeeded",
+"🎯 দৈনিক টার্গেট": "🎯 Daily target",
+"🎁 রেফারে যোগ দেওয়ার বোনাস": "🎁 Referral join bonus",
+"👑 হোস্টের ভিডিওতে": "👑 On host videos",
 "Beans → টাকা": "Beans → Taka",
 "কল থেকে আয়": "Call income",
 "কত দিনে একবার উইথড্র": "How often you can withdraw",
@@ -2404,6 +2413,8 @@
   var D = "([\\d০-৯][\\d০-৯,.]*)";
   var KIND = { "ফটো": "photo", "লেখা": "text", "ভিডিও": "video" };
   var PRE = [
+    [/^🏅 (\S+) জন রেফার পূরণ!$/g, "🏅 $1 referrals reached!"],
+    [/^বাড়তি বোনাস ৳(\S+)$/g, "Extra bonus ৳$1"],
     [/^আপনি পাবেন 🫘 (\S+) Beans$/g, "You get 🫘 $1 Beans"],
     [new RegExp("^🪙 অনুমোদন হলে \\+" + D + " কয়েন$", "g"), "🪙 +$1 coins when approved"],
     [new RegExp("^" + D + "টি কাজ আপনার অপেক্ষায়$", "g"), "$1 tasks waiting for you"],
