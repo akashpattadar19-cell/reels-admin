@@ -3309,17 +3309,32 @@ routes.settings = async () => {
       <div class="row" style="flex-wrap:nowrap">${input}<button class="btn sm good" data-save style="margin-top:4px">সেভ</button></div></div>`;
   };
   view.innerHTML = `<h1>সেটিংস</h1>
-    <div class="card" style="margin-bottom:14px"><b>আমার পাসওয়ার্ড বদলান</b>
-      <div class="row" style="flex-wrap:nowrap;margin-top:6px"><input id="npw" type="password" placeholder="নতুন পাসওয়ার্ড (কমপক্ষে ৮ অক্ষর)" style="flex:1;width:auto;min-width:0"><button class="btn sm good" id="cpw" style="margin-top:4px">বদলান</button></div></div>
+    <div class="card" style="margin-bottom:14px"><b>🔐 এডমিন লগইন ইমেইল ও পাসওয়ার্ড</b>
+      <p class="muted small" style="margin:4px 0 8px">এখনকার লগইন ইমেইল: <b id="curEm">…</b></p>
+      <label class="small">এখনকার পাসওয়ার্ড (নিশ্চিত করতে)<input id="cpwOld" type="password" autocomplete="current-password"></label>
+      <label class="small">নতুন ইমেইল (না বদলালে খালি রাখুন)<input id="cpwEm" type="email" autocomplete="off" placeholder="যেমন: name@gmail.com"></label>
+      <label class="small">নতুন পাসওয়ার্ড (না বদলালে খালি রাখুন, কমপক্ষে ৮ অক্ষর)<input id="npw" type="password" autocomplete="new-password"></label>
+      <label class="small">নতুন পাসওয়ার্ড আবার<input id="npw2" type="password" autocomplete="new-password"></label>
+      <button class="btn good" id="cpw" style="margin-top:8px;width:100%">সেভ করুন</button></div>
     <p class="muted small">টাকার ঘরগুলো <b>পয়সায়</b> (১ টাকা = ১০০ পয়সা)। যেমন উইথড্র মিনিমাম ৫০০ টাকা = 50000।</p>
     ${groups.map(([g, keys]) => `<h2>${g}</h2><div class="list">${keys.filter((k) => byKey[k]).map((k) => field(byKey[k])).join("")}</div>`).join("")}`;
+  sb.auth.getUser().then(({ data }) => { if ($("#curEm")) $("#curEm").textContent = data?.user?.email ?? "—"; });
   $("#cpw").onclick = async () => {
-    const pw = $("#npw").value;
-    if (pw.length < 8) return toast("কমপক্ষে ৮ অক্ষর দিন", true);
-    const { error } = await sb.auth.updateUser({ password: pw });
-    if (error) return toast(errMsg(error), true);
-    $("#npw").value = "";
-    toast("পাসওয়ার্ড বদলানো হয়েছে ✅");
+    const old = $("#cpwOld").value, em = $("#cpwEm").value.trim(), pw = $("#npw").value;
+    if (!old) return toast("এখনকার পাসওয়ার্ড দিন", true);
+    if (!em && !pw) return toast("নতুন ইমেইল বা নতুন পাসওয়ার্ড দিন", true);
+    if (pw && pw.length < 8) return toast("কমপক্ষে ৮ অক্ষর দিন", true);
+    if (pw && pw !== $("#npw2").value) return toast("দুইবারের পাসওয়ার্ড মেলেনি", true);
+    if (!confirm(`নিশ্চিত? ${em ? `\nনতুন লগইন ইমেইল: ${em}` : ""}${pw ? "\nপাসওয়ার্ডও বদলাবে" : ""}\nপরের বার নতুনটা দিয়ে লগইন করতে হবে।`)) return;
+    try {
+      const r = await rpc("admin_change_login", { p_current: old, p_new_email: em || null, p_new_password: pw || null });
+      ["cpwOld", "cpwEm", "npw", "npw2"].forEach((k) => ($("#" + k).value = ""));
+      $("#curEm").textContent = r.email;
+      toast("✅ বদলানো হয়েছে — এখন থেকে নতুন ইমেইল/পাসওয়ার্ড দিয়ে লগইন করুন");
+    } catch (er) {
+      const m = String(er.message || er);
+      toast(m.includes("WRONG_PASSWORD") ? "এখনকার পাসওয়ার্ড ভুল" : m.includes("EMAIL_TAKEN") ? "এই ইমেইল অন্য অ্যাকাউন্টে আছে" : m.includes("BAD_EMAIL") ? "ইমেইল ঠিক নেই" : errMsg(er), true);
+    }
   };
   view.onclick = async (e) => {
     const b = e.target.closest("[data-save]");
