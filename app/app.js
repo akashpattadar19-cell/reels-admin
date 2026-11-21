@@ -631,6 +631,7 @@ const DT_LABEL = { video_post: ["🎬", "ভিডিও পোস্ট", "Post
   watch: ["▶️", "ভিডিও পুরো দেখুন", "Watch videos fully", "#feed"], like: ["❤️", "ভিডিওতে লাইক", "Like videos", "#feed"],
   comment: ["💬", "ভিডিওতে কমেন্ট", "Comment on videos", "#feed"], tlike: ["🤍", "লেখায় লাইক", "Like text posts", "#texts"],
   tcomment: ["🗨️", "লেখায় কমেন্ট", "Comment on text posts", "#texts"], share: ["↗️", "শেয়ার করুন", "Share", "#feed"] };
+const ME_CACHE = { grow: "", dt: "" };
 async function dailyTaskCard(box, compact = false) {
   if (!box) return;
   const st = await rpc("daily_task_status");
@@ -1192,8 +1193,9 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
         <div class="muted">🪙 ${n(v.premium_coins)} কয়েন দিয়ে দেখুন</div>
         <button class="btn unl">🪙 ${n(v.premium_coins)} কয়েনে দেখুন</button></div></div>` : ""}`;
     el.querySelector(".unl")?.addEventListener("click", async (e) => {
+      const ub = e.currentTarget;
       if (!await ask(`${v.premium_coins} কয়েন দিয়ে ভিডিওটি দেখবেন?`)) return;
-      e.currentTarget.disabled = true;
+      ub.disabled = true;
       try {
         const r = await rpc("unlock_premium", { p_video: v.id });
         v.video_url = r.video_url; v.locked = false;
@@ -1201,7 +1203,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
         if (st.active === el) { setSrc(el, true); const vd = el.querySelector("video"); vd.muted = S.muted; vd.play().catch(() => {}); }
         if (r.charged) toast(`👑 আনলক হয়েছে (−${r.charged} কয়েন)`);
       } catch (er) {
-        toast(errMsg(er), true); e.target.disabled = false;
+        toast(errMsg(er), true); ub.disabled = false;
         if (String(er.message).includes("INSUFFICIENT_COINS")) setTimeout(() => (location.hash = "#cashin"), 900);
       }
     });
@@ -1414,7 +1416,7 @@ async function openGifts(el, isPost = false, liveRoom = null, toUser = null) {
       closeSheet();
       const f = document.createElement("div"); f.className = "gift-fly"; f.textContent = sel.icon; document.body.appendChild(f); setTimeout(() => f.remove(), 1700);
       toast(`${sel.icon} x${qty} পাঠানো হয়েছে! বাকি কয়েন ${n(r.coin_balance)}`);
-    } catch (er) { toast(errMsg(er), true); e.currentTarget.disabled = false; }
+    } catch (er) { toast(errMsg(er), true); (e.target.closest("button") || {}).disabled = false; }
   };
 }
 
@@ -3446,7 +3448,7 @@ R.golive = async () => {
   $("#lvGo").onclick = async (e) => {
     e.currentTarget.disabled = true;
     try { const r = await rpc("live_start", { p_title: $("#lvt").value }); try { cam?.close(); } catch { /* */ } cam = null; location.replace(`#live/${r.room_id}`); }
-    catch (er) { toast(errMsg(er), true); e.currentTarget.disabled = false; }
+    catch (er) { toast(errMsg(er), true); (e.target.closest("button") || {}).disabled = false; }
   };
 };
 
@@ -3728,7 +3730,7 @@ R.goparty = () => {
       const r = await rpc("party_start", { p_title: $("#pyt").value, p_seats: seats });
       if ($("#pyf").checked) await rpc("party_settings", { p_room: r.room_id, p_free: true }).catch(() => {});
       location.replace(`#party/${r.room_id}`);
-    } catch (er) { toast(errMsg(er), true); e.currentTarget.disabled = false; }
+    } catch (er) { toast(errMsg(er), true); (e.target.closest("button") || {}).disabled = false; }
   };
 };
 
@@ -4042,7 +4044,7 @@ R.call = async (cid) => {
   const poll = setInterval(async () => { if (joined || done) return; const { data: x } = await sb.from("calls").select("*").eq("id", id).single(); if (x) onUpd({ detail: x }); }, 4000);
   $("#clEnd").onclick = () => finish();
   $("#clMic").onclick = async (e) => { if (!mic) return; const m = !mic.muted; await mic.setMuted(m); e.currentTarget.textContent = m ? "🔇" : "🎤"; };
-  $("#clVid")?.addEventListener("click", async (e) => { if (!cam) return; const m = !cam.muted; await cam.setMuted(m); e.currentTarget.textContent = m ? "🚫" : "📷"; });
+  $("#clVid")?.addEventListener("click", async (e) => { if (!cam) return; const bt = e.currentTarget, m = !cam.muted; await cam.setMuted(m); bt.textContent = m ? "🚫" : "📷"; });
   $("#clCam")?.addEventListener("click", async () => { facing = facing === "user" ? "environment" : "user"; try { await cam?.setDevice({ facingMode: facing }); } catch { /* */ } });
   cleanup = () => {
     clearInterval(poll); document.removeEventListener("callupd", onUpd);
@@ -4482,7 +4484,7 @@ R.me = async () => {
       <a href="#cashin" class="mc coins"><span>আমার কয়েন</span><b>${n(w?.coin_balance)}</b><svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="gm1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9f0ff"/><stop offset="1" stop-color="#5aa9ff"/></linearGradient><linearGradient id="gm2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd3ff"/><stop offset="1" stop-color="#3b82f6"/></linearGradient></defs><path d="M14 22 24 10h16l10 12-18 30z" fill="url(#gm1)"/><path d="M14 22h36L32 52z" fill="url(#gm2)" opacity=".9"/><path d="M24 10l-4 12 12 30 12-30-4-12" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.5"/><path d="M14 22h36" stroke="#fff" stroke-opacity=".8" stroke-width="1.5"/></svg></a>
       ${host && setting("beans_enabled", true) !== false ? beansCard(w) : ""}<a href="#wallet" class="mc money ${host && setting("beans_enabled", true) !== false ? "hidden" : ""}"><span>আমার ব্যালেন্স</span><b>${tk(w?.earning_paisa)}</b><svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="cn1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset="1" stop-color="#f5a524"/></linearGradient></defs><ellipse cx="34" cy="46" rx="20" ry="7" fill="#e08c14"/><rect x="14" y="36" width="40" height="10" fill="#f0a020"/><ellipse cx="34" cy="36" rx="20" ry="7" fill="url(#cn1)"/><circle cx="26" cy="24" r="15" fill="url(#cn1)" stroke="#e8961a" stroke-width="2"/><text x="26" y="30" text-anchor="middle" font-size="16" font-weight="700" fill="#c06a00" font-family="sans-serif">৳</text></svg></a>
     </div>
-    <div id="meGrow"></div><div id="meDT"></div>
+    <div id="meGrow">${ME_CACHE.grow || ""}</div><div id="meDT">${ME_CACHE.dt || ""}</div>
     <div class="me-create"><b>＋ পোস্ট করুন</b><div><a href="#upload"><i>🎬</i>ভিডিও</a><a href="#newphoto"><i>📷</i>ফটো</a><a href="#newstory"><i>📖</i>স্টোরি</a>
       <a href="#texts" onclick="setTimeout(()=>document.getElementById('newT')?.click(),300)"><i>✍️</i>লেখা</a></div></div>
     ${meBanners().length ? `<div class="me-promo adm">${meBanners().map(meBannerHtml).join("")}</div>` : `<div class="me-promo">${setting("vip_enabled", true) !== false ? `<a href="#vip" class="vipb"><b>💎 VIP</b><span>${isVip(p) ? `${new Date(p.vip_until).toLocaleDateString(window.getLang?.() === "en" ? "en-GB" : "bn-BD")} পর্যন্ত` : "বাড়তি পয়েন্ট, ফ্রি কয়েন"}</span></a>` : ""}
@@ -4502,8 +4504,9 @@ R.me = async () => {
       <a href="#u/${p.id}"><i class="mi c5"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.2-4 4.2-5.5 7.5-5.5s6.3 1.5 7.5 5.5"/></svg></i>আমার প্রোফাইল<em>›</em></a>
       <a href="#settings"><i class="mi c6"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></i>সেটিংস<em>›</em></a>
     </div></div>`;
-  growBox($("#meGrow"), true, () => growBox($("#meGrow"), true, null, false), false).catch(() => {});
-  dailyTaskCard($("#meDT"), true).catch(() => {});
+  // আগের বারের কার্ড সাথে সাথে দেখানো হয় (পরে আপডেট) — যাতে পেজ নিচে-উপরে লাফ না দেয়
+  growBox($("#meGrow"), true, () => growBox($("#meGrow"), true, null, false), false).then(() => { ME_CACHE.grow = $("#meGrow")?.innerHTML ?? ""; }).catch(() => {});
+  dailyTaskCard($("#meDT"), true).then(() => { ME_CACHE.dt = $("#meDT")?.innerHTML ?? ""; }).catch(() => {});
   // নতুনদের কাজ বাকি থাকলে "আমার টাস্ক"-এ লাল বিন্দু
   rpc("starter_status").then((st) => { if (st?.enabled && (st.items || []).some((x) => !x.claimed)) $('.me-menu a[href="#rules"] em')?.insertAdjacentHTML("afterbegin", '<i class="red"></i>'); }).catch(() => {});
   $("#meRefOk")?.addEventListener("click", async (e) => {
