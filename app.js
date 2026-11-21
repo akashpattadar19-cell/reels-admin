@@ -1239,7 +1239,7 @@ routes.devices = async (arg = "") => {
   const shared = arg === "shared", userNo = /^\d+$/.test(arg) ? Number(arg) : null;
   view.innerHTML = `<h1>📱 ডিভাইস</h1>
     <p class="muted small">ইউজার নতুন অ্যাপ (APK) খুললে তার মোবাইলের ব্র্যান্ড, মডেল ও Android ভার্সন এখানে আসে। একই মোবাইলে একাধিক অ্যাকাউন্ট খোলা হলে লাল দেখাবে — আর সেই নতুন অ্যাকাউন্টের রেফার বোনাস অটোমেটিক বাতিল হয়।</p>
-    <p class="muted small">✅ অ্যাপ্রুভ = একই মোবাইলের আলাদা আসল মানুষ (যেমন পরিবারের সদস্য) — তার রেফার, বোনাস ও ফ্রি কয়েন গিফট স্বাভাবিক চলবে। 🔄 রিসেট = মোবাইলের রেকর্ড মুছে নতুন করে গোনা শুরু। ⛓ জেল / 🗑 ডিলেট = জালিয়াতি অ্যাকাউন্টের জন্য।</p>
+    <p class="muted small">✅ অ্যাপ্রুভ = একই মোবাইলের আলাদা আসল মানুষ (যেমন পরিবারের সদস্য) — তার রেফার, বোনাস ও ফ্রি কয়েন গিফট স্বাভাবিক চলবে। 🔄 রিসেট = মোবাইলের রেকর্ড মুছে নতুন করে গোনা শুরু। ⛓ জেল / 🗑 ডিলেট = জালিয়াতি অ্যাকাউন্টের জন্য (ডিলেট করলে নাম ও পোস্ট থাকে, কিন্তু অ্যাকাউন্টে আর ঢোকা যায় না; এক মোবাইলে শুধু প্রথম চালু অ্যাকাউন্টের রেফার চলে)।</p>
     <div id="dst" class="grid"></div>
     <div class="toolbar"><input id="dq" type="number" inputmode="numeric" placeholder="ইউজার ID দিয়ে খুঁজুন" value="${userNo ?? ""}"><button class="btn" id="dgo">খুঁজুন</button></div>
     <div class="tabs"><a class="btn sm ${!shared && !userNo ? "on" : ""}" href="#devices">সব ডিভাইস</a><a class="btn sm ${shared ? "on" : ""}" href="#devices/shared">⚠️ একই মোবাইলে একাধিক অ্যাকাউন্ট</a></div>
@@ -1259,11 +1259,11 @@ routes.devices = async (arg = "") => {
       <div class="muted small">${esc(d.os ?? "")} · অ্যাপ v${esc(d.app_version ?? "?")} · শেষ ব্যবহার ${dt(d.last_seen)} · ডিভাইস কোড ${esc(String(d.device_hash).slice(0, 8))}</div>
       <div class="dv-users">
         ${(d.users || []).map((u, i) => `<div class="dv-u" data-u="${u.id}" data-no="${u.user_no}">
-          <div><a href="#lookup/${u.user_no}"><b>${u.user_no}</b></a> @${esc(u.username)}${u.status !== "active" ? ' <span class="pill rejected">ব্লক</span>' : ""}${u.jailed ? ' <span class="pill rejected">⛓ জেলে</span>' : ""}${u.approved ? ' <span class="pill paid">✅ অ্যাপ্রুভড</span>' : i === 0 ? ' <span class="pill">প্রথম অ্যাকাউন্ট</span>' : ""}</div>
+          <div><a href="#lookup/${u.user_no}"><b>${u.user_no}</b></a> @${esc(u.username)}${u.status === "banned" ? ' <span class="pill rejected">🚫 ডিলেট/ব্যান</span>' : ""}${u.jailed ? ' <span class="pill rejected">⛓ জেলে</span>' : ""}${u.approved ? ' <span class="pill paid">✅ অ্যাপ্রুভড</span>' : u.primary ? ' <span class="pill">প্রথম অ্যাকাউন্ট (রেফার চলবে)</span>' : ""}</div>
           <div class="muted small">প্রথম খুলেছে ${dt(u.first_seen)}${u.referred_by ? ` · ${u.referred_by}-এর রেফার ${u.ref_ok ? "✅ সফল" : u.ref_blocked ? "❌ বাতিল" : "⏳"}` : ""}</div>
-          <div class="dv-act">${u.approved ? `<button class="btn sm" data-da="unapprove">অ্যাপ্রুভ বাতিল</button>` : d.accounts > 1 && i > 0 ? `<button class="btn sm good" data-da="approve">✅ অ্যাপ্রুভ</button>` : ""}
+          <div class="dv-act">${u.status === "banned" ? `<button class="btn sm good" data-da="unban">↩️ ফেরত চালু করুন</button>` : `${u.approved ? `<button class="btn sm" data-da="unapprove">অ্যাপ্রুভ বাতিল</button>` : d.accounts > 1 && !u.primary ? `<button class="btn sm good" data-da="approve">✅ অ্যাপ্রুভ</button>` : ""}
             ${u.jailed ? `<button class="btn sm" data-da="unjail">জেল থেকে মুক্ত</button>` : `<button class="btn sm warn" data-da="jail">⛓ জেল</button>`}
-            <button class="btn sm bad" data-da="delete">🗑 ডিলেট</button></div></div>`).join("")}</div>
+            <button class="btn sm bad" data-da="ban">🗑 ডিলেট</button>`}</div></div>`).join("")}</div>
       <div class="dv-act" style="margin-top:8px"><button class="btn sm" data-da="reset" data-dev="${esc(d.device_hash)}">🔄 মোবাইল রিসেট</button></div></div>`).join("")
       : `<div class="empty">${userNo ? "এই ইউজার এখনো নতুন অ্যাপ থেকে লগইন করেনি" : "এখনো কোনো ডিভাইস নেই — ইউজাররা নতুন APK খুললে দেখা যাবে"}</div>`;
     rows.forEach((d, i) => { const el = $("#list").children[i]; if (el) el.dataset.dev = d.device_hash; });
@@ -1274,22 +1274,23 @@ routes.devices = async (arg = "") => {
     const again = () => routes.devices(arg);
     if (a === "reset") {
       if (!confirm("এই মোবাইলের সব রেকর্ড মুছে যাবে। পরের বার যে অ্যাকাউন্ট আগে অ্যাপ খুলবে সেটাই এই মোবাইলের প্রথম অ্যাকাউন্ট ধরা হবে, আর \"একই মোবাইল\" কারণে বাতিল রেফার আবার চালু হবে। রিসেট করবেন?")) return;
-      await act(() => rpc("admin_device_action", { p_device: dev, p_action: "reset", p_user: null }), "মোবাইল রিসেট হয়েছে"); return again();
+      await act(() => rpc("admin_device_action", { p_device: dev, p_action: "reset", p_user: null, p_reason: null }), "মোবাইল রিসেট হয়েছে"); return again();
     }
     if (a === "approve") {
       if (!confirm(`${no} অ্যাকাউন্টকে আলাদা মানুষ হিসেবে অ্যাপ্রুভ করবেন? তখন একই মোবাইল হলেও রেফার, বোনাস ও ফ্রি কয়েন গিফট সব স্বাভাবিকভাবে চলবে।`)) return;
-      await act(() => rpc("admin_device_action", { p_device: dev, p_action: "approve", p_user: uid }), "অ্যাপ্রুভ হয়েছে"); return again();
+      await act(() => rpc("admin_device_action", { p_device: dev, p_action: "approve", p_user: uid, p_reason: null }), "অ্যাপ্রুভ হয়েছে"); return again();
     }
-    if (a === "unapprove") { await act(() => rpc("admin_device_action", { p_device: dev, p_action: "unapprove", p_user: uid }), "অ্যাপ্রুভ বাতিল হয়েছে"); return again(); }
+    if (a === "unapprove") { await act(() => rpc("admin_device_action", { p_device: dev, p_action: "unapprove", p_user: uid, p_reason: null }), "অ্যাপ্রুভ বাতিল হয়েছে"); return again(); }
     if (a === "jail") {
       const reason = prompt(`${no} কে জেলে দেওয়ার কারণ:`, "একই মোবাইলে একাধিক অ্যাকাউন্ট (জালিয়াতি)"); if (!reason) return;
       await act(() => rpc("admin_jail_now", { p_user: uid, p_reason: reason }), "জেলে দেওয়া হয়েছে"); return again();
     }
     if (a === "unjail") { await act(() => rpc("admin_jail_user", { p_user: uid, p_jail: false, p_reason: null, p_fee: null }), "মুক্ত করা হয়েছে"); return again(); }
-    if (a === "delete") {
-      if (!confirm(`${no} অ্যাকাউন্ট এখনই ডিলেট হবে (নাম, ছবি, পোস্ট মুছে যাবে; টাকার হিসাব থাকবে)। এটা ফেরত আনা যাবে না। নিশ্চিত?`)) return;
-      await act(() => rpc("admin_delete_account", { p_user: uid }), "অ্যাকাউন্ট ডিলেট হয়েছে"); return again();
+    if (a === "ban") {
+      if (!confirm(`${no} অ্যাকাউন্ট ডিলেট (বন্ধ) হবে: নাম ও পোস্ট থেকে যাবে, কিন্তু এই অ্যাকাউন্টে আর লগইন বা কিছু করা যাবে না। এই মোবাইলে এরপর যে নতুন অ্যাকাউন্ট প্রথম খোলা হবে, শুধু তার রেফার চলবে। নিশ্চিত?`)) return;
+      await act(() => rpc("admin_device_action", { p_device: dev, p_action: "ban", p_user: uid, p_reason: null }), "অ্যাকাউন্ট ডিলেট (বন্ধ) হয়েছে"); return again();
     }
+    if (a === "unban") { await act(() => rpc("admin_device_action", { p_device: dev, p_action: "unban", p_user: uid, p_reason: null }), "অ্যাকাউন্ট আবার চালু হয়েছে"); return again(); }
   };
 };
 

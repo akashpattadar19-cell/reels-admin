@@ -946,6 +946,21 @@ let cleanup = null;
 const PAGE_CACHE = new Map();
 const CACHEABLE = new Set(["home", "me", "u", "rules", "wallet", "invite", "notifs", "inbox", "history", "level", "creator", "settings", "season", "vip", "store", "offers", "texts", "tags", "tag", "top", "myprofile", "agent", "cashin", "withdraw", "callprice", "contest", "at", "support"]);
 let keepPage = null, lastPage = null;
+// ফিরে এলে আগের জায়গায় রাখা: লিস্ট/গ্রিড পরে লোড হলেও ~৩ সেকেন্ড ধরে স্ক্রল ধরে রাখে (ইউজার নিজে স্ক্রল করলে থামে)
+let holdT = null;
+function holdScroll(el, y) {
+  clearInterval(holdT);
+  if (!y) return;
+  const h0 = location.hash, t0 = Date.now();
+  let touched = false;
+  const stop = () => { touched = true; };
+  el.addEventListener("touchstart", stop, { once: true, passive: true });
+  el.addEventListener("wheel", stop, { once: true, passive: true });
+  holdT = setInterval(() => {
+    if (touched || location.hash !== h0 || Date.now() - t0 > 5000) { clearInterval(holdT); return; }
+    if (Math.abs(el.scrollTop - y) > 2 && el.scrollHeight - el.clientHeight >= y - 2) el.scrollTop = y;
+  }, 60);
+}
 (() => {
   const d = Object.getOwnPropertyDescriptor(Element.prototype, "innerHTML");
   Object.defineProperty(screen, "innerHTML", {
@@ -956,7 +971,7 @@ let keepPage = null, lastPage = null;
         if (html.length < 900 && html.includes('class="spinner"')) return; // লোড হওয়ার সময় পুরনো পেজই থাকুক
         const y = keepPage.scroll; keepPage = null;
         d.set.call(this, v);
-        this.scrollTop = y; requestAnimationFrame(() => { if (this.scrollTop < y) this.scrollTop = y; });
+        this.scrollTop = y; holdScroll(this, y);
         return;
       }
       d.set.call(this, v);
@@ -987,7 +1002,7 @@ function route() {
   if (cached) {
     keepPage = { hash: location.hash, scroll: cached.scroll };
     Object.getOwnPropertyDescriptor(Element.prototype, "innerHTML").set.call(screen, cached.html);
-    screen.scrollTop = cached.scroll;
+    screen.scrollTop = cached.scroll; holdScroll(screen, cached.scroll);
   } else screen.scrollTop = 0;
   R[name](a, b, c);
 }

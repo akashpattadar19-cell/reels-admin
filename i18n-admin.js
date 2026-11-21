@@ -1,5 +1,10 @@
 // অ্যাডমিন প্যানেলের বাড়তি English (শুধু অ্যাডমিনে লোড হয়, i18n.js-এর আগে)
 window.I18N_EXTRA = {
+"প্রথম অ্যাকাউন্ট (রেফার চলবে)": "first account (referral counts)",
+"🚫 ডিলেট/ব্যান": "🚫 Deleted/banned",
+"↩️ ফেরত চালু করুন": "↩️ Restore",
+"অ্যাকাউন্ট ডিলেট (বন্ধ) হয়েছে": "Account deleted (blocked)",
+"অ্যাকাউন্ট আবার চালু হয়েছে": "Account restored",
 "প্রথম অ্যাকাউন্ট": "first account",
 "⛓ জেল": "⛓ Jail",
 "🗑 ডিলেট": "🗑 Delete",
@@ -29,7 +34,7 @@ window.I18N_EXTRA = {
 "সঠিক দিন লিখুন (০.৫ থেকে ৩৬৫)": "Enter valid days (0.5 to 365)",
 "একই মোবাইলে একাধিক অ্যাকাউন্ট (জালিয়াতি)": "Several accounts on one phone (fraud)",
 "এই মোবাইলের সব রেকর্ড মুছে যাবে। পরের বার যে অ্যাকাউন্ট আগে অ্যাপ খুলবে সেটাই এই মোবাইলের প্রথম অ্যাকাউন্ট ধরা হবে, আর \"একই মোবাইল\" কারণে বাতিল রেফার আবার চালু হবে। রিসেট করবেন?": "All records of this phone will be removed. The account that opens the app first next time becomes the phone's first account, and referrals cancelled for \"same phone\" are re-checked. Reset?",
-"✅ অ্যাপ্রুভ = একই মোবাইলের আলাদা আসল মানুষ (যেমন পরিবারের সদস্য) — তার রেফার, বোনাস ও ফ্রি কয়েন গিফট স্বাভাবিক চলবে। 🔄 রিসেট = মোবাইলের রেকর্ড মুছে নতুন করে গোনা শুরু। ⛓ জেল / 🗑 ডিলেট = জালিয়াতি অ্যাকাউন্টের জন্য।": "✅ Approve = a different real person on the same phone (e.g. a family member) — their referrals, bonuses and free-coin gifts work normally. 🔄 Reset = clear the phone's records and start counting again. ⛓ Jail / 🗑 Delete = for fraud accounts.",
+"✅ অ্যাপ্রুভ = একই মোবাইলের আলাদা আসল মানুষ (যেমন পরিবারের সদস্য) — তার রেফার, বোনাস ও ফ্রি কয়েন গিফট স্বাভাবিক চলবে। 🔄 রিসেট = মোবাইলের রেকর্ড মুছে নতুন করে গোনা শুরু। ⛓ জেল / 🗑 ডিলেট = জালিয়াতি অ্যাকাউন্টের জন্য (ডিলেট করলে নাম ও পোস্ট থাকে, কিন্তু অ্যাকাউন্টে আর ঢোকা যায় না; এক মোবাইলে শুধু প্রথম চালু অ্যাকাউন্টের রেফার চলে)।": "✅ Approve = a different real person on the same phone (e.g. a family member) — their referrals, bonuses and free-coin gifts work normally. 🔄 Reset = clear the phone's records and start counting again. ⛓ Jail / 🗑 Delete = for fraud accounts (deleting keeps the name and posts but the account can no longer be used; only the first active account on a phone earns referrals).",
 "🎯 অফার ও টার্গেট": "🎯 Offers & targets",
 "🏆 টপ রেফার": "🏆 Top referrals",
 "⚡ দ্রুত উইথড্র": "⚡ Fast withdraw",
@@ -582,6 +587,7 @@ window.I18N_EXTRA = {
 "এই ইউজারের ফোন এখনো রেজিস্টার হয়নি (নতুন APK দিয়ে অ্যাপ খুলে নোটিফিকেশন Allow করতে হবে)": "This user's phone isn't registered yet (open the app with the new APK and allow notifications)"
 };
 window.I18N_EXTRA_PRE = [
+["(.+?)\\ অ্যাকাউন্ট\\ ডিলেট\\ \\(বন্ধ\\)\\ হবে:\\ নাম\\ ও\\ পোস্ট\\ থেকে\\ যাবে,\\ কিন্তু\\ এই\\ অ্যাকাউন্টে\\ আর\\ লগইন\\ বা\\ কিছু\\ করা\\ যাবে\\ না।\\ এই\\ মোবাইলে\\ এরপর\\ যে\\ নতুন\\ অ্যাকাউন্ট\\ প্রথম\\ খোলা\\ হবে,\\ শুধু\\ তার\\ রেফার\\ চলবে।\\ নিশ্চিত\\?", "Account $1 will be deleted (blocked): name and posts stay, but nobody can log in or do anything with it. Only the next new account opened first on this phone will count for referrals. Sure?"],
 ["(.+?)\\ অ্যাকাউন্টকে\\ আলাদা\\ মানুষ\\ হিসেবে\\ অ্যাপ্রুভ\\ করবেন\\?\\ তখন\\ একই\\ মোবাইল\\ হলেও\\ রেফার,\\ বোনাস\\ ও\\ ফ্রি\\ কয়েন\\ গিফট\\ সব\\ স্বাভাবিকভাবে\\ চলবে।", "Approve $1 as a separate person? Referrals, bonuses and free-coin gifts will then work normally even on the same phone."],
 ["(.+?)\\ কে\\ জেলে\\ দেওয়ার\\ কারণ:", "Reason for jailing $1:"],
 ["(.+?)\\ অ্যাকাউন্ট\\ এখনই\\ ডিলেট\\ হবে\\ \\(নাম,\\ ছবি,\\ পোস্ট\\ মুছে\\ যাবে;\\ টাকার\\ হিসাব\\ থাকবে\\)।\\ এটা\\ ফেরত\\ আনা\\ যাবে\\ না।\\ নিশ্চিত\\?", "Account $1 will be deleted now (name, photos, posts removed; money records kept). This can't be undone. Sure?"],
