@@ -1,5 +1,13 @@
 // অ্যাডমিন প্যানেলের বাড়তি English (শুধু অ্যাডমিনে লোড হয়, i18n.js-এর আগে)
 window.I18N_EXTRA = {
+"ভিডিও অনুমোদন হলে আপলোডার কত কয়েন পাবে (০ = বন্ধ)": "Coins the uploader gets when a video is approved (0 = off)",
+"ভিডিওর কত % দেখলে পয়েন্ট (পুরো দেখা)": "Watch % of a video needed for points (full watch)",
+"👑 অফিসিয়াল অ্যাকাউন্ট দিয়ে প্যানেলে ঢুকুন": "👑 Log in to the panel with the official account",
+"অ্যাপের অফিসিয়াল অ্যাকাউন্টটি Google দিয়ে খোলা, তাই তার কোনো পাসওয়ার্ড নেই। এখানে একটা পাসওয়ার্ড সেট করলে ওই একই ইমেইল আর এই পাসওয়ার্ড দিয়ে এডমিন প্যানেলে ঢুকতে পারবেন (অ্যাপে আগের মতো Google দিয়েই ঢুকবেন)।": "The app's official account was opened with Google, so it has no password. Set one here to log in to the admin panel with that same email and this password (keep using Google in the app).",
+"আপনার এখনকার পাসওয়ার্ড (এই প্যানেলের)": "Your current password (this panel)",
+"অফিসিয়াল অ্যাকাউন্টের নতুন পাসওয়ার্ড (কমপক্ষে ৮ অক্ষর)": "New password for the official account (at least 8 characters)",
+"পাসওয়ার্ড সেট করুন": "Set password",
+"কমপক্ষে ৮ অক্ষর দিন": "Use at least 8 characters",
 "🔐 এডমিন লগইন ইমেইল ও পাসওয়ার্ড": "🔐 Admin login email & password",
 "এখনকার লগইন ইমেইল:": "Current login email:",
 "এখনকার পাসওয়ার্ড (নিশ্চিত করতে)": "Current password (to confirm)",
@@ -602,6 +610,7 @@ window.I18N_EXTRA = {
 "এই ইউজারের ফোন এখনো রেজিস্টার হয়নি (নতুন APK দিয়ে অ্যাপ খুলে নোটিফিকেশন Allow করতে হবে)": "This user's phone isn't registered yet (open the app with the new APK and allow notifications)"
 };
 window.I18N_EXTRA_PRE = [
+["✅\\ হয়েছে।\\ এখন\\ থেকে\\ এডমিন\\ প্যানেলে\\ লগইন:\\nইমেইল:\\ (.+?)\\nপাসওয়ার্ড:\\ যেটা\\ এইমাত্র\\ দিলেন", "✅ Done. Admin panel login from now on:\nEmail: $1\nPassword: the one you just set"],
 ["(.+?)\\ অ্যাকাউন্ট\\ ডিলেট\\ \\(বন্ধ\\)\\ হবে:\\ নাম\\ ও\\ পোস্ট\\ থেকে\\ যাবে,\\ কিন্তু\\ এই\\ অ্যাকাউন্টে\\ আর\\ লগইন\\ বা\\ কিছু\\ করা\\ যাবে\\ না।\\ এই\\ মোবাইলে\\ এরপর\\ যে\\ নতুন\\ অ্যাকাউন্ট\\ প্রথম\\ খোলা\\ হবে,\\ শুধু\\ তার\\ রেফার\\ চলবে।\\ নিশ্চিত\\?", "Account $1 will be deleted (blocked): name and posts stay, but nobody can log in or do anything with it. Only the next new account opened first on this phone will count for referrals. Sure?"],
 ["(.+?)\\ অ্যাকাউন্টকে\\ আলাদা\\ মানুষ\\ হিসেবে\\ অ্যাপ্রুভ\\ করবেন\\?\\ তখন\\ একই\\ মোবাইল\\ হলেও\\ রেফার,\\ বোনাস\\ ও\\ ফ্রি\\ কয়েন\\ গিফট\\ সব\\ স্বাভাবিকভাবে\\ চলবে।", "Approve $1 as a separate person? Referrals, bonuses and free-coin gifts will then work normally even on the same phone."],
 ["(.+?)\\ কে\\ জেলে\\ দেওয়ার\\ কারণ:", "Reason for jailing $1:"],

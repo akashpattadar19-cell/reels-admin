@@ -3316,8 +3316,25 @@ routes.settings = async () => {
       <label class="small">নতুন পাসওয়ার্ড (না বদলালে খালি রাখুন, কমপক্ষে ৮ অক্ষর)<input id="npw" type="password" autocomplete="new-password"></label>
       <label class="small">নতুন পাসওয়ার্ড আবার<input id="npw2" type="password" autocomplete="new-password"></label>
       <button class="btn good" id="cpw" style="margin-top:8px;width:100%">সেভ করুন</button></div>
+    <div class="card" style="margin-bottom:14px"><b>👑 অফিসিয়াল অ্যাকাউন্ট দিয়ে প্যানেলে ঢুকুন</b>
+      <p class="muted small" style="margin:4px 0 8px">অ্যাপের অফিসিয়াল অ্যাকাউন্টটি Google দিয়ে খোলা, তাই তার কোনো পাসওয়ার্ড নেই। এখানে একটা পাসওয়ার্ড সেট করলে ওই একই ইমেইল আর এই পাসওয়ার্ড দিয়ে এডমিন প্যানেলে ঢুকতে পারবেন (অ্যাপে আগের মতো Google দিয়েই ঢুকবেন)।</p>
+      <label class="small">আপনার এখনকার পাসওয়ার্ড (এই প্যানেলের)<input id="ofOld" type="password" autocomplete="current-password"></label>
+      <label class="small">অফিসিয়াল অ্যাকাউন্টের নতুন পাসওয়ার্ড (কমপক্ষে ৮ অক্ষর)<input id="ofPw" type="password" autocomplete="new-password"></label>
+      <label class="small">নতুন পাসওয়ার্ড আবার<input id="ofPw2" type="password" autocomplete="new-password"></label>
+      <button class="btn good" id="ofGo" style="margin-top:8px;width:100%">পাসওয়ার্ড সেট করুন</button></div>
     <p class="muted small">টাকার ঘরগুলো <b>পয়সায়</b> (১ টাকা = ১০০ পয়সা)। যেমন উইথড্র মিনিমাম ৫০০ টাকা = 50000।</p>
     ${groups.map(([g, keys]) => `<h2>${g}</h2><div class="list">${keys.filter((k) => byKey[k]).map((k) => field(byKey[k])).join("")}</div>`).join("")}`;
+  $("#ofGo").onclick = async () => {
+    const old = $("#ofOld").value, pw = $("#ofPw").value;
+    if (!old) return toast("এখনকার পাসওয়ার্ড দিন", true);
+    if (pw.length < 8) return toast("কমপক্ষে ৮ অক্ষর দিন", true);
+    if (pw !== $("#ofPw2").value) return toast("দুইবারের পাসওয়ার্ড মেলেনি", true);
+    try {
+      const r = await rpc("admin_set_official_password", { p_current: old, p_new: pw });
+      ["ofOld", "ofPw", "ofPw2"].forEach((k) => ($("#" + k).value = ""));
+      alert(`✅ হয়েছে। এখন থেকে এডমিন প্যানেলে লগইন:\nইমেইল: ${r.email}\nপাসওয়ার্ড: যেটা এইমাত্র দিলেন`);
+    } catch (er) { toast(String(er.message || er).includes("WRONG_PASSWORD") ? "এখনকার পাসওয়ার্ড ভুল" : errMsg(er), true); }
+  };
   sb.auth.getUser().then(({ data }) => { if ($("#curEm")) $("#curEm").textContent = data?.user?.email ?? "—"; });
   $("#cpw").onclick = async () => {
     const old = $("#cpwOld").value, em = $("#cpwEm").value.trim(), pw = $("#npw").value;
