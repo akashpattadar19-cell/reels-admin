@@ -4561,6 +4561,7 @@ R.settings = async () => {
       <a class="li" href="#offers"><span>📢 অফার ও খবর</span><span>›</span></a>
       <a class="li" href="https://reelsenjoy.com/" target="_blank" rel="noopener"><span>🌐 আমাদের ওয়েবসাইট</span><span>›</span></a>
       <label class="li"><span>🔔 নোটিফিকেশন</span><input type="checkbox" id="nt" class="sw" ${notifOn() ? "checked" : ""}></label>
+      ${me.role === "admin" || (setting("glass_test_users", []) || []).map(Number).includes(Number(me.user_no)) ? `<label class="li"><span>🧪 Liquid Glass ডিজাইন (টেস্ট)</span><input type="checkbox" id="glassT" class="sw" ${localStorage.getItem("glass") === "1" ? "checked" : ""}></label>` : ""}
       ${me.account_type === "host" ? `<label class="li"><span>📞 কল নিতে রাজি (ইউজাররা আপনাকে কল দিতে পারবে)</span><input type="checkbox" id="cOn" class="sw" ${me.calls_on !== false ? "checked" : ""}></label>` : ""}
     </div>
     <h3 class="sec">নীতিমালা</h3>
@@ -4571,6 +4572,7 @@ R.settings = async () => {
       <div class="li"><span>📱 অ্যাপ ভার্সন</span><span class="muted">${esc(Native?.appVersion?.() ?? "web")}</span></div>
     </div></div>`;
   $("#cOn")?.addEventListener("change", async (e) => { try { await rpc("set_call_prefs", { p_on: e.target.checked }); toast(e.target.checked ? "📞 কল চালু" : "📵 কল বন্ধ"); } catch (er) { toast(errMsg(er), true); } });
+  $("#glassT")?.addEventListener("change", (e) => { try { localStorage.setItem("glass", e.target.checked ? "1" : "0"); } catch { /* */ } location.reload(); });
   $("#nt").onchange = (e) => { try { localStorage.setItem("notif", e.target.checked ? "on" : "off"); } catch { /* */ } toast(e.target.checked ? "🔔 নোটিফিকেশন চালু" : "🔕 নোটিফিকেশন বন্ধ"); };
 };
 

@@ -1,0 +1,22 @@
+body{background:#140b2e!important}
+body::before{content:"";position:fixed;inset:-10%;z-index:0;background:
+ radial-gradient(45% 30% at 10% 10%,#a855f7 0,transparent 70%),radial-gradient(40% 30% at 90% 30%,#ec4899 0,transparent 70%),
+ radial-gradient(45% 35% at 20% 75%,#06b6d4 0,transparent 70%),radial-gradient(40% 30% at 90% 90%,#f59e0b 0,transparent 70%),#1a0f3a}
+#main,#screen,.me{position:relative;z-index:1;background:transparent!important}
+.me-head{background:linear-gradient(145deg,rgba(255,255,255,.18),rgba(255,255,255,.04)),url(none)!important;backdrop-filter:blur(26px);border-bottom:1px solid rgba(255,255,255,.3);box-shadow:inset 0 -1px 0 rgba(255,255,255,.2)}
+.me-head *{color:#fff!important}
+.mc,.dt-mini,.me-create,.me-menu,.me-banner,.chk-card,.card,.me-promo a,.tabbar,nav.tabs,#tabbar{
+ background:linear-gradient(145deg,rgba(255,255,255,.24),rgba(255,255,255,.07))!important;border:1px solid rgba(255,255,255,.38)!important;
+ backdrop-filter:blur(22px) saturate(1.7);-webkit-backdrop-filter:blur(22px) saturate(1.7);
+ box-shadow:0 14px 34px rgba(10,0,30,.35),inset 0 1px 0 rgba(255,255,255,.65)!important;color:#fff!important}
+.mc *,.dt-mini *,.me-create *,.me-menu *,.me-banner *,.card *,.me-promo a *{color:#fff!important}
+.me-menu .mi,.me-create a i{background:rgba(255,255,255,.2)!important;border:1px solid rgba(255,255,255,.45);box-shadow:inset 0 1px 0 #fff}
+.wd-bar{background:rgba(255,255,255,.18)!important}
+.dt-pill{background:rgba(255,255,255,.2)!important}
+.chk-d,.ck-day,.day{background:rgba(255,255,255,.14)!important;border-color:rgba(255,255,255,.35)!important}
+.btn.primary,.chk-btn,.cta{background:linear-gradient(135deg,rgba(255,61,127,.92),rgba(255,154,61,.92))!important;border:1px solid rgba(255,255,255,.5)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 10px 24px rgba(255,61,127,.45)!important}
+.chk-h span,.chk-h em{background:rgba(255,255,255,.22)!important;border:1px solid rgba(255,255,255,.4)}
+.me-promo a em,.me-promo.adm a.mb em{background:#fff!important;color:#db2777!important}
+.me-promo a em *{color:#db2777!important}
+.tabbar{border-radius:0!important}
+.tabbar{background:linear-gradient(145deg,rgba(40,20,80,.72),rgba(40,20,80,.55))!important;backdrop-filter:blur(30px) saturate(1.8)!important}

@@ -1900,6 +1900,7 @@
 "🪙 প্রতিটা ভিডিও অনুমোদন হলে +": "🪙 +",
 "নিয়ম দেখুন": "See rules",
 "নোটিফিকেশন চালু করুন": "Turn on notifications",
+"🧪 Liquid Glass ডিজাইন (টেস্ট)": "🧪 Liquid Glass design (test)",
 "বন্ধু (নতুন জন) পাবে": "Your friend (new user) gets",
 "❌ রিজেক্ট: এই মোবাইলে একাধিক অ্যাকাউন্ট — ফ্রি/বোনাস কয়েন দিয়ে গিফট বা কল করা যাবে না (জালিয়াতি প্রতিরোধ)। কেনা কয়েন দিয়ে গিফট দিতে পারবেন; ফ্রি কয়েন প্রিমিয়াম ভিডিও দেখতে কাজে লাগবে।": "❌ Rejected: more than one account on this phone — free/bonus coins can't be used for gifts or calls (fraud protection). You can gift with bought coins; free coins work for premium videos.",
 "⚡ দ্রুত উইথড্র চালু হয়েছে!": "⚡ Fast withdraw is on!",
