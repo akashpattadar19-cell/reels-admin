@@ -2,6 +2,7 @@
    translate="no" দেওয়া অংশ (ইউজারের লেখা ক্যাপশন, নাম, কমেন্ট) বদলায় না। */
 (function () {
   var EN = {
+"এই নাম বা ইউজারনেম শুধু Reels Enjoy-এর অফিসিয়াল অ্যাকাউন্টের জন্য — অন্য নাম দিন": "This name or username is reserved for the official Reels Enjoy account — please choose another",
 "রিকোয়েস্টের পর টাকা ব্যালেন্স থেকে আটকে রাখা হবে। অ্যাডমিন পেমেন্ট পাঠালে নোটিফিকেশন পাবেন; রিজেক্ট হলে টাকা ফেরত আসবে।": "After you request, the amount is held from your balance. You'll get a notification when the admin pays; if rejected, the money comes back.",
 "এখানের ছবি ও ভিডিও শুধু আপনি দেখতে পারবেন, অন্য ইউজাররা নয়। নিয়ম যাচাইয়ের জন্য অ্যাডমিন দেখতে পারেন।": "Only you can see photos and videos here, not other users. The admin may view them to check the rules.",
 "মনে রাখবেন: এই কয়েন দিয়ে ইউজার গিফট পাঠালে ক্রিয়েটর আসল টাকা আয় করবে, যা উইথড্র করা যায়।": "Remember: when users send gifts with these coins, creators earn real money that can be withdrawn.",

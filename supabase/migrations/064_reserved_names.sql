@@ -1,0 +1,3 @@
+-- 064: Reels Enjoy / admin / official / support (বাংলাসহ) নাম ও ইউজারনেম শুধু অ্যাডমিন বা is_official অ্যাকাউন্ট নিতে পারে
+-- profiles.is_official, _reserved_name(text), trigger reserved_names (insert → নাম বদলে দেয়, update → RESERVED_NAME), username_available চেক করে
+-- 100013 (@admin, "Reels Enjoy Admin") = is_official + is_verified
