@@ -1515,7 +1515,7 @@ i-c { display: inline-block; }
 .me .me-banner { margin: 0 14px 10px; padding: 10px 14px; }
 /* পাঠযোগ্যতা: বেগুনি অংশ শুধু শিরোনামের পেছনে (লেখা আর রঙের ওপর পড়ে না) */
 .page::before { display: none; }
-.page > h1 { margin: calc(-16px - var(--safe-t)) -16px 14px; padding: calc(16px + var(--safe-t)) 16px 16px; background: var(--band);
+.page > h1 { margin: calc(-16px - var(--safe-t)) -14px 14px; padding: calc(16px + var(--safe-t)) 14px 16px; background: var(--band);
   border-radius: 0 0 24px 24px; color: #fff; box-shadow: 0 8px 22px rgba(91,33,182,.22); }
 .sbar { background: #5B21B6; }
 .page > h1 + .seg, .page > .sbar + h1 + .seg { background: var(--panel2); }
@@ -1698,3 +1698,5 @@ details.up-rule > div { margin-top: 5px; line-height: 1.45; }
 .dt-card .dt-i b { font-size: 12px; }
 .dt-card > .row > b { font-size: 14px; }
 .me #meGrow:not(:empty) { margin-top: 8px; }
+/* বাম-ডানে টানলে অ্যাপ নড়বে না */
+.screen, #screen { overflow-x: hidden; overscroll-behavior-x: none; }

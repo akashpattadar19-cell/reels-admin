@@ -213,7 +213,7 @@ const wealthTag = (p) => {
 const vipTag = (p) => wealthTag(p) + (isVip(p) ? `<span class="viptag v-${esc(vipPlan(p)?.color || "gold")}">${esc(vipPlan(p)?.badge || "💎")} ${esc(vipPlan(p)?.name || "VIP")}</span>` : "");
 // কেনা ফ্রেম পরানো অবতার
 const avatarD = (p, cls = "av") => avatar(p, cls + (p?.deco?.frame ? ` fr fr-${String(p.deco.frame).replace(/[^a-z0-9-]/g, "")}` : ""));
-const avatar = (p, cls = "av") => `<div class="${cls}">${p?.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="">` : `<span class="ini">${esc((p?.full_name || p?.username || "?").trim().charAt(0).toUpperCase())}</span>`}</div>`;
+const avatar = (p, cls = "av") => `<div class="${cls}">${p?.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="">` : `<span class="ini" translate="no">${esc((p?.full_name || p?.username || "?").trim().charAt(0).toUpperCase())}</span>`}</div>`;
 
 const ERR = {
   "Invalid login credentials": "মোবাইল নম্বর বা পাসওয়ার্ড ভুল",
@@ -2100,7 +2100,7 @@ R.store = async (tab = "frame") => {
   const worn = me.deco?.[tab];
   const preview = (it) => tab === "frame" ? avatar(me, `av fr fr-${it.style}`)
     : tab === "entry" ? `<span class="entry e-${it.style}">${ENTRY_IC[it.style] ?? "✨"} <b translate="no">${esc(me.username)}</b> এসেছে</span>`
-    : `<div class="bub mine bb-${it.style}"><span class="bt">হ্যালো! 👋</span></div>`;
+    : `<div class="bub mine bb-${it.style}"><span class="bt">${L("হ্যালো! 👋", "Hello! 👋")}</span></div>`;
   screen.innerHTML = `<div class="page">${header("🎨 প্রোফাইল সাজান")}
     <div class="seg">${STORE_TABS.map(([k, l]) => `<button class="${k === tab ? "on" : ""}" onclick="location.hash='#store/${k}'">${l}</button>`).join("")}</div>
     <div class="tiny muted" style="margin:6px 2px 10px">🪙 আপনার কয়েন: <b>${n(w?.coin_balance)}</b> · কিনলেই সাথে সাথে পরানো হবে</div>
@@ -2683,7 +2683,7 @@ R.chat = async (uid) => {
   const quote = (m) => {
     if (!m.reply_to) return "";
     const q = msgs.get(m.reply_to);
-    return `<div class="bq" data-goto="${m.reply_to}"><b>${q ? (q.sender_id === S.me.id ? "আপনি" : esc(o.full_name || o.username)) : "↩️"}</b><span translate="no">${q ? esc(q.body.slice(0, 80)) : "পুরনো মেসেজ"}</span></div>`;
+    return `<div class="bq" data-goto="${m.reply_to}"><b translate="no">${q ? (q.sender_id === S.me.id ? L("আপনি", "You") : esc(o.full_name || o.username)) : "↩️"}</b><span translate="no">${q ? esc(q.body.slice(0, 80)) : L("পুরনো মেসেজ", "Old message")}</span></div>`;
   };
   const bubble = (m) => `<div class="bub ${m.sender_id === S.me.id ? "mine" : ""}${bubCls(m.sender_id === S.me.id)}" data-id="${m.id}">${quote(m)}<span class="bt" translate="no">${esc(m.body)}</span>
     <i>${m.edited_at ? "এডিট করা · " : ""}${hm(m.created_at)} ${m.sender_id === S.me.id ? TICK(m) : ""}</i></div>`;
@@ -4568,7 +4568,7 @@ R.settings = async () => {
     <div class="card list">
       <a class="li" href="#offers"><span>📢 অফার ও খবর</span><span>›</span></a>
       <a class="li" href="https://reelsenjoy.com/" target="_blank" rel="noopener"><span>🌐 আমাদের ওয়েবসাইট</span><span>›</span></a>
-      <div class="li" style="display:block"><span>🎨 থিম</span><div class="theme-pick" id="thPick">${THEMES.map(([k, c, bn, en]) => `<button type="button" class="${c} ${(document.documentElement.dataset.theme || "original") === k ? "on" : ""}" data-th="${k}"><i></i>${L(bn, en)}</button>`).join("")}</div></div>
+      <div class="li" style="display:block"><span>🎨 ${L("থিম", "Theme")}</span><div class="theme-pick" id="thPick">${THEMES.map(([k, c, bn, en]) => `<button type="button" class="${c} ${(document.documentElement.dataset.theme || "original") === k ? "on" : ""}" data-th="${k}"><i></i>${L(bn, en)}</button>`).join("")}</div></div>
       <label class="li"><span>🔔 নোটিফিকেশন</span><input type="checkbox" id="nt" class="sw" ${notifOn() ? "checked" : ""}></label>
       ${me.account_type === "host" ? `<label class="li"><span>📞 কল নিতে রাজি (ইউজাররা আপনাকে কল দিতে পারবে)</span><input type="checkbox" id="cOn" class="sw" ${me.calls_on !== false ? "checked" : ""}></label>` : ""}
     </div>
@@ -4685,7 +4685,7 @@ const refLeft = (end) => { const ms = new Date(end) - Date.now(); if (ms <= 0) r
 // রেফারের টাস্ক তালিকা (have/need + প্রগ্রেস বার)
 const refTaskList = (pr, compact) => `<div class="rt-list${compact ? " compact" : ""}">${pr.items.filter((x) => x.need > 0).map((x) => {
   const ok = x.have >= x.need, pct = Math.min(100, Math.round((x.have / x.need) * 100));
-  return `<div class="rt-i ${ok ? "ok" : ""}"><span class="rt-ic">${ok ? "✅" : REF_TASKS[x.k][0]}</span><div><div class="rt-t">${n(x.need)} ${x.k === "active_days" ? `দিন অ্যাপ ব্যবহার (প্রতিদিন ${n(x.mins)} মিনিট)` : /_days$/.test(x.k) ? `দিন — প্রতিদিন ${n(x.per)}টি ${REF_TASKS[x.k][1]} পোস্ট` : REF_TASKS[x.k][1].replace(/^দিন /, "")}</div>
+  return `<div class="rt-i ${ok ? "ok" : ""}"><span class="rt-ic">${ok ? "✅" : REF_TASKS[x.k][0]}</span><div><div class="rt-t">${n(x.need)} ${x.k === "active_days" ? `দিন অ্যাপ ব্যবহার (প্রতিদিন ${n(x.mins)} মিনিট)` : /_days$/.test(x.k) ? L(`দিন — প্রতিদিন ${n(x.per)}টি ${REF_TASKS[x.k][1]} পোস্ট`, `days — ${n(x.per)} ${({ photo_days: "photo", text_days: "text", video_days: "video" })[x.k] || ""} post(s) a day`) : REF_TASKS[x.k][1].replace(/^দিন /, "")}</div>
     <div class="progress"><div style="width:${pct}%"></div></div></div><b>${n(Math.min(x.have, x.need))}/${n(x.need)}</b></div>`;
 }).join("")}</div>`;
 // রেফারের নিয়ম (সেটিংস থেকে) — শেয়ার করার আগে বন্ধুকে বোঝাতে
@@ -4707,7 +4707,7 @@ R.invite = async () => {
     ${offer ? `<div class="ref-offer"><span>🔥</span><div translate="no">${esc(offer)}</div></div>` : ""}
     ${S.me?.agent_status === "approved" ? `<a class="card ag-cta" href="#agent"><span>🧑‍💼</span><div><b>${S.me?.agent_status === "approved" ? "এজেন্ট ড্যাশবোর্ড" : "এজেন্ট হয়ে বেশি বোনাস নিন"}</b><small>নিজের লিংক · প্রতি ${n(setting("agent_target_refs", 20))} জনে বাড়তি পুরস্কার</small></div><em>›</em></a>` : ""}
     ${mine && !mine.qualified && !mine.blocked ? `<div class="card ref-mine"><b>🎯 আপনার টাস্ক (@${esc(mine.referrer)}-এর রেফারে যুক্ত)</b>
-      <div class="tiny muted" style="margin:2px 0 8px">⏳ ${refLeft(mine.end)} · সব শেষ করলে আপনি পাবেন ${newRefBonus()}</div>${refTaskList(mine)}</div>` : ""}
+      <div class="tiny muted" style="margin:2px 0 8px">⏳ ${refLeft(mine.end)} · ${L(`সব শেষ করলে আপনি পাবেন ${newRefBonus()}`, `Finish all to get ${newRefBonus()}`)}</div>${refTaskList(mine)}</div>` : ""}
     <div class="card hero" style="text-align:center"><div class="k">আপনার রেফার কোড</div>
       <div class="v" data-copy="${r.code}" style="letter-spacing:2px">${r.code} ⧉</div>
       <button class="btn" id="shr" style="background:#fff;color:#4b1c7a;border:0">📤 বন্ধুদের পাঠান</button></div>
@@ -4750,7 +4750,7 @@ R.rules = async () => {
     <div id="ssnBox2"></div>
     ${S.ads.rewarded_points && Native?.showRewarded && !locked("ads") ? `<div class="card hero"><b>🎬 অ্যাড দেখে পয়েন্ট নিন</b><div class="tiny" style="margin:4px 0 10px">প্রতি অ্যাডে ⭐ ${n(S.ads.rewarded_points.viewer_points)} · দিনে ${n(S.ads.rewarded_points.daily_cap)} বার</div><a class="btn" href="#wallet" style="background:#fff;color:#5b2bd0;border:0">ওয়ালেটে গিয়ে অ্যাড দেখুন</a></div>` : ""}
     <div id="poolBox2"></div>
-    ${mine && !mine.qualified && !mine.blocked ? `<a class="card ref-mine" href="#invite" style="display:block"><b>🎯 রেফার টাস্ক — ${newRefBonus()} পাবেন</b>
+    ${mine && !mine.qualified && !mine.blocked ? `<a class="card ref-mine" href="#invite" style="display:block"><b>🎯 ${L(`রেফার টাস্ক — ${newRefBonus()} পাবেন`, `Referral tasks — get ${newRefBonus()}`)}</b>
       <div class="tiny muted" style="margin:2px 0 8px">⏳ ${refLeft(mine.end)}</div>${refTaskList(mine, true)}</a>` : ""}
     <div id="dtBox"></div>
     <div class="card"><b>🎬 ভিডিও বানিয়ে (ক্রিয়েটর)</b><div class="list tiny">
