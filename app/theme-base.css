@@ -1,0 +1,33 @@
+/* থিম: original (ডিফল্ট) · light · dark — html[data-theme], localStorage "theme" */
+html[data-theme="dark"] { --bg: #100d1c; --panel: #1b1730; --panel2: #241f3d; --line: #322b55; --text: #eeeaf8; --muted: #a9a2c6; --icon: #c9b2ff;
+  --band: linear-gradient(160deg, #2e1065 0%, #4c1d95 60%, #581c87 100%); color-scheme: dark; }
+html[data-theme="dark"] body { background: var(--bg); color: var(--text); }
+html[data-theme="dark"] input, html[data-theme="dark"] textarea, html[data-theme="dark"] select { background: var(--panel2); color: var(--text); border-color: var(--line); }
+html[data-theme="dark"] input::placeholder, html[data-theme="dark"] textarea::placeholder { color: #7f78a0; }
+html[data-theme="dark"] .card, html[data-theme="dark"] .sheet, html[data-theme="dark"] .me-menu, html[data-theme="dark"] .me-create, html[data-theme="dark"] .me-banner,
+html[data-theme="dark"] .dt-mini, html[data-theme="dark"] .pcard, html[data-theme="dark"] .li { color: var(--text); }
+html[data-theme="dark"] .card, html[data-theme="dark"] .me-menu, html[data-theme="dark"] .me-create, html[data-theme="dark"] .me-banner, html[data-theme="dark"] .dt-mini,
+html[data-theme="dark"] .pcard, html[data-theme="dark"] .sheet { background: var(--panel); border-color: var(--line); box-shadow: 0 4px 18px rgba(0,0,0,.35); }
+html[data-theme="dark"] .muted, html[data-theme="dark"] .tiny.muted { color: var(--muted); }
+html[data-theme="dark"] .mc.coins { background: #241a45; color: #c7b6ff; }
+html[data-theme="dark"] .mc.money { background: #3a2412; color: #ffc285; }
+html[data-theme="dark"] .mc.beans { background: #3a2212; color: #ffb98a; }
+
+/* লাইট: সাদা হেডার, গাঢ় লেখা */
+html[data-theme="light"] { --bg: #f6f6f9; --icon: #7c3aed; }
+html[data-theme="light"] .page::before { background: #fff; box-shadow: 0 1px 0 var(--line); }
+html[data-theme="light"] .page > h1 { background: #fff; color: var(--text); box-shadow: 0 1px 0 var(--line), 0 6px 18px rgba(40,20,90,.05); }
+html[data-theme="light"] .page > h1 *, html[data-theme="light"] .page > h1 a { color: var(--text); }
+html[data-theme="light"] .me-head:not(.has-cover) { background: #fff; color: var(--text); box-shadow: 0 6px 20px rgba(40,20,90,.06); }
+html[data-theme="light"] .me-head:not(.has-cover) h2, html[data-theme="light"] .me-head:not(.has-cover) .me-counts b { color: var(--text); }
+html[data-theme="light"] .me-head:not(.has-cover) .me-sub, html[data-theme="light"] .me-head:not(.has-cover) .me-counts span { color: var(--muted); }
+html[data-theme="light"] .me-head:not(.has-cover) .chips span { background: #f3f0fb; color: var(--text); border-color: var(--line); }
+
+/* থিম বাছাই */
+.theme-pick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px 0 4px; }
+.theme-pick button { border: 2px solid var(--line); border-radius: 14px; padding: 8px 6px; background: var(--panel); color: var(--text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; display: grid; gap: 6px; justify-items: center; }
+.theme-pick button.on { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139,92,246,.18); }
+.theme-pick i { width: 46px; height: 30px; border-radius: 8px; display: block; border: 1px solid rgba(0,0,0,.08); }
+.theme-pick .t-o i { background: linear-gradient(180deg, #7c3aed 0 45%, #f5f3ff 45%); }
+.theme-pick .t-l i { background: linear-gradient(180deg, #fff 0 45%, #f6f6f9 45%); }
+.theme-pick .t-d i { background: linear-gradient(180deg, #4c1d95 0 45%, #100d1c 45%); }

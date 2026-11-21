@@ -3,6 +3,14 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const { SUPABASE_URL, SUPABASE_KEY } = window.REELS_CONFIG;
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
 const Native = window.ReelsAndroid || null; // APK-এর ভেতরে থাকলে অ্যাড/শেয়ার ব্রিজ
+// থিম: original / light / dark — ডার্কে স্ট্যাটাস বার সবসময় গাঢ়
+const darkBars = (on) => { try { Native?.setDarkBars?.(!!on || document.documentElement.dataset.theme === "dark"); } catch { /* old APK */ } };
+const THEMES = [["original", "t-o", "অরিজিনাল", "Original"], ["light", "t-l", "লাইট", "Light"], ["dark", "t-d", "ডার্ক", "Dark"]];
+function setTheme(t) {
+  try { if (t === "original") localStorage.removeItem("theme"); else localStorage.setItem("theme", t); } catch { /* */ }
+  if (t === "original") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+  darkBars(false);
+}
 try { Native?.setLang?.(window.getLang?.() === "en" ? "en" : "bn"); } catch { /* */ }
 const $ = (s, el = document) => el.querySelector(s);
 const screen = $("#screen");
@@ -972,7 +980,7 @@ function route() {
   document.querySelectorAll(".tabbar a").forEach((x) => x.classList.toggle("on", x.dataset.t === name || (TABS[x.dataset.t] ?? []).includes(name)));
   screen.classList.remove("full");
   $(".tabbar").classList.toggle("dark", TABS.feed.includes(name));
-  try { Native?.setDarkBars?.(TABS.feed.includes(name)); } catch { /* old APK */ }
+  try { darkBars(TABS.feed.includes(name)); } catch { /* old APK */ }
   lastPage = { name, hash: location.hash };
   const cached = CACHEABLE.has(name) && PAGE_CACHE.get(location.hash);
   if (cached) {
@@ -3447,7 +3455,7 @@ R.live = async (rid) => {
   const id = Number(rid);
   screen.classList.add("full");
   document.body.classList.add("story-open");
-  try { Native?.setDarkBars?.(true); Native?.setSecure?.(true); } catch { /* */ }
+  try { darkBars(true); Native?.setSecure?.(true); } catch { /* */ }
   screen.innerHTML = `<div class="lvroom"><div class="spinner" style="margin-top:40vh"></div></div>`;
   let info;
   try { needMedia(); info = await rpc("live_join", { p_room: id }); }
@@ -3694,7 +3702,7 @@ R.live = async (rid) => {
     if (host && !ended) rpc("live_end", { p_room: id }).catch(() => {}); else rpc("live_leave", { p_room: id }).catch(() => {});
     leaveRtc();
     document.body.classList.remove("story-open");
-    try { Native?.setSecure?.(false); Native?.setDarkBars?.(false); } catch { /* */ }
+    try { Native?.setSecure?.(false); darkBars(false); } catch { /* */ }
   };
 };
 
@@ -3728,7 +3736,7 @@ R.party = async (rid) => {
   const id = Number(rid);
   screen.classList.add("full");
   document.body.classList.add("story-open");
-  try { Native?.setDarkBars?.(true); } catch { /* */ }
+  try { darkBars(true); } catch { /* */ }
   screen.innerHTML = `<div class="pty"><div class="spinner" style="margin-top:40vh"></div></div>`;
   let info;
   try { needMedia(); info = await rpc("live_join", { p_room: id }); }
@@ -3919,7 +3927,7 @@ R.party = async (rid) => {
     if (host && !ended) rpc("live_end", { p_room: id }).catch(() => {}); else rpc("live_leave", { p_room: id }).catch(() => {});
     try { mic?.close(); } catch { /* */ } try { client?.leave(); } catch { /* */ }
     document.body.classList.remove("story-open");
-    try { Native?.setDarkBars?.(false); } catch { /* */ }
+    try { darkBars(false); } catch { /* */ }
   };
 };
 
@@ -3980,7 +3988,7 @@ R.call = async (cid) => {
   S.inCall = true;
   screen.classList.add("full");
   document.body.classList.add("story-open");
-  try { Native?.setDarkBars?.(true); Native?.setSecure?.(true); } catch { /* */ }
+  try { darkBars(true); Native?.setSecure?.(true); } catch { /* */ }
   const video = c.kind === "video";
   screen.innerHTML = `<div class="cl ${video ? "vid" : "aud"}">
     <div class="cl-remote" id="clR"></div><div class="cl-local ${video ? "" : "hidden"}" id="clL"></div>
@@ -4041,7 +4049,7 @@ R.call = async (cid) => {
     if (!done) finish();
     S.inCall = false;
     document.body.classList.remove("story-open");
-    try { Native?.setSecure?.(false); Native?.setDarkBars?.(false); } catch { /* */ }
+    try { Native?.setSecure?.(false); darkBars(false); } catch { /* */ }
   };
 };
 
@@ -4062,7 +4070,7 @@ async function storyRow(box) {
 R.story = async (uid) => {
   screen.classList.add("full");
   screen.innerHTML = `<div class="stv"><div class="spinner" style="margin-top:40vh"></div></div>`;
-  try { Native?.setDarkBars?.(true); } catch { /* */ }
+  try { darkBars(true); } catch { /* */ }
   document.body.classList.add("story-open");
   cleanup = () => document.body.classList.remove("story-open");
   const [list, { data: p }] = await Promise.all([rpc("user_stories", { p_user: uid }).catch(() => []), sb.from("profiles").select("id,username,full_name,avatar_url,account_type").eq("id", uid).maybeSingle()]);
@@ -4163,7 +4171,7 @@ R.story = async (uid) => {
   });
   const onVis = () => { if (document.hidden) pause(true); };
   document.addEventListener("visibilitychange", onVis);
-  cleanup = () => { gone = true; stop(); document.body.classList.remove("story-open"); document.removeEventListener("visibilitychange", onVis); try { Native?.setDarkBars?.(false); } catch { /* */ } };
+  cleanup = () => { gone = true; stop(); document.body.classList.remove("story-open"); document.removeEventListener("visibilitychange", onVis); try { darkBars(false); } catch { /* */ } };
   show();
 };
 
@@ -4560,7 +4568,8 @@ R.settings = async () => {
     <div class="card list">
       <a class="li" href="#offers"><span>📢 অফার ও খবর</span><span>›</span></a>
       <a class="li" href="https://reelsenjoy.com/" target="_blank" rel="noopener"><span>🌐 আমাদের ওয়েবসাইট</span><span>›</span></a>
-      <label class="li"><span>🔔 নোটিফিকেশন</span><input type="checkbox" id="nt" class="sw" ${notifOn() ? "checked" : ""}></label>></label>` : ""}
+      <div class="li" style="display:block"><span>🎨 থিম</span><div class="theme-pick" id="thPick">${THEMES.map(([k, c, bn, en]) => `<button type="button" class="${c} ${(document.documentElement.dataset.theme || "original") === k ? "on" : ""}" data-th="${k}"><i></i>${L(bn, en)}</button>`).join("")}</div></div>
+      <label class="li"><span>🔔 নোটিফিকেশন</span><input type="checkbox" id="nt" class="sw" ${notifOn() ? "checked" : ""}></label>
       ${me.account_type === "host" ? `<label class="li"><span>📞 কল নিতে রাজি (ইউজাররা আপনাকে কল দিতে পারবে)</span><input type="checkbox" id="cOn" class="sw" ${me.calls_on !== false ? "checked" : ""}></label>` : ""}
     </div>
     <h3 class="sec">নীতিমালা</h3>
@@ -4571,6 +4580,7 @@ R.settings = async () => {
       <div class="li"><span>📱 অ্যাপ ভার্সন</span><span class="muted">${esc(Native?.appVersion?.() ?? "web")}</span></div>
     </div></div>`;
   $("#cOn")?.addEventListener("change", async (e) => { try { await rpc("set_call_prefs", { p_on: e.target.checked }); toast(e.target.checked ? "📞 কল চালু" : "📵 কল বন্ধ"); } catch (er) { toast(errMsg(er), true); } });
+  $("#thPick")?.addEventListener("click", (e) => { const b = e.target.closest("[data-th]"); if (!b) return; setTheme(b.dataset.th); $("#thPick").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); });
   $("#nt").onchange = (e) => { try { localStorage.setItem("notif", e.target.checked ? "on" : "off"); } catch { /* */ } toast(e.target.checked ? "🔔 নোটিফিকেশন চালু" : "🔕 নোটিফিকেশন বন্ধ"); };
 };
 
