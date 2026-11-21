@@ -1,0 +1,5 @@
+-- 065: অফিসিয়াল অ্যাকাউন্ট (profiles.is_official)
+-- gifts.official_only + ৫টি অফিসিয়াল গিফট (🌟💐💎🏆🏰); send_gift/live_gift/send_post_gift: official_only গিফট শুধু is_official পাঠাতে পারে (না হলে GIFT_NOT_FOUND)
+-- live_join: is_official হলে join body 'fx:official:official'
+-- official_send_coins(user_no, coins ≤ 1,000,000, note): is_official যেকোনো সক্রিয় ইউজারকে কয়েন দেয় (ledger admin_coin_grant, নিজের থেকে কাটে না)
+-- _official_refill(): অফিসিয়াল ওয়ালেট ৯০ কোটির নিচে নামলে ১০০ কোটিতে ভরে (cron official-refill প্রতি ঘণ্টা)

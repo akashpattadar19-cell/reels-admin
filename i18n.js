@@ -2,6 +2,19 @@
    translate="no" দেওয়া অংশ (ইউজারের লেখা ক্যাপশন, নাম, কমেন্ট) বদলায় না। */
 (function () {
   var EN = {
+"Reels Enjoy অফিসিয়াল থেকে উপহার": "Gift from Reels Enjoy Official",
+"🪙 কয়েন উপহার দিন": "🪙 Gift coins",
+"👑 Reels Enjoy অফিসিয়াল": "👑 Reels Enjoy Official",
+"বার্তা (ঐচ্ছিক)": "Message (optional)",
+"যেমন 500": "e.g. 500",
+"যেমন: দারুণ কাজের জন্য উপহার 🎉": "e.g. A gift for great work 🎉",
+"🎁 পাঠান": "🎁 Send",
+"👑 অফিসিয়াল অ্যাকাউন্ট — কয়েন অসীম": "👑 Official account — unlimited coins",
+"অফিসিয়াল স্টার": "Official star",
+"ফুলের তোড়া": "Bouquet",
+"রয়্যাল ডায়মন্ড": "Royal diamond",
+"চ্যাম্পিয়ন ট্রফি": "Champion trophy",
+"রাজপ্রাসাদ": "Palace",
 "এই নাম বা ইউজারনেম শুধু Reels Enjoy-এর অফিসিয়াল অ্যাকাউন্টের জন্য — অন্য নাম দিন": "This name or username is reserved for the official Reels Enjoy account — please choose another",
 "রিকোয়েস্টের পর টাকা ব্যালেন্স থেকে আটকে রাখা হবে। অ্যাডমিন পেমেন্ট পাঠালে নোটিফিকেশন পাবেন; রিজেক্ট হলে টাকা ফেরত আসবে।": "After you request, the amount is held from your balance. You'll get a notification when the admin pays; if rejected, the money comes back.",
 "এখানের ছবি ও ভিডিও শুধু আপনি দেখতে পারবেন, অন্য ইউজাররা নয়। নিয়ম যাচাইয়ের জন্য অ্যাডমিন দেখতে পারেন।": "Only you can see photos and videos here, not other users. The admin may view them to check the rules.",
@@ -2415,6 +2428,9 @@
   var D = "([\\d০-৯][\\d০-৯,.]*)";
   var KIND = { "ফটো": "photo", "লেখা": "text", "ভিডিও": "video" };
   var PRE = [
+    [/^👑 @(\S+)-কে কয়েন উপহার$/g, "👑 Gift coins to @$1"],
+    [/^👑 @(\S+)-কে 🪙 (\S+) কয়েন পাঠানো হয়েছে$/g, "👑 Sent 🪙 $2 coins to @$1"],
+    [/^👑 Reels Enjoy অফিসিয়াল থেকে 🪙 (\S+) কয়েন উপহার$/g, "👑 🪙 $1 coins gift from Reels Enjoy Official"],
     [/^🏅 (\S+) জন রেফার পূরণ!$/g, "🏅 $1 referrals reached!"],
     [/^বাড়তি বোনাস ৳(\S+)$/g, "Extra bonus ৳$1"],
     [/^আপনি পাবেন 🫘 (\S+) Beans$/g, "You get 🫘 $1 Beans"],

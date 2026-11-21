@@ -597,6 +597,7 @@ async function start() {
     else if (rn) localStorage.removeItem("refNo");
   } catch { /* */ }
   S.settings = Object.fromEntries((settings ?? []).map((s) => [s.key, s.value]));
+  sb.from("profiles").select("id").eq("is_official", true).then(({ data }) => (data ?? []).forEach((x) => OFFICIAL.add(x.id)), () => {});
   S.ads = Object.fromEntries((ads ?? []).map((a) => [a.key, a]));
   sb.from("vip_plans").select("*").order("sort").then(({ data }) => (S.vipPlans = data ?? []), () => {});
   // এডমিন রেট (কয়েনের দাম ইত্যাদি) বদলালে অ্যাপ খোলা থাকলেও কিছুক্ষণের মধ্যে নতুনটা দেখাবে
@@ -633,6 +634,14 @@ const DT_LABEL = { video_post: ["🎬", "ভিডিও পোস্ট", "Post
   comment: ["💬", "ভিডিওতে কমেন্ট", "Comment on videos", "#feed"], tlike: ["🤍", "লেখায় লাইক", "Like text posts", "#texts"],
   tcomment: ["🗨️", "লেখায় কমেন্ট", "Comment on text posts", "#texts"], share: ["↗️", "শেয়ার করুন", "Share", "#feed"] };
 const ME_CACHE = { grow: "", dt: "" };
+// অফিসিয়াল অ্যাকাউন্ট (Reels Enjoy): আলাদা ব্যাজ, অসীম কয়েন, আলাদা গিফট, লাইভে আলাদা এন্ট্রি
+const OFFICIAL = new Set();
+const isOff = (p) => !!(p && (p.is_official || OFFICIAL.has(p.user_id) || OFFICIAL.has(p.id)));
+const SEAL = `<svg viewBox="0 0 24 24"><path d="M12 1.8l2.3 1.7 2.8-.3 1.1 2.6 2.6 1.1-.3 2.8 1.7 2.3-1.7 2.3.3 2.8-2.6 1.1-1.1 2.6-2.8-.3L12 22.2l-2.3-1.7-2.8.3-1.1-2.6-2.6-1.1.3-2.8L1.8 12l1.7-2.3-.3-2.8 2.6-1.1 1.1-2.6 2.8.3z"/><path class="ck" d="M7.6 12.3l3 3 5.8-6.1"/></svg>`;
+function vBadge(p, big = false) {
+  if (isOff(p)) return big ? `<span class="offb big" translate="no">${SEAL}<b>OFFICIAL</b></span>` : `<span class="offb" translate="no">${SEAL}</span>`;
+  return p?.is_verified ? `<span class="verb" translate="no">${SEAL}</span>` : "";
+}
 async function dailyTaskCard(box, compact = false) {
   if (!box) return;
   const st = await rpc("daily_task_status");
@@ -1248,7 +1257,7 @@ function openFeed({ type, user = null, startId = null, category = "" }) {
       </div>
       <div class="info">
         ${v._boost ? `<span class="boosttag">🚀 প্রমোটেড</span>` : ""}
-        <div class="uname"><a href="#u/${v.user_id}">@${esc(v.username)}</a>${v.is_verified ? " ✔️" : ""}${v.is_premium ? `<span class="premtag">👑 ${n(v.premium_coins)}</span>` : ""}
+        <div class="uname"><a href="#u/${v.user_id}">@${esc(v.username)}</a>${vBadge(v)}${v.is_premium ? `<span class="premtag">👑 ${n(v.premium_coins)}</span>` : ""}
           ${v.user_id !== S.me.id ? `<button class="follow-btn ${v.following ? "on" : ""}">${v.following ? "ফলোয়িং" : "ফলো"}</button>` : ""}</div>
         <div class="cap" translate="no">${rich(v.caption)}</div>
         <div class="tiny muted">👁 ${n(v.views_count)} · ${ago(v.created_at)}</div>
@@ -1445,17 +1454,45 @@ async function openComments(el) {
   });
 }
 
+// অফিসিয়াল অ্যাকাউন্ট থেকে যেকোনো ইউজারকে কয়েন উপহার
+function officialGive(p) {
+  const body = sheet(`<h3>👑 @${esc(p.username)}-কে কয়েন উপহার</h3>
+    <div class="chips" id="ogQ">${[100, 500, 1000, 5000, 10000].map((q) => `<button type="button" class="chip" data-q="${q}">🪙 ${n(q)}</button>`).join("")}</div>
+    <label>কয়েন<input id="ogC" type="number" inputmode="numeric" min="1" max="1000000" placeholder="যেমন 500"></label>
+    <label>বার্তা (ঐচ্ছিক)<input id="ogN" maxlength="120" placeholder="যেমন: দারুণ কাজের জন্য উপহার 🎉"></label>
+    <button class="btn primary" id="ogGo" style="width:100%">🎁 পাঠান</button>`);
+  $("#ogQ", body).onclick = (e) => { const b = e.target.closest("[data-q]"); if (b) $("#ogC", body).value = b.dataset.q; };
+  $("#ogGo", body).onclick = async (e) => {
+    const c = Number($("#ogC", body).value);
+    if (!(c >= 1)) return toast(L("কয়েনের সংখ্যা দিন", "Enter the number of coins"), true);
+    const bt = e.currentTarget; bt.disabled = true;
+    try { await rpc("official_send_coins", { p_user_no: p.user_no, p_coins: c, p_note: $("#ogN", body).value.trim() || null }); closeSheet(); toast(`👑 @${p.username}-কে 🪙 ${n(c)} কয়েন পাঠানো হয়েছে`); }
+    catch (er) { toast(errMsg(er), true); bt.disabled = false; }
+  };
+}
+// অফিসিয়ালের বড় গিফট বা লাইভে প্রবেশ: পুরো স্ক্রিনে ধামাকা
+function officialBlast(icon, title, sub = "") {
+  const d = document.createElement("div");
+  d.className = "off-blast";
+  const bits = Array.from({ length: 36 }, (_, i) => `<i style="--a:${i * 10}deg;--d:${(i % 5) * 0.08}s;--c:${["#FFD54A", "#FF6FB5", "#8B5CF6", "#4ADE80", "#38BDF8", "#FB923C"][i % 6]}"></i>`).join("");
+  d.innerHTML = `<div class="ob-burst">${bits}</div><div class="ob-card" translate="no"><div class="ob-ic">${icon}</div><b translate="no">${title}</b>${sub ? `<small>${sub}</small>` : ""}</div>`;
+  document.body.appendChild(d);
+  setTimeout(() => d.classList.add("out"), 3200);
+  setTimeout(() => d.remove(), 3800);
+}
+const offGiftIcon = (body) => { const ic = String(body || "").split(" ")[0]; return (S.allGifts || []).find((g) => g.official_only && g.icon === ic) ? ic : null; };
 async function openGifts(el, isPost = false, liveRoom = null, toUser = null) {
   const v = el._v;
   if (!S.gifts) {
     const { data } = await sb.from("gifts").select("*").eq("is_active", true).order("sort_order");
-    S.gifts = data ?? [];
+    S.allGifts = data ?? [];
+    S.gifts = isOff(S.me) ? [...S.allGifts.filter((g) => g.official_only), ...S.allGifts.filter((g) => !g.official_only)] : S.allGifts.filter((g) => !g.official_only);
   }
   const { data: w } = await sb.from("wallets").select("coin_balance").eq("user_id", S.me.id).single();
   let sel = S.gifts[0], qty = 1, coins = w?.coin_balance ?? 0;
   const body = sheet(`<h3>@${esc(v.username)}-কে গিফট পাঠান</h3>
-    <div class="coinbar"><span>আপনার কয়েন: <b id="gc">🪙 ${n(coins)}</b></span><a class="btn small" href="#cashin">কয়েন কিনুন</a></div>
-    <div class="gifts">${S.gifts.map((g, i) => `<div class="gift ${i === 0 ? "sel" : ""}" data-i="${i}"><div class="e">${esc(g.icon)}</div><div class="n">${esc(g.name)}</div><div class="c">🪙 ${n(g.coin_price)}</div></div>`).join("")}</div>
+    ${isOff(S.me) ? `<div class="coinbar off"><span>👑 অফিসিয়াল অ্যাকাউন্ট — কয়েন অসীম <b>∞</b></span></div>` : `<div class="coinbar"><span>আপনার কয়েন: <b id="gc">🪙 ${n(coins)}</b></span><a class="btn small" href="#cashin">কয়েন কিনুন</a></div>`}
+    <div class="gifts">${S.gifts.map((g, i) => `<div class="gift ${i === 0 ? "sel" : ""}${g.official_only ? " offg" : ""}" data-i="${i}"><div class="e">${esc(g.icon)}</div><div class="n">${esc(g.name)}</div><div class="c">🪙 ${n(g.coin_price)}</div></div>`).join("")}</div>
     <div class="qty">${[1, 5, 10, 50].map((q) => `<button data-q="${q}" class="${q === 1 ? "sel" : ""}">x${q}</button>`).join("")}</div>
     <button class="btn primary" id="gs">পাঠান · 🪙 <span id="gt">${n(sel?.coin_price ?? 0)}</span></button>`);
   const total = () => (sel?.coin_price ?? 0) * qty;
@@ -1479,8 +1516,9 @@ async function openGifts(el, isPost = false, liveRoom = null, toUser = null) {
         : isPost ? await rpc("send_post_gift", { p_post: v.id, p_gift_id: sel.id, p_qty: qty, p_idem: uuid() })
         : await rpc("send_gift", { p_video_id: v.id, p_gift_id: sel.id, p_qty: qty, p_idem: uuid() });
       closeSheet();
-      const f = document.createElement("div"); f.className = "gift-fly"; f.textContent = sel.icon; document.body.appendChild(f); setTimeout(() => f.remove(), 1700);
-      toast(`${sel.icon} x${qty} পাঠানো হয়েছে! বাকি কয়েন ${n(r.coin_balance)}`);
+      if (sel.official_only) officialBlast(sel.icon, `Reels Enjoy ${L("অফিসিয়াল", "Official")}`, `${esc(sel.name)} x${qty}`);
+      else { const f = document.createElement("div"); f.className = "gift-fly"; f.textContent = sel.icon; document.body.appendChild(f); setTimeout(() => f.remove(), 1700); }
+      toast(isOff(S.me) ? `${sel.icon} x${qty} পাঠানো হয়েছে!` : `${sel.icon} x${qty} পাঠানো হয়েছে! বাকি কয়েন ${n(r.coin_balance)}`);
     } catch (er) { toast(errMsg(er), true); (e.target.closest("button") || {}).disabled = false; }
   };
 }
@@ -3416,6 +3454,7 @@ const roomTopHtml = (hp, host, coins) => `<div class="rt"><div class="rt-host"><
 const ENTRY_IC = { stars: "✨", fire: "🔥", royal: "👑", rocket: "🚀", vip: "💎" };
 function entryHtml(m) {
   const [, style, vip] = String(m.body).split(":"), st = String(style || "vip").replace(/[^a-z0-9-]/g, "");
+  if (st === "official") return `<span class="entry e-official">👑 <i class="offmini">OFFICIAL</i> <b translate="no">Reels Enjoy</b> এসেছে</span>`;
   return `<span class="entry e-${st}">${ENTRY_IC[st] ?? "✨"} ${vip === "vip" ? `<i class="vipmini">VIP</i>` : ""}<b translate="no">${esc(m.username || "")}</b> এসেছে</span>`;
 }
 const roomMsgHtml = (m, hp) => m.kind === "rules" ? `<span class="rules" translate="no">📢 ${esc(m.body)}</span>`
@@ -3551,7 +3590,9 @@ R.live = async (rid) => {
     msgs.appendChild(d);
     while (msgs.children.length > 60) msgs.firstChild.remove();
     msgs.scrollTop = msgs.scrollHeight;
-    if (m.kind === "gift") { const f = document.createElement("div"); f.className = "gift-fly"; f.textContent = (m.body || "🎁").split(" ")[0]; document.body.appendChild(f); setTimeout(() => f.remove(), 1700); }
+    if (m.kind === "gift" && offGiftIcon(m.body)) officialBlast(offGiftIcon(m.body), `Reels Enjoy ${L("অফিসিয়াল", "Official")}`, L("বিশেষ উপহার পাঠিয়েছে 🎉", "sent a special gift 🎉"));
+    else if (m.kind === "gift") { const f = document.createElement("div"); f.className = "gift-fly"; f.textContent = (m.body || "🎁").split(" ")[0]; document.body.appendChild(f); setTimeout(() => f.remove(), 1700); }
+    if (m.kind === "join" && String(m.body || "").startsWith("fx:official") && m._live !== false && Date.now() - new Date(m.created_at || Date.now()).getTime() < 20000) officialBlast("👑", `Reels Enjoy ${L("অফিসিয়াল", "Official")}`, L("লাইভে এসেছে! 🎉", "joined the live! 🎉"));
     if (m.kind === "like") heart();
   };
   const heart = () => { const h = document.createElement("i"); h.textContent = ["❤️", "💖", "💜", "💛", "🧡"][Math.floor(Math.random() * 5)]; h.style.left = 20 + Math.random() * 40 + "px"; $("#lvH")?.appendChild(h); setTimeout(() => h.remove(), 2200); };
@@ -3837,7 +3878,9 @@ R.party = async (rid) => {
     msgs.appendChild(d);
     while (msgs.children.length > 60) msgs.firstChild.remove();
     msgs.scrollTop = msgs.scrollHeight;
-    if (m.kind === "gift") { const f = document.createElement("div"); f.className = "gift-fly"; f.textContent = (m.body || "🎁").split(" ")[0]; document.body.appendChild(f); setTimeout(() => f.remove(), 1700); }
+    if (m.kind === "gift" && offGiftIcon(m.body)) officialBlast(offGiftIcon(m.body), `Reels Enjoy ${L("অফিসিয়াল", "Official")}`, L("বিশেষ উপহার পাঠিয়েছে 🎉", "sent a special gift 🎉"));
+    else if (m.kind === "gift") { const f = document.createElement("div"); f.className = "gift-fly"; f.textContent = (m.body || "🎁").split(" ")[0]; document.body.appendChild(f); setTimeout(() => f.remove(), 1700); }
+    if (m.kind === "join" && String(m.body || "").startsWith("fx:official") && m._live !== false && Date.now() - new Date(m.created_at || Date.now()).getTime() < 20000) officialBlast("👑", `Reels Enjoy ${L("অফিসিয়াল", "Official")}`, L("লাইভে এসেছে! 🎉", "joined the live! 🎉"));
     if (m.kind === "like") heart();
   };
   const refreshTop = await roomTopWire(id, hp, host, addMsg);
@@ -4540,13 +4583,13 @@ R.me = async () => {
   screen.innerHTML = `<div class="me">
     <div class="me-head ${p.cover_url ? "has-cover" : ""}" ${p.cover_url ? `style="background:linear-gradient(180deg,rgba(25,8,55,.30) 0%,rgba(25,8,55,.55) 45%,rgba(25,8,55,.82) 100%),url('${esc(p.cover_url)}') center/cover"` : ""}>
       <div class="me-av">${avatarD(p)}</div>
-      <h2 translate="no">${esc(p.full_name || p.username)} ${p.is_verified ? "✔️" : ""}</h2>${vipTag(p)}
+      <h2 translate="no">${esc(p.full_name || p.username)} ${vBadge(p, true)}</h2>${vipTag(p)}
       <div class="me-sub">@${esc(p.username)} · <span data-copy="${p.user_no}">ID ${p.user_no} ⧉</span>${host ? ` · 🎤 হোস্ট` : ""}</div>
       <div class="chips"><span>${flagOf(cc)} ${cc ? (COUNTRY_NAMES[cc] ?? cc) : "দেশ জানা নেই"}</span><span>🅰️ ${esc(langName(p.language))}</span></div>
       <div class="me-counts"><a href="#u/${p.id}"><b>${n(p.videos_count)}</b><span>ভিডিও</span></a><div><b>${n(p.following_count)}</b><span>ফলোয়িং</span></div><div><b>${n(p.followers_count)}</b><span>ফলোয়ার</span></div></div>
     </div>
     <div class="me-cards">
-      <a href="#cashin" class="mc coins"><span>আমার কয়েন</span><b>${n(w?.coin_balance)}</b><svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="gm1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9f0ff"/><stop offset="1" stop-color="#5aa9ff"/></linearGradient><linearGradient id="gm2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd3ff"/><stop offset="1" stop-color="#3b82f6"/></linearGradient></defs><path d="M14 22 24 10h16l10 12-18 30z" fill="url(#gm1)"/><path d="M14 22h36L32 52z" fill="url(#gm2)" opacity=".9"/><path d="M24 10l-4 12 12 30 12-30-4-12" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.5"/><path d="M14 22h36" stroke="#fff" stroke-opacity=".8" stroke-width="1.5"/></svg></a>
+      <a href="#cashin" class="mc coins"><span>আমার কয়েন</span><b>${isOff(p) ? "∞" : n(w?.coin_balance)}</b><svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="gm1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9f0ff"/><stop offset="1" stop-color="#5aa9ff"/></linearGradient><linearGradient id="gm2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd3ff"/><stop offset="1" stop-color="#3b82f6"/></linearGradient></defs><path d="M14 22 24 10h16l10 12-18 30z" fill="url(#gm1)"/><path d="M14 22h36L32 52z" fill="url(#gm2)" opacity=".9"/><path d="M24 10l-4 12 12 30 12-30-4-12" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.5"/><path d="M14 22h36" stroke="#fff" stroke-opacity=".8" stroke-width="1.5"/></svg></a>
       ${host && setting("beans_enabled", true) !== false ? beansCard(w) : ""}<a href="#wallet" class="mc money ${host && setting("beans_enabled", true) !== false ? "hidden" : ""}"><span>আমার ব্যালেন্স</span><b>${tk(w?.earning_paisa)}</b><svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="cn1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset="1" stop-color="#f5a524"/></linearGradient></defs><ellipse cx="34" cy="46" rx="20" ry="7" fill="#e08c14"/><rect x="14" y="36" width="40" height="10" fill="#f0a020"/><ellipse cx="34" cy="36" rx="20" ry="7" fill="url(#cn1)"/><circle cx="26" cy="24" r="15" fill="url(#cn1)" stroke="#e8961a" stroke-width="2"/><text x="26" y="30" text-anchor="middle" font-size="16" font-weight="700" fill="#c06a00" font-family="sans-serif">৳</text></svg></a>
     </div>
     <div id="meGrow">${ME_CACHE.grow || ""}</div><div id="meDT">${ME_CACHE.dt || ""}</div>
@@ -4909,8 +4952,8 @@ R.u = async (id) => {
   const lv = levelOf(p.followers_count);
   screen.innerHTML = `<div class="cover${seller ? " seller" : host ? " host" : ""}" ${p.cover_url ? `style="background-image:url('${esc(p.cover_url)}')"` : ""}><button class="back" onclick="history.back()">←</button></div>
     <div class="page${host ? " hostpage" : ""}${seller ? " sellerpage" : ""}" style="padding-top:0">
-    <div class="prof${host ? " host" : ""}${seller ? " seller" : ""}">${host ? `<div class="avwrap" id="pAv">${avatarD(p)}<span class="crown">👑</span></div>` : `<div class="avplain" id="pAv">${avatarD(p)}</div>`}${vipTag(p)}<h2 translate="no">${esc(p.full_name ?? "")} ${p.is_verified ? "✔️" : ""}</h2><div class="muted">@${esc(p.username)}</div>
-      <div class="rbadges">${host ? `<span class="rbadge host">👑 HOST</span>` : `<span class="rbadge user">👤 ইউজার</span>`}${seller && helpersAllowed() ? `<span class="rbadge seller">💰 কয়েন সেলার</span>` : ""}${p.agent_status === "approved" ? `<span class="rbadge agent">🧑‍💼 এজেন্ট</span>` : ""}<span class="rbadge lv">Lv${lv}</span>${p.country_code ? `<span class="rbadge">${flagOf(p.country_code)}</span>` : ""}</div>
+    <div class="prof${host ? " host" : ""}${seller ? " seller" : ""}${isOff(p) ? " offprof" : ""}">${host ? `<div class="avwrap" id="pAv">${avatarD(p)}<span class="crown">👑</span></div>` : `<div class="avplain" id="pAv">${avatarD(p)}</div>`}${isOff(p) ? "" : vipTag(p)}<h2 translate="no">${esc(p.full_name ?? "")} ${vBadge(p)}</h2><div class="muted">@${esc(p.username)}</div>
+      <div class="rbadges">${isOff(p) ? `<span class="rbadge official">👑 Reels Enjoy অফিসিয়াল</span>` : host ? `<span class="rbadge host">👑 HOST</span>` : `<span class="rbadge user">👤 ইউজার</span>`}${seller && helpersAllowed() ? `<span class="rbadge seller">💰 কয়েন সেলার</span>` : ""}${p.agent_status === "approved" ? `<span class="rbadge agent">🧑‍💼 এজেন্ট</span>` : ""}${isOff(p) ? "" : `<span class="rbadge lv">Lv${lv}</span>`}${p.country_code ? `<span class="rbadge">${flagOf(p.country_code)}</span>` : ""}</div>
       <div class="idtag" data-copy="${p.user_no}">ID: ${p.user_no} ⧉</div>
       <div class="counts"><div><b>${n(p.videos_count)}</b><span>ভিডিও</span></div><div><b id="fc">${n(p.followers_count)}</b><span>ফলোয়ার</span></div><div><b>${n(p.following_count)}</b><span>ফলোয়িং</span></div></div>
       ${p.bio ? `<p translate="no">${esc(p.bio)}</p>` : ""}
@@ -4918,6 +4961,7 @@ R.u = async (id) => {
       ${mine ? `<div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap"><a class="btn small" href="#myprofile">✏️ প্রোফাইল এডিট</a><button class="btn small" id="accT">⚙️ আমার অ্যাকাউন্ট</button></div>`
         : `<div class="row" style="justify-content:center;gap:8px"><button class="btn" id="fb" style="min-width:130px;${following ? "" : "background:var(--purple);color:#fff;border:0"}">${following ? "ফলোয়িং" : "ফলো করুন"}</button>
            <a class="btn" href="#chat/${p.id}" style="min-width:110px">💬 মেসেজ</a><button class="btn" id="pfMore" aria-label="আরও" style="min-width:44px">⋯</button></div>
+           ${isOff(S.me) ? `<div class="row" style="justify-content:center;margin-top:8px"><button class="btn off-give" id="offCoins">🪙 কয়েন উপহার দিন</button></div>` : ""}
            ${BLOCKED.has(p.id) ? `<p class="muted tiny" style="text-align:center;margin-top:8px">🚫 আপনি এই ইউজারকে ব্লক করেছেন</p>` : ""}`}
     </div>
     ${mine ? `<div id="accBox" class="${S.openAcc ? "" : "hidden"}" style="margin-top:12px">${accountBlock(p)}</div>` : ""}
@@ -4941,6 +4985,7 @@ R.u = async (id) => {
   $("#lang")?.addEventListener("click", () => window.setLang?.(window.getLang?.() === "en" ? "bn" : "en"));
   $("#lo")?.addEventListener("click", async () => { if (!await ask("লগআউট করবেন?")) return; await dropPush(); await sb.auth.signOut(); S.me = null; location.hash = ""; showAuth(); });
   $("#pfMore")?.addEventListener("click", () => userMenu(p));
+  $("#offCoins")?.addEventListener("click", () => officialGive(p));
   $("#cbV")?.addEventListener("click", () => startCall(p, "video"));
   $("#cbA")?.addEventListener("click", () => startCall(p, "audio"));
   $("#fb")?.addEventListener("click", async (e) => {
