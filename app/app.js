@@ -640,7 +640,7 @@ const isOff = (p) => !!(p && (p.is_official || OFFICIAL.has(p.user_id) || OFFICI
 const SEAL = `<svg viewBox="0 0 24 24"><path d="M12 1.8l2.3 1.7 2.8-.3 1.1 2.6 2.6 1.1-.3 2.8 1.7 2.3-1.7 2.3.3 2.8-2.6 1.1-1.1 2.6-2.8-.3L12 22.2l-2.3-1.7-2.8.3-1.1-2.6-2.6-1.1.3-2.8L1.8 12l1.7-2.3-.3-2.8 2.6-1.1 1.1-2.6 2.8.3z"/><path class="ck" d="M7.6 12.3l3 3 5.8-6.1"/></svg>`;
 function vBadge(p, big = false) {
   if (isOff(p)) return big ? `<span class="offb big" translate="no">${SEAL}<b>OFFICIAL</b></span>` : `<span class="offb" translate="no">${SEAL}</span>`;
-  return p?.is_verified ? `<span class="verb" translate="no">${SEAL}</span>` : "";
+  return p?.is_verified ? " ✔️" : "";   // অন্য সবার জন্য আগের মতোই
 }
 async function dailyTaskCard(box, compact = false) {
   if (!box) return;
