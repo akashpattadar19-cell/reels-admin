@@ -1682,3 +1682,19 @@ details.up-rule > div { margin-top: 5px; line-height: 1.45; }
 .rtop-me { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; text-align: center; }
 .rtop-me div { background: #f6f3ff; border-radius: 12px; padding: 8px 4px; } .rtop-me b { display: block; font-size: 18px; color: #5b21b6; } .rtop-me span { font-size: 11px; color: #6b6290; }
 .wd-fast { background: linear-gradient(135deg, #ecfdf5, #fff); border: 1px solid #a7f3d0; }
+/* আজকের টার্গেট — চিকন এক লাইনের কার্ড (Me) */
+.dt-mini { display: flex; align-items: center; gap: 8px; margin: 8px 14px 0; padding: 7px 12px; border-radius: 14px; background: #fff; color: #2a1f52; box-shadow: 0 4px 18px rgba(76,29,149,.07); text-decoration: none; }
+.dt-mini .dt-mic { font-size: 15px; line-height: 1; flex: none; }
+.dt-mini .dt-mt { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.dt-mini .dt-mt b { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dt-mini .wd-bar { height: 4px; margin: 0; }
+.dt-mini .dt-pill { font-size: 10.5px; padding: 2px 7px; }
+.dt-mini .dt-mc { font-size: 11px; font-weight: 700; color: #b45309; white-space: nowrap; }
+.dt-mini i-c, .dt-mini .ei { width: 14px; height: 14px; }
+.me .mc.beans small { font-size: 10px; margin-top: 0; }
+.dt-card .dt-i { padding: 6px 9px; gap: 8px; }
+.dt-card .dt-ic { width: 22px; font-size: 15px; }
+.dt-card .dt-t { font-size: 12px; }
+.dt-card .dt-i b { font-size: 12px; }
+.dt-card > .row > b { font-size: 14px; }
+.me #meGrow:not(:empty) { margin-top: 8px; }

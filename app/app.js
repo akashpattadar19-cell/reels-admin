@@ -633,8 +633,8 @@ async function dailyTaskCard(box, compact = false) {
     : st.done ? `<button class="btn primary" id="dtClaim" style="width:100%">🪙 ${L(`${n(st.coins)} কয়েন নিন`, `Get ${st.coins} coins`)}</button>`
     : `<div class="tiny muted">${L(`সব টার্গেট পূরণ হলে 🪙 ${n(st.coins)} কয়েন — দিনে একবার`, `Finish every target for 🪙 ${st.coins} coins — once a day`)}</div>`;
   box.innerHTML = compact
-    ? `<a class="card dt-card dt-mini" href="#rules"><div class="row"><b>🎯 ${L("আজকের টার্গেট", "Today's target")}</b><span class="dt-pill">${n(doneN)}/${n(total)}</span></div>
-        <div class="wd-bar"><i style="width:${Math.round(doneN / total * 100)}%"></i></div><div class="tiny muted">${L(`সব পূরণ হলে 🪙 ${n(st.coins)} কয়েন`, `🪙 ${st.coins} coins when all done`)} ›</div></a>`
+    ? `<a class="dt-mini" href="#rules"><span class="dt-mic">🎯</span><span class="dt-mt"><b>${L("আজকের টার্গেট", "Today's target")}</b><span class="wd-bar"><i style="width:${Math.round(doneN / total * 100)}%"></i></span></span>
+        <span class="dt-pill">${n(doneN)}/${n(total)}</span><span class="dt-mc">🪙 ${n(st.coins)} ›</span></a>`
     : `<div class="card dt-card"><div class="row"><b>🎯 ${st.host ? L("হোস্টের দৈনিক টার্গেট", "Host daily target") : L("আজকের টার্গেট", "Today's target")}</b><span class="dt-pill">🪙 ${n(st.coins)}</span></div>
         <div class="dt-list">${st.items.map((x) => { const t = DT_LABEL[x.k] || ["⭐", x.k, x.k, "#feed"], ok = x.have >= x.need;
           return `<a class="dt-i ${ok ? "ok" : ""}" href="${t[3]}"><span class="dt-ic">${t[0]}</span><span class="dt-t">${L(t[1], t[2])}<div class="wd-bar"><i style="width:${Math.round(x.have / x.need * 100)}%"></i></div></span><b>${ok ? "✅" : `${n(x.have)}/${n(x.need)}`}</b></a>`; }).join("")}</div>
@@ -677,7 +677,7 @@ function wdLevelCard(lv) {
 function beansCard(w) {
   const b = beansOf(w), min = Number(setting("beans_min_withdraw", 1000)), val = Number(setting("bean_value_paisa", 100));
   return `<a href="#wallet" class="mc beans"><span>My Beans</span><b>${n(b)}</b>
-    <small>${b >= min ? `≈ ${tk(b * val)}` : L(`${n(min)} হলে টাকা`, `Taka from ${min}`)}</small>
+    <small>${b >= min ? `≈ ${tk(b * val)}` : L(`${n(min)}+ হলে টাকা`, `৳ from ${min}+`)}</small>
     <svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="bn1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd9a8"/><stop offset="1" stop-color="#e0742b"/></linearGradient></defs>
       <ellipse cx="25" cy="34" rx="12" ry="17" transform="rotate(-25 25 34)" fill="url(#bn1)"/><ellipse cx="41" cy="30" rx="12" ry="17" transform="rotate(20 41 30)" fill="url(#bn1)"/>
       <path d="M22 24c3 5 3 13 0 19M44 20c-3 5-3 13 0 19" stroke="#b5521a" stroke-width="2" fill="none" stroke-linecap="round"/></svg></a>`;
