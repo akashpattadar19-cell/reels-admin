@@ -15,26 +15,28 @@
 <link rel="icon" href="img/icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="site.css?v=202611210413">
+<link rel="stylesheet" href="site.css?v=202611210427">
 </head>
 <body class="t-c">
 <div id="ribbon" class="ribbon hidden"></div>
 <header class="nav" id="top">
   <a class="brand" href="#top"><img src="img/icon.png" alt=""><span>Reels Enjoy</span></a>
-  <nav class="links">
-    <a href="#launch" data-en="Offers">অফার</a>
-    <a href="#features" data-en="Features">ফিচার</a>
-    <a href="#earn" data-en="Rewards">পুরস্কার ও আয়</a>
-    <a href="#rules" data-en="Rules">নিয়ম</a>
-    <a href="#agent" data-en="Agent">এজেন্ট</a>
-    <a href="#faq" data-en="FAQ">প্রশ্ন</a>
-    <a href="#contact" data-en="Contact">যোগাযোগ</a>
+  <nav class="links" id="navLinks">
+    <a href="#home" data-pg="home" data-en="Home">হোম</a>
+    <a href="#offers" data-pg="offers" data-en="Offers">অফার</a>
+    <a href="#features" data-pg="features" data-en="Features">ফিচার</a>
+    <a href="#earn" data-pg="earn" data-en="Earning rules">আয়ের নিয়ম</a>
+    <a href="#agent" data-pg="agent" data-en="Agent">এজেন্ট</a>
+    <a href="#faq" data-pg="faq" data-en="FAQ">প্রশ্ন-উত্তর</a>
+    <a href="#contact" data-pg="contact" data-en="Contact">যোগাযোগ</a>
+    <a href="#download" data-pg="download" class="m-only" data-en="⬇️ Download the app">⬇️ অ্যাপ ডাউনলোড</a>
   </nav>
   <button class="lang" id="lang" type="button">EN</button>
   <a class="btn small dl-link" href="#download" data-en="Download">ডাউনলোড</a>
+  <button class="menu-btn" id="menuBtn" type="button" aria-label="Menu">☰</button>
 </header>
 
-<section class="hero">
+<section class="hero" id="home">
   <div class="hero-in">
     <div class="hero-txt">
       <span class="tag" data-k="hero_tag" data-en="🇧🇩 Made for Bangla speakers">🇧🇩 বাংলা ভাষার মানুষের জন্য</span>
@@ -180,7 +182,7 @@
       <div class="f"><i>💸</i><b data-en="Money only inside the app">টাকা শুধু অ্যাপের ভেতরে</b><p data-en="Coins are bought and withdrawals are requested only inside the app. Check the numbers shown in the app before you pay.">কয়েন কেনা আর উইথড্র শুধু অ্যাপের ভেতর থেকে হয়। পেমেন্টের আগে অ্যাপে দেখানো নম্বর মিলিয়ে নিন।</p></div>
       <div class="f"><i>🧾</i><b data-en="Every taka is recorded">প্রতিটা টাকার হিসাব থাকে</b><p data-en="Every coin and taka movement is saved in your transaction history in the app.">প্রতিটি কয়েন ও টাকার লেনদেন অ্যাপের “লেনদেনের হিসাব”-এ জমা থাকে।</p></div>
       <div class="f"><i>🚫</i><b data-en="Fraud is blocked">ভুয়া কাজ ধরা পড়ে</b><p data-en="Fake accounts, many accounts on one phone, or fake likes lose bonuses and prizes.">ভুয়া অ্যাকাউন্ট, একই মোবাইলে অনেক অ্যাকাউন্ট বা ভুয়া লাইক দিলে বোনাস ও পুরস্কার বাতিল হয়।</p></div>
-      <div class="f"><i>🚩</i><b data-en="Report">রিপোর্ট করুন</b><p data-en="Report bad videos, comments or users. Lives and calls are checked for safety.">খারাপ ভিডিও, কমেন্ট বা ইউজার রিপোর্ট করুন। লাইভ ও কল নিরাপত্তার জন্য দেখা হয়।</p></div>
+      <div class="f"><i>🚩</i><b data-en="Report">রিপোর্ট করুন</b><p data-en="Report bad videos, comments or users — the admin acts quickly.">খারাপ ভিডিও, কমেন্ট বা ইউজার রিপোর্ট করুন — অ্যাডমিন দ্রুত ব্যবস্থা নেবেন।</p></div>
       <div class="f"><i>🗑️</i><b data-en="Delete your account anytime">যেকোনো সময় অ্যাকাউন্ট ডিলিট</b><p data-en="Settings → Delete account. Your data is removed after 7 days.">সেটিংস → অ্যাকাউন্ট ডিলিট। ৭ দিন পর আপনার তথ্য মুছে যায়।</p></div>
     </div>
   </div>
@@ -231,7 +233,7 @@
   </div>
 </footer>
 
-<script src="../config.js?v=202611210413"></script>
-<script src="site.js?v=202611210413"></script>
+<script src="https://akashpattadar19-cell.github.io/reels-admin/config.js?v=202611210413"></script>
+<script src="site.js?v=202611210427"></script>
 </body>
 </html>

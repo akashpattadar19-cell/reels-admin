@@ -1,6 +1,6 @@
 // reelsenjoy.com: GitHub Pages থেকে ওয়েবসাইট দেখায় (অ্যাপ ও অ্যাডমিন github.io-তেই থাকে) — v2
 const GH = "https://akashpattadar19-cell.github.io/reels-admin";
-const KEEP = ["get", "v", "policy", "download", "site"];
+const KEEP = ["get", "v", "policy", "download", "site", "config.js"];
 
 export default {
   async fetch(req) {

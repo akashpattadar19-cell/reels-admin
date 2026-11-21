@@ -63,6 +63,24 @@
     });
     if (INFO) render();
   }
+  // ---------- আলাদা পেজ (মেনুতে চাপলে শুধু সেই পেজ দেখাবে, স্ক্রোল নয়) ----------
+  const PAGES = { home: ["home", "launch", "stats", "download"], offers: ["launch", "offers", "winners"], features: ["features"],
+    earn: ["earn", "rules"], agent: ["agent"], faq: ["faq", "safety"], contact: ["contact"], download: ["download", "safety"] };
+  const ALIAS = { launch: "offers", rules: "earn", safety: "faq", winners: "offers", stats: "home", top: "home" };
+  function showPage() {
+    const raw = (location.hash || "#home").slice(1).split("?")[0] || "home";
+    const pg = PAGES[raw] ? raw : ALIAS[raw] || (document.getElementById(raw) ? Object.keys(PAGES).find((k) => PAGES[k].includes(raw)) : null) || "home";
+    const keep = new Set(PAGES[pg]);
+    document.querySelectorAll("main > section, body > section").forEach((sec) => sec.classList.toggle("pg-off", !keep.has(sec.id)));
+    document.body.dataset.page = pg;
+    document.querySelectorAll("#navLinks a").forEach((a) => a.classList.toggle("on", a.dataset.pg === pg));
+    $("#navLinks").classList.remove("open");
+    document.documentElement.style.scrollBehavior = "auto"; window.scrollTo(0, 0);
+    try { document.title = pg === "home" ? "Reels Enjoy" : `${(document.querySelector(`#navLinks a[data-pg="${pg}"]`)?.textContent || "").trim() || "Download"} · Reels Enjoy`; } catch { /* */ }
+  }
+  window.addEventListener("hashchange", showPage);
+  showPage();
+  $("#menuBtn").onclick = () => $("#navLinks").classList.toggle("open");
   $("#lang").onclick = () => { lang = lang === "en" ? "bn" : "en"; try { localStorage.setItem("lang", lang); } catch { /* */ } applyLang(); };
 
 
@@ -148,6 +166,7 @@
       ${x.link_url && /^https?:/.test(x.link_url) ? `<a class="btn small" style="margin-top:10px" href="${esc(x.link_url)}" target="_blank" rel="noopener">${L("দেখুন", "Open")} →</a>` : ""}</div>`));
     $("#liveOffers").innerHTML = (I.season ? seasonHtml(I.season) : "") + (cards.length ? `<div class="ocards">${cards.join("")}</div>` : "")
       || `<div class="loading">${L("এখন কোনো অফার নেই — নতুন অফার এলে এখানে দেখাবে।", "No offers right now — new offers will show here.")}</div>`;
+    $("#offers").classList.toggle("hidden", !I.season && !cards.length);
     clearInterval(clockT);
     if (I.season) clockT = setInterval(() => { const c = $("#sClock"); if (c) c.textContent = left(I.season); }, 30000);
 
