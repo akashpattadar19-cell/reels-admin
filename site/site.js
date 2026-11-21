@@ -10,6 +10,39 @@
   const num = (x) => { const s = Number(x || 0).toLocaleString("en-IN"); return lang === "en" ? s : s.replace(/\d/g, (d) => BN_DIG[d]); };
   const tk = (paisa) => "৳" + num(Math.round(Number(paisa || 0)) / 100);
   const date = (iso) => new Date(iso).toLocaleDateString(lang === "en" ? "en-GB" : "bn-BD", { day: "numeric", month: "long", year: "numeric" });
+  function launchOffers(S) {
+    const box = $("#lnCards"); if (!box) return;
+    const du = S.daily_task_user || {}, dh = S.daily_task_host || {}, he = S.host_engage || {}, tu = S.ref_top_user || {}, th = S.ref_top_host || {};
+    const tasks = (d) => [["video_post", "ভিডিও পোস্ট", "video posts"], ["text_post", "লেখা পোস্ট", "text posts"], ["watch", "ভিডিও পুরো দেখা", "full video watches"],
+      ["like", "ভিডিওতে লাইক", "video likes"], ["comment", "ভিডিওতে কমেন্ট", "video comments"], ["tlike", "লেখায় লাইক", "text post likes"],
+      ["tcomment", "লেখায় কমেন্ট", "text post comments"], ["share", "শেয়ার", "shares"]]
+      .filter(([k]) => Number(d[k]) > 0).map(([k, bn, en]) => `<span>${num(d[k])} ${L(bn, en)}</span>`).join("");
+    const tiers = (t) => (t.tiers || []).map((x) => `<div class="tr"><span>${L(`${num(x.refs)} রেফার + ${num(x.active)}% এক্টিভ`, `${num(x.refs)} referrals + ${num(x.active)}% active`)}</span><b>${tk(x.paisa)}</b></div>`).join("");
+    const item = (ic, title, body) => `<div class="li"><i>${ic}</i><div><b>${title}</b>${body ? `<p>${body}</p>` : ""}</div></div>`;
+    const refCond = L(`দুজনকেই কমপক্ষে ${num(S.ref_req_video_posts)}টি ভিডিও ও ${num(S.ref_req_text_posts)}টি লেখা পোস্ট করতে হবে (নতুন জন ${num(S.ref_window_days)} দিনের মধ্যে)`,
+      `Both must post at least ${num(S.ref_req_video_posts)} videos and ${num(S.ref_req_text_posts)} text posts (the new user within ${num(S.ref_window_days)} days)`);
+    const user = `<div class="ln-card user"><div class="ln-top"><span class="ln-ic">👤</span><div><h3>${L("ইউজারদের জন্য", "For users")}</h3><small>${L("দেখুন, পোস্ট করুন, বন্ধুদের আনুন", "Watch, post and invite friends")}</small></div></div>
+      ${item("🤝", L(`প্রতি সফল রেফারে <em>${tk(S.referral_bonus_paisa)}</em> — বন্ধুও পাবে <em>${tk(S.ref_new_user_paisa)}</em>`, `<em>${tk(S.referral_bonus_paisa)}</em> per successful referral — your friend gets <em>${tk(S.ref_new_user_paisa)}</em> too`), refCond)}
+      ${S.daily_task_enabled !== false && Number(du.coins) > 0 ? item("🎯", L(`দৈনিক টার্গেট পূরণে <em>🪙 ${num(du.coins)} কয়েন</em>`, `Daily target = <em>🪙 ${num(du.coins)} coins</em>`), `<span class="chips">${tasks(du)}</span>`) : ""}
+      ${S.ref_top_enabled !== false && (tu.tiers || []).length ? item("🏆", L(`প্রতি ১০ দিনে টপ ${num(tu.top)} রেফারার বোনাস (মাসে ৩ বার)`, `Top ${num(tu.top)} referrers every 10 days (3 times a month)`), `<div class="tiers">${tiers(tu)}</div>`) : ""}
+      ${item("💸", L(`bKash / Nagad / Rocket-এ উইথড্র — সর্বনিম্ন ${tk(S.withdraw_min_paisa)}`, `Withdraw to bKash / Nagad / Rocket — from ${tk(S.withdraw_min_paisa)}`), L(`${num(S.withdraw_cooldown_days)} দিনে একবার · ভালো কাজ করলে এডমিন ⚡ দ্রুত উইথড্র চালু করেন`, `Once every ${num(S.withdraw_cooldown_days)} days · admin turns on ⚡ fast withdraw for hard workers`))}
+      </div>`;
+    const host = `<div class="ln-card host"><div class="ln-top"><span class="ln-ic">👑</span><div><h3>${L("হোস্টদের জন্য", "For hosts")}</h3><small>${L("ভিডিও, লাইভ, কল — বেশি আয়", "Videos, live, calls — earn more")}</small></div></div>
+      ${item("🤝", L(`প্রতি সফল রেফারে <em>${tk(S.host_referral_bonus_paisa)}</em> — নতুন জন পাবে <em>${tk(S.host_ref_new_user_paisa)}</em>`, `<em>${tk(S.host_referral_bonus_paisa)}</em> per successful referral — the new user gets <em>${tk(S.host_ref_new_user_paisa)}</em>`),
+        Number(S.host_ref_every_n) > 0 && Number(S.host_ref_every_paisa) > 0 ? L(`প্রতি ${num(S.host_ref_every_n)} জন সফল রেফারে বাড়তি <em>${tk(S.host_ref_every_paisa)}</em>`, `Extra <em>${tk(S.host_ref_every_paisa)}</em> for every ${num(S.host_ref_every_n)} successful referrals`) : "")}
+      ${S.daily_task_enabled !== false && Number(dh.coins) > 0 ? item("🎯", L(`দৈনিক টার্গেট পূরণে <em>🪙 ${num(dh.coins)} কয়েন</em>`, `Daily target = <em>🪙 ${num(dh.coins)} coins</em>`), `<span class="chips">${tasks(dh)}</span>`) : ""}
+      ${he.enabled && Number(he.coins) > 0 ? item("❤️", L(`আপনার ভিডিওতে প্রতি লাইক, কমেন্ট, শেয়ারে <em>🪙 ${num(he.coins)}</em>`, `<em>🪙 ${num(he.coins)}</em> for every like, comment and share on your videos`), Number(he.daily_cap) > 0 ? L(`দিনে সর্বোচ্চ 🪙 ${num(he.daily_cap)} · যত বেশি ভিডিও ও রেফার, তত বেশি আয়`, `Up to 🪙 ${num(he.daily_cap)} a day · more videos and referrals = more income`) : "") : ""}
+      ${S.beans_enabled !== false ? item("🎁", L("লাইভ, কল ও গিফট থেকে Beans → টাকা", "Live, calls and gifts → Beans → taka"), L(`${num(S.coins_per_bean)} কয়েন = ১ Bean = ${tk(S.bean_value_paisa)} · ${num(S.beans_min_withdraw)} Beans হলে উইথড্র`, `${num(S.coins_per_bean)} coins = 1 Bean = ${tk(S.bean_value_paisa)} · withdraw from ${num(S.beans_min_withdraw)} Beans`)) : ""}
+      ${S.ref_top_enabled !== false && (th.tiers || []).length ? item("🏆", L(`প্রতি ১০ দিনে টপ ${num(th.top)} হোস্ট রেফার বোনাস`, `Top ${num(th.top)} host referral bonus every 10 days`), `<div class="tiers">${tiers(th)}</div>`) : ""}
+      </div>`;
+    box.innerHTML = user + host;
+    $("#lnTrust").innerHTML = [
+      ["🛡️", L("আসল মানুষ, আসল পুরস্কার", "Real people, real rewards"), L("একই মোবাইলে বাড়তি অ্যাকাউন্ট বা ভুয়া কাজ ধরা পড়লে বোনাস বাতিল — তাই সৎ ইউজাররাই পুরো টাকা পান।", "Extra accounts on one phone or fake activity lose the bonus — so honest users get paid in full.")],
+      ["🔎", L("সব নিয়ম খোলাখুলি", "Every rule in the open"), L("টার্গেট, রেফার আর উইথড্রর সব নিয়ম এই পেজে ও অ্যাপে লেখা — লুকানো কোনো শর্ত নেই।", "All target, referral and withdraw rules are written here and in the app — no hidden conditions.")],
+      ["✅", L("এডমিন যাচাই করে পেমেন্ট", "Payments checked by admin"), L("প্রতিটা উইথড্র যাচাই করে পাঠানো হয়, অ্যাপে ট্রানজেকশন আইডি দেখায়।", "Every withdrawal is checked and sent; the transaction ID shows in the app.")],
+      ["🚫", L("কোনো টাকা দিয়ে যোগ দিতে হয় না", "No joining fee — ever"), L("অ্যাপ ব্যবহার ফ্রি। কেউ “নিশ্চিত আয়” বলে টাকা চাইলে দেবেন না।", "The app is free. Never pay anyone who promises “guaranteed income”.")],
+    ].map(([i, t, d]) => `<div class="tc"><i>${i}</i><b>${t}</b><p>${d}</p></div>`).join("");
+  }
   const T = (x, k) => (lang === "en" ? (x[k + "_en"] || (k === "title" || k === "season" ? x[k] : "")) : x[k]) || "";
 
   function applyLang() {
@@ -117,6 +150,9 @@
       || `<div class="loading">${L("এখন কোনো অফার নেই — নতুন অফার এলে এখানে দেখাবে।", "No offers right now — new offers will show here.")}</div>`;
     clearInterval(clockT);
     if (I.season) clockT = setInterval(() => { const c = $("#sClock"); if (c) c.textContent = left(I.season); }, 30000);
+
+    // লঞ্চ অফার (ইউজার / হোস্ট) — সব সংখ্যা সেটিংস থেকে
+    launchOffers(S);
 
     // পরিসংখ্যান (যথেষ্ট ইউজার হলে)
     const st = I.stats || {};

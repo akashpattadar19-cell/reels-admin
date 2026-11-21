@@ -459,3 +459,7 @@ grant execute on function public.admin_ref_top(text, date) to authenticated;
 
 select cron.unschedule('ref-top-settle') where exists (select 1 from cron.job where jobname = 'ref-top-settle');
 select cron.schedule('ref-top-settle', '30 18 * * *', 'select public.ref_top_settle()');   -- রাত ১২:৩০ (বাংলাদেশ)
+
+-- 059f: site_info() settings list now also returns ref_new_user_paisa, host_referral_bonus_paisa, host_ref_new_user_paisa,
+-- host_ref_every_n/_paisa, ref_referrer_min_videos/texts, daily_task_enabled/user/host, host_engage, ref_top_enabled/user/host,
+-- fast_withdraw_days, beans_min_withdraw, bean_value_paisa, coins_per_bean, beans_enabled (applied directly in the DB).
