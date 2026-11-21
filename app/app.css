@@ -1749,3 +1749,11 @@ html[data-theme="dark"] .ptr { background: #2a2342; }
 .offcrest span { font-size: 12px; font-weight: 800; letter-spacing: .02em; color: #F5B400; }
 html[lang="en"] .offcrest span { font-size: 11px; letter-spacing: .22em; }
 .me-head .offcrest span, .me-off .offcrest span { color: #FFE27A; }
+/* অফিসিয়াল Me হেডার: কভারের লেখা যেন সামনের লেখার সাথে না মেশে, আর লাইনগুলোর মাঝে ফাঁকা */
+.me-off .me-head { padding-bottom: 18px; }
+.me-off .me-head h2 { margin: 10px 0 0; }
+.me-off .me-head .offcrest { margin: 8px auto 10px; }
+.me-off .me-head .offcrest svg { width: 36px; height: 41px; }
+.me-off .me-head .me-sub { margin-bottom: 10px; }
+.me-off .me-head .chips { margin-bottom: 14px; }
+.me-off .me-head h2, .me-off .me-head .me-sub, .me-off .me-counts { text-shadow: 0 1px 6px rgba(0,0,0,.45); }

@@ -4585,7 +4585,7 @@ R.me = async () => {
   const cc = p.country_code;
   const host = p.account_type === "host", off = isOff(p);
   screen.innerHTML = `<div class="me${off ? " me-off" : ""}">
-    <div class="me-head ${p.cover_url ? "has-cover" : ""}" ${p.cover_url ? `style="background:linear-gradient(180deg,rgba(25,8,55,.30) 0%,rgba(25,8,55,.55) 45%,rgba(25,8,55,.82) 100%),url('${esc(p.cover_url)}') center/cover"` : ""}>
+    <div class="me-head ${p.cover_url ? "has-cover" : ""}" ${p.cover_url ? `style="background:linear-gradient(180deg,rgba(25,8,55,${off ? ".80" : ".30"}) 0%,rgba(25,8,55,${off ? ".88" : ".55"}) 45%,rgba(25,8,55,${off ? ".94" : ".82"}) 100%),url('${esc(p.cover_url)}') center/cover"` : ""}>
       <div class="me-av">${avatarD(p)}</div>
       <h2 translate="no">${esc(p.full_name || p.username)}${off ? "" : vBadge(p, true)}</h2>${off ? offCrest() : vipTag(p)}
       <div class="me-sub">@${esc(p.username)} · <span data-copy="${p.user_no}">ID ${p.user_no} ⧉</span>${host && !off ? ` · 🎤 হোস্ট` : ""}</div>
