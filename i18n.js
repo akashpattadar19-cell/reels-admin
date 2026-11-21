@@ -2,6 +2,8 @@
    translate="no" দেওয়া অংশ (ইউজারের লেখা ক্যাপশন, নাম, কমেন্ট) বদলায় না। */
 (function () {
   var EN = {
+"👑 Reels Enjoy অফিসিয়াল অ্যাকাউন্ট": "👑 Reels Enjoy official account",
+"এই অ্যাকাউন্ট ইউজার বা হোস্ট নয় — সবার উপরে। কয়েন অসীম, যেকোনো প্রোফাইল থেকে কয়েন উপহার দেওয়া যায়।": "This account is neither a user nor a host — it is above everyone. Unlimited coins; you can gift coins from any profile.",
 "Reels Enjoy অফিসিয়াল থেকে উপহার": "Gift from Reels Enjoy Official",
 "🪙 কয়েন উপহার দিন": "🪙 Gift coins",
 "👑 Reels Enjoy অফিসিয়াল": "👑 Reels Enjoy Official",

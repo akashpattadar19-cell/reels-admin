@@ -1743,3 +1743,4 @@ html[data-theme="dark"] .ptr { background: #2a2342; }
 @keyframes obPop { 0% { transform: scale(.3); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 @keyframes obSpin { 0%,100% { transform: scale(1) rotate(-6deg); } 50% { transform: scale(1.15) rotate(6deg); } }
 @keyframes obFly { 0% { opacity: 1; transform: rotate(var(--a)) translateY(0) scale(1); } 100% { opacity: 0; transform: rotate(var(--a)) translateY(-190px) scale(.6); } }
+.me-off .me-cards { grid-template-columns: 1fr; } .me-off .me-cards .mc.coins { grid-column: 1 / -1; }

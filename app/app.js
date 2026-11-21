@@ -621,7 +621,7 @@ async function start() {
       .then((r) => { if (r?.welcome_paisa > 0) showWelcome(r.welcome_paisa); }).catch(() => {});
   } catch { /* old APK */ }
   if (!me.start_choice_done && me.start_choice_done !== undefined) startChoice();
-  if (!checkUpdate()) { requireLocation(); requireNotif(); setTimeout(async () => { if ($("#notifGate") || $("#startGate")) return; if (!(await checkinPopup())) offerPopup(); }, 2500); }
+  if (!checkUpdate()) { requireLocation(); requireNotif(); setTimeout(async () => { if ($("#notifGate") || $("#startGate") || isOff(S.me)) return; if (!(await checkinPopup())) offerPopup(); }, 2500); }
   pendingCall();
   try { const pr = Native?.takeRoute?.(); if (pr) setTimeout(() => (location.hash = pr), 300); } catch { /* old APK */ }
   setTimeout(() => { try { if (isPlay()) Native?.playRestore?.(); } catch { /* old APK */ } }, 3000);
@@ -4579,44 +4579,44 @@ R.me = async () => {
   ]);
   S.me = p;
   const cc = p.country_code;
-  const host = p.account_type === "host";
-  screen.innerHTML = `<div class="me">
+  const host = p.account_type === "host", off = isOff(p);
+  screen.innerHTML = `<div class="me${off ? " me-off" : ""}">
     <div class="me-head ${p.cover_url ? "has-cover" : ""}" ${p.cover_url ? `style="background:linear-gradient(180deg,rgba(25,8,55,.30) 0%,rgba(25,8,55,.55) 45%,rgba(25,8,55,.82) 100%),url('${esc(p.cover_url)}') center/cover"` : ""}>
       <div class="me-av">${avatarD(p)}</div>
-      <h2 translate="no">${esc(p.full_name || p.username)} ${vBadge(p, true)}</h2>${vipTag(p)}
-      <div class="me-sub">@${esc(p.username)} · <span data-copy="${p.user_no}">ID ${p.user_no} ⧉</span>${host ? ` · 🎤 হোস্ট` : ""}</div>
+      <h2 translate="no">${esc(p.full_name || p.username)} ${vBadge(p, true)}</h2>${off ? "" : vipTag(p)}
+      <div class="me-sub">@${esc(p.username)} · <span data-copy="${p.user_no}">ID ${p.user_no} ⧉</span>${host && !off ? ` · 🎤 হোস্ট` : ""}</div>
       <div class="chips"><span>${flagOf(cc)} ${cc ? (COUNTRY_NAMES[cc] ?? cc) : "দেশ জানা নেই"}</span><span>🅰️ ${esc(langName(p.language))}</span></div>
       <div class="me-counts"><a href="#u/${p.id}"><b>${n(p.videos_count)}</b><span>ভিডিও</span></a><div><b>${n(p.following_count)}</b><span>ফলোয়িং</span></div><div><b>${n(p.followers_count)}</b><span>ফলোয়ার</span></div></div>
     </div>
     <div class="me-cards">
       <a href="#cashin" class="mc coins"><span>আমার কয়েন</span><b>${isOff(p) ? "∞" : n(w?.coin_balance)}</b><svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="gm1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9f0ff"/><stop offset="1" stop-color="#5aa9ff"/></linearGradient><linearGradient id="gm2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd3ff"/><stop offset="1" stop-color="#3b82f6"/></linearGradient></defs><path d="M14 22 24 10h16l10 12-18 30z" fill="url(#gm1)"/><path d="M14 22h36L32 52z" fill="url(#gm2)" opacity=".9"/><path d="M24 10l-4 12 12 30 12-30-4-12" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.5"/><path d="M14 22h36" stroke="#fff" stroke-opacity=".8" stroke-width="1.5"/></svg></a>
-      ${host && setting("beans_enabled", true) !== false ? beansCard(w) : ""}<a href="#wallet" class="mc money ${host && setting("beans_enabled", true) !== false ? "hidden" : ""}"><span>আমার ব্যালেন্স</span><b>${tk(w?.earning_paisa)}</b><svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="cn1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset="1" stop-color="#f5a524"/></linearGradient></defs><ellipse cx="34" cy="46" rx="20" ry="7" fill="#e08c14"/><rect x="14" y="36" width="40" height="10" fill="#f0a020"/><ellipse cx="34" cy="36" rx="20" ry="7" fill="url(#cn1)"/><circle cx="26" cy="24" r="15" fill="url(#cn1)" stroke="#e8961a" stroke-width="2"/><text x="26" y="30" text-anchor="middle" font-size="16" font-weight="700" fill="#c06a00" font-family="sans-serif">৳</text></svg></a>
+      ${host && !off && setting("beans_enabled", true) !== false ? beansCard(w) : ""}<a href="#wallet" class="mc money ${off || (host && setting("beans_enabled", true) !== false) ? "hidden" : ""}"><span>আমার ব্যালেন্স</span><b>${tk(w?.earning_paisa)}</b><svg class="deco" viewBox="0 0 64 64"><defs><linearGradient id="cn1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset="1" stop-color="#f5a524"/></linearGradient></defs><ellipse cx="34" cy="46" rx="20" ry="7" fill="#e08c14"/><rect x="14" y="36" width="40" height="10" fill="#f0a020"/><ellipse cx="34" cy="36" rx="20" ry="7" fill="url(#cn1)"/><circle cx="26" cy="24" r="15" fill="url(#cn1)" stroke="#e8961a" stroke-width="2"/><text x="26" y="30" text-anchor="middle" font-size="16" font-weight="700" fill="#c06a00" font-family="sans-serif">৳</text></svg></a>
     </div>
-    <div id="meGrow">${ME_CACHE.grow || ""}</div><div id="meDT">${ME_CACHE.dt || ""}</div>
+    ${off ? "" : `<div id="meGrow">${ME_CACHE.grow || ""}</div><div id="meDT">${ME_CACHE.dt || ""}</div>`}
     <div class="me-create"><b>＋ পোস্ট করুন</b><div><a href="#upload"><i>🎬</i>ভিডিও</a><a href="#newphoto"><i>📷</i>ফটো</a><a href="#newstory"><i>📖</i>স্টোরি</a>
       <a href="#texts" onclick="setTimeout(()=>document.getElementById('newT')?.click(),300)"><i>✍️</i>লেখা</a></div></div>
-    ${meBanners().length ? `<div class="me-promo adm">${meBanners().map(meBannerHtml).join("")}</div>` : `<div class="me-promo">${setting("vip_enabled", true) !== false ? `<a href="#vip" class="vipb"><b>💎 VIP</b><span>${isVip(p) ? `${new Date(p.vip_until).toLocaleDateString(window.getLang?.() === "en" ? "en-GB" : "bn-BD")} পর্যন্ত` : "বাড়তি পয়েন্ট, ফ্রি কয়েন"}</span></a>` : ""}
+    ${off ? "" : meBanners().length ? `<div class="me-promo adm">${meBanners().map(meBannerHtml).join("")}</div>` : `<div class="me-promo">${setting("vip_enabled", true) !== false ? `<a href="#vip" class="vipb"><b>💎 VIP</b><span>${isVip(p) ? `${new Date(p.vip_until).toLocaleDateString(window.getLang?.() === "en" ? "en-GB" : "bn-BD")} পর্যন্ত` : "বাড়তি পয়েন্ট, ফ্রি কয়েন"}</span></a>` : ""}
       ${setting("store_enabled", true) !== false ? `<a href="#store" class="storeb"><b>🎨 সাজান</b><span>ফ্রেম · এন্ট্রি · বাবল</span></a>` : ""}</div>`}
-    ${p.coin_seller ? `<a href="#seller" class="me-banner seller"><span>💰 কয়েন সেলার প্যানেল</span><b>বিক্রি করুন ›</b></a>` : ""}
-    ${!p.referred_by && refDaysLeft(p) > 0 ? `<div class="me-ref"><span>🎁 বন্ধুর রেফার কোড দিন</span><input id="meRef" inputmode="numeric" maxlength="12" placeholder="ID নম্বর"><button id="meRefOk">যুক্ত করুন</button></div>` : ""}
-    <a href="#invite" class="me-banner"><span>রেফার করে আয় করুন</span><b>${tk(refs?.earned_paisa ?? 0)} ›</b></a>
+    ${p.coin_seller && !off ? `<a href="#seller" class="me-banner seller"><span>💰 কয়েন সেলার প্যানেল</span><b>বিক্রি করুন ›</b></a>` : ""}
+    ${!off && !p.referred_by && refDaysLeft(p) > 0 ? `<div class="me-ref"><span>🎁 বন্ধুর রেফার কোড দিন</span><input id="meRef" inputmode="numeric" maxlength="12" placeholder="ID নম্বর"><button id="meRefOk">যুক্ত করুন</button></div>` : ""}
+    ${off ? "" : `<a href="#invite" class="me-banner"><span>রেফার করে আয় করুন</span><b>${tk(refs?.earned_paisa ?? 0)} ›</b></a>`}
     <div class="me-menu">
-      ${p.account_type === "host" ? `<a href="#callprice"><i class="mi c1"><svg viewBox="0 0 24 24"><path d="M6.5 3.5l3 3.5-2 2.5a12 12 0 0 0 7 7l2.5-2 3.5 3-1.6 2.6c-.4.6-1.1.9-1.8.8C10 20 4 14 3.1 7.4c-.1-.7.2-1.4.8-1.8z"/></svg></i>আমার কলের রেট<em>🪙 ${n(p.call_video_rate ?? setting("call_video_coins_per_min", 60))}/মিনিট ›</em></a>` : ""}
+      ${p.account_type === "host" && !off ? `<a href="#callprice"><i class="mi c1"><svg viewBox="0 0 24 24"><path d="M6.5 3.5l3 3.5-2 2.5a12 12 0 0 0 7 7l2.5-2 3.5 3-1.6 2.6c-.4.6-1.1.9-1.8.8C10 20 4 14 3.1 7.4c-.1-.7.2-1.4.8-1.8z"/></svg></i>আমার কলের রেট<em>🪙 ${n(p.call_video_rate ?? setting("call_video_coins_per_min", 60))}/মিনিট ›</em></a>` : ""}
       <a href="#inbox"><i class="mi c1"><svg viewBox="0 0 24 24"><path d="M4 6.5h16a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5v-3.5H4A1.5 1.5 0 0 1 2.5 17V8A1.5 1.5 0 0 1 4 6.5z"/><path d="M7.5 12.5h.01M12 12.5h.01M16.5 12.5h.01" stroke-width="2.6"/></svg></i>মেসেজ<em>${S.msgUnread ? `${S.msgUnread} <b class="red"></b>` : ""}›</em></a>
       <a href="#history"><i class="mi c2"><svg viewBox="0 0 24 24"><path d="M7 3.5h10a1.5 1.5 0 0 1 1.5 1.5v15l-3-2-3 2-3-2-3 2V5A1.5 1.5 0 0 1 7 3.5z"/><path d="M9 8.5h6M9 12h6"/></svg></i>লেনদেনের হিসাব<em>›</em></a>
       <a href="#creator"><i class="mi c4"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></i>ক্রিয়েটর ড্যাশবোর্ড<em>›</em></a>
-      <a href="#level"><i class="mi c2"><svg viewBox="0 0 24 24"><path d="M3.5 8l4.2 3.6L12 5l4.3 6.6L20.5 8l-1.8 10.5H5.3z"/><path d="M6 21h12"/></svg></i>আমার লেভেল<em>Lv${levelOf(p.followers_count)} ›</em></a>
-      <a href="#invite"><i class="mi c3"><svg viewBox="0 0 24 24"><rect x="3.5" y="8.5" width="17" height="4" rx="1"/><path d="M5 12.5v8h14v-8M12 8.5v12M12 8.5S10.5 4 8 4.6C6 5.1 7 8.5 12 8.5zM12 8.5s1.5-4.5 4-3.9c2 .5 1 3.9-4 3.9z"/></svg></i>আমার রেফার<em>পুরস্কার নিন <b class="red"></b> ›</em></a>
+      ${off ? "" : `<a href="#level"><i class="mi c2"><svg viewBox="0 0 24 24"><path d="M3.5 8l4.2 3.6L12 5l4.3 6.6L20.5 8l-1.8 10.5H5.3z"/><path d="M6 21h12"/></svg></i>আমার লেভেল<em>Lv${levelOf(p.followers_count)} ›</em></a>`}
+      ${off ? "" : `<a href="#invite"><i class="mi c3"><svg viewBox="0 0 24 24"><rect x="3.5" y="8.5" width="17" height="4" rx="1"/><path d="M5 12.5v8h14v-8M12 8.5v12M12 8.5S10.5 4 8 4.6C6 5.1 7 8.5 12 8.5zM12 8.5s1.5-4.5 4-3.9c2 .5 1 3.9-4 3.9z"/></svg></i>আমার রেফার<em>পুরস্কার নিন <b class="red"></b> ›</em></a>`}
       ${p.agent_status === "approved" ? `<a href="#agent"><i class="mi c5"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c2 .7 3.2 2.5 3.6 5.2"/></svg></i>${p.agent_status === "approved" ? "এজেন্ট ড্যাশবোর্ড" : "এজেন্ট হন"}<em>${p.agent_status === "pending" ? "⏳ যাচাই হচ্ছে " : p.agent_status === "approved" ? "🧑‍💼 " : "নতুন "}›</em></a>` : ""}
-      <a href="#rules"><i class="mi c4"><svg viewBox="0 0 24 24"><rect x="5" y="4.5" width="14" height="16.5" rx="2"/><path d="M9 3.5h6v3H9zM8.5 11.5l2 2 4-4M8.5 17h7"/></svg></i>আমার টাস্ক<em>›</em></a>
+      ${off ? "" : `<a href="#rules"><i class="mi c4"><svg viewBox="0 0 24 24"><rect x="5" y="4.5" width="14" height="16.5" rx="2"/><path d="M9 3.5h6v3H9zM8.5 11.5l2 2 4-4M8.5 17h7"/></svg></i>আমার টাস্ক<em>›</em></a>`}
       <a href="#u/${p.id}"><i class="mi c5"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.2-4 4.2-5.5 7.5-5.5s6.3 1.5 7.5 5.5"/></svg></i>আমার প্রোফাইল<em>›</em></a>
       <a href="#settings"><i class="mi c6"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></i>সেটিংস<em>›</em></a>
     </div></div>`;
   // আগের বারের কার্ড সাথে সাথে দেখানো হয় (পরে আপডেট) — যাতে পেজ নিচে-উপরে লাফ না দেয়
-  growBox($("#meGrow"), true, () => growBox($("#meGrow"), true, null, false), false).then(() => { ME_CACHE.grow = $("#meGrow")?.innerHTML ?? ""; }).catch(() => {});
-  dailyTaskCard($("#meDT"), true).then(() => { ME_CACHE.dt = $("#meDT")?.innerHTML ?? ""; }).catch(() => {});
+  if (!off) growBox($("#meGrow"), true, () => growBox($("#meGrow"), true, null, false), false).then(() => { ME_CACHE.grow = $("#meGrow")?.innerHTML ?? ""; }).catch(() => {});
+  if (!off) dailyTaskCard($("#meDT"), true).then(() => { ME_CACHE.dt = $("#meDT")?.innerHTML ?? ""; }).catch(() => {});
   // নতুনদের কাজ বাকি থাকলে "আমার টাস্ক"-এ লাল বিন্দু
-  rpc("starter_status").then((st) => { if (st?.enabled && (st.items || []).some((x) => !x.claimed)) $('.me-menu a[href="#rules"] em')?.insertAdjacentHTML("afterbegin", '<i class="red"></i>'); }).catch(() => {});
+  if (!off) rpc("starter_status").then((st) => { if (st?.enabled && (st.items || []).some((x) => !x.claimed)) $('.me-menu a[href="#rules"] em')?.insertAdjacentHTML("afterbegin", '<i class="red"></i>'); }).catch(() => {});
   $("#meRefOk")?.addEventListener("click", async (e) => {
     const v = $("#meRef").value.replace(/\D/g, "");
     if (!v) return toast("বন্ধুর ID নম্বর দিন", true);
@@ -4629,13 +4629,13 @@ R.me = async () => {
 // ---------- আমার অ্যাকাউন্ট (আগের সেটিংস — এখন প্রোফাইল পেজে) ----------
 function accountBlock(me) {
   const en = window.getLang?.() === "en", host = me.account_type === "host", pending = !host && me.host_requested_at;
-  return `<div class="card acct-card"><b>অ্যাকাউন্টের ধরন</b>
+  return `${isOff(me) ? `<div class="card acct-card"><b>👑 Reels Enjoy অফিসিয়াল অ্যাকাউন্ট</b><p class="tiny muted" style="margin:6px 0 0">এই অ্যাকাউন্ট ইউজার বা হোস্ট নয় — সবার উপরে। কয়েন অসীম, যেকোনো প্রোফাইল থেকে কয়েন উপহার দেওয়া যায়।</p></div>` : `<div class="card acct-card"><b>অ্যাকাউন্টের ধরন</b>
       <div class="acct">
         <button data-t="user" class="${host ? "" : "on"}"><b>👤 ইউজার</b><small>প্রিমিয়াম ভিডিও কয়েন দিয়ে দেখবেন</small></button>
         <button data-t="host" class="${host ? "on" : ""}"><b>🎤 হোস্ট</b><small>${pending ? "⏳ আবেদন অপেক্ষায়" : "প্রিমিয়াম ভিডিও দিতে পারবেন"}</small></button>
       </div>
       <p class="tiny muted" style="margin:8px 0 0">হোস্ট হতে আবেদন করলে অ্যাডমিন যাচাই করে অনুমোদন দেবেন। হোস্টরা প্রিমিয়ামে ভিডিও দিতে পারেন; প্রিমিয়াম ফ্রি দেখার অনুমতি অ্যাডমিন আলাদা করে দেন।</p>
-      ${host ? `<p class="tiny" style="margin:6px 0 0">👑 প্রিমিয়াম ফ্রি দেখা: <b>${me.premium_access ? "✅ চালু" : "❌ বন্ধ (অ্যাডমিনের অনুমতি লাগবে)"}</b></p>` : ""}</div>
+      ${host ? `<p class="tiny" style="margin:6px 0 0">👑 প্রিমিয়াম ফ্রি দেখা: <b>${me.premium_access ? "✅ চালু" : "❌ বন্ধ (অ্যাডমিনের অনুমতি লাগবে)"}</b></p>` : ""}</div>`}
     <div class="card list">
       <a class="li" href="#edit"><span>✏️ প্রোফাইল এডিট</span><span>›</span></a>
       <a class="li" href="#wallet"><span>💰 ওয়ালেট ও উইথড্র</span><span>›</span></a>
