@@ -719,11 +719,26 @@ function pickReason() {
   });
 }
 let rewardCoins = 0;
+// ---------- 🚀 অ্যাডমিন বুস্ট (বিনা কয়েনে) ----------
+const boostOn = (v) => v.boost_until && new Date(v.boost_until) > new Date();
+const boostPill = (v) => boostOn(v) ? `<span class="pill paid">🚀 বুস্ট ${dt(v.boost_until)} পর্যন্ত</span>` : "";
+async function adminBoost(id, off, done) {
+  let days = 0;
+  if (!off) {
+    const v = prompt("কত দিন বুস্ট করবেন? (যেমন 1, 3, 7 — আধা দিনের জন্য 0.5)", "3");
+    if (v == null) return;
+    days = Number(v);
+    if (!(days > 0 && days <= 365)) return toast("সঠিক দিন লিখুন (০.৫ থেকে ৩৬৫)", true);
+  } else if (!confirm("এই ভিডিওর বুস্ট বন্ধ করবেন?")) return;
+  const t = await act(() => rpc("admin_boost_video", { p_id: id, p_days: days }));
+  toast(off ? "বুস্ট বন্ধ হয়েছে" : `🚀 বুস্ট চালু — ${dt(t)} পর্যন্ত ফিডে "প্রমোটেড" হিসেবে দেখাবে`);
+  done?.();
+}
 routes.videos = async (arg = "published") => {
   const userFilter = arg.startsWith("user:") ? arg.slice(5) : null;
   { const { data: rc } = await sb.from("settings").select("value").eq("key", "upload_reward_coins").maybeSingle(); rewardCoins = Number(rc?.value ?? 0); }
   const status = userFilter ? null : arg;
-  const tabs = [["pending", "পেন্ডিং"], ["published", "প্রকাশিত"], ["featured", "ফিচার্ড"], ["rejected", "রিজেক্টেড"], ["deleted", "ডিলিট"]];
+  const tabs = [["pending", "পেন্ডিং"], ["published", "প্রকাশিত"], ["featured", "ফিচার্ড"], ["boosted", "🚀 বুস্টেড"], ["rejected", "রিজেক্টেড"], ["deleted", "ডিলিট"]];
   view.innerHTML = `<h1>ভিডিও</h1>
     <div class="tabs">${tabs.map(([k, l]) => `<a class="btn sm ${k === status ? "on" : ""}" href="#videos/${k}">${l}</a>`).join("")}
       <a class="btn sm" href="#upload">+ আপলোড</a></div>
@@ -733,6 +748,7 @@ routes.videos = async (arg = "published") => {
     let q = sb.from("videos").select("*, profiles!videos_user_id_fkey(username)").order("id", { ascending: false }).limit(24);
     if (userFilter) q = q.eq("user_id", userFilter);
     else if (status === "featured") q = q.eq("is_featured", true).eq("status", "published");
+    else if (status === "boosted") q = q.gt("boost_until", new Date().toISOString()).eq("status", "published");
     else q = q.eq("status", status);
     if (before) q = q.lt("id", before);
     const { data, error } = await q;
@@ -743,7 +759,7 @@ routes.videos = async (arg = "published") => {
       <div class="vcard" data-id="${v.id}">
         <video src="${esc(v.video_url)}" ${v.thumb_url ? `poster="${esc(v.thumb_url)}"` : ""} preload="none" controls playsinline></video>
         <div class="body">
-          <div><a href="#user/${v.user_id}">@${esc(v.profiles?.username)}</a> <span class="pill">${CAT_NAME[v.category] ?? ""}</span> ${v.is_featured ? "⭐" : ""} ${v.uploaded_by_admin ? '<span class="pill">অ্যাডমিন</span>' : ""} ${v.is_premium ? `<span class="pill pending">👑 প্রিমিয়াম ${num(v.premium_coins)} কয়েন</span>` : ""}</div>
+          <div><a href="#user/${v.user_id}">@${esc(v.profiles?.username)}</a> <span class="pill">${CAT_NAME[v.category] ?? ""}</span> ${v.is_featured ? "⭐" : ""} ${boostPill(v)} ${v.uploaded_by_admin ? '<span class="pill">অ্যাডমিন</span>' : ""} ${v.is_premium ? `<span class="pill pending">👑 প্রিমিয়াম ${num(v.premium_coins)} কয়েন</span>` : ""}</div>
           ${v.is_premium && v.status === "pending" ? `<div class="small" style="color:var(--warn)">প্রিমিয়াম ভিডিও অটো-অ্যাপ্রুভ হয় না — দেখে অ্যাপ্রুভ করুন। অশ্লীল কিছু থাকলে রিজেক্ট করুন।</div>` : ""}
           ${v.status === "pending" ? `<div class="small" style="color:var(--warn)">⏳ পেন্ডিং · ${dt(v.created_at)}</div>
             <div class="small muted">দেখে নিন: ওয়াটারমার্ক, TikTok/পেজের লোগো বা নাম নেই, নিজের আসল ভিডিও।${Number(rewardCoins) > 0 && v.reward_coins == null ? ` অ্যাপ্রুভ করলে আপলোডার 🪙 ${rewardCoins} কয়েন পাবে।` : ""}</div>` : ""}
@@ -753,6 +769,7 @@ routes.videos = async (arg = "published") => {
           <div class="actions">
             ${v.status === "pending" ? `<button class="btn sm good" data-a="approve">অ্যাপ্রুভ ✅</button><button class="btn sm warn" data-a="reject">রিজেক্ট</button>`
             : v.status === "published" ? `<button class="btn sm" data-a="${v.is_featured ? "unfeature" : "feature"}">${v.is_featured ? "আনফিচার" : "ফিচার ⭐"}</button>
+              <button class="btn sm good" data-a="boost">🚀 ${boostOn(v) ? "বুস্ট বাড়ান" : "বুস্ট"}</button>${boostOn(v) ? `<button class="btn sm" data-a="unboost">বুস্ট বন্ধ</button>` : ""}
               <button class="btn sm warn" data-a="reject">রিজেক্ট</button><button class="btn sm bad" data-a="delete">ডিলিট</button>`
               : `<button class="btn sm good" data-a="restore">ফেরত আনুন</button>`}
           </div>
@@ -764,6 +781,7 @@ routes.videos = async (arg = "published") => {
     const b = e.target.closest("button[data-a]");
     if (!b) return;
     const id = Number(b.closest(".vcard").dataset.id), a = b.dataset.a;
+    if (a === "boost" || a === "unboost") return adminBoost(id, a === "unboost", () => { $("#list").innerHTML = ""; before = null; load(); });
     let reason = null;
     if (a === "reject" || a === "delete") { reason = await pickReason(); if (!reason) return; }
     await act(() => rpc("admin_video_action", { p_id: id, p_action: a, p_reason: reason }), a === "approve" && Number(rewardCoins) > 0 ? `অ্যাপ্রুভ হয়েছে — আপলোডার 🪙 ${rewardCoins} কয়েন পেয়েছে` : "হয়েছে");
@@ -917,11 +935,29 @@ routes.lookup = async (no) => {
     </div>
     <h2>#️⃣ এই ইউজারের ট্যাগ</h2><div id="utags" class="muted small">লোড হচ্ছে…</div>
     <h2>পোস্ট (${num(d.videos.length)})</h2>
-    <div class="videos">${d.videos.length ? d.videos.map((v) => `<div class="vcard">
+    <div class="videos" id="luVids">${d.videos.length ? d.videos.map((v) => `<div class="vcard" data-id="${v.id}">
       <video src="${esc(v.video_url)}" ${v.thumb_url ? `poster="${esc(v.thumb_url)}"` : ""} preload="none" controls playsinline></video>
-      <div class="body"><div>${pill(v.status)} <span class="pill">${CAT_NAME[v.category] ?? ""}</span></div>
+      <div class="body"><div>${pill(v.status)} <span class="pill">${CAT_NAME[v.category] ?? ""}</span> <span class="bst"></span></div>
         <div class="cap" translate="no">${esc(v.caption ?? "")}</div>
-        <div class="muted small">👁 ${num(v.views)} ❤️ ${num(v.likes)} · ${dt(v.created_at)}</div></div></div>`).join("") : `<div class="empty">কোনো পোস্ট নেই</div>`}</div>`;
+        <div class="muted small">👁 ${num(v.views)} ❤️ ${num(v.likes)} · ${dt(v.created_at)}</div>
+        <div class="actions">${v.status === "published" ? `<button class="btn sm good" data-va="boost">🚀 বুস্ট</button><button class="btn sm hidden" data-va="unboost">বুস্ট বন্ধ</button><button class="btn sm bad" data-va="delete">ডিলিট</button>`
+          : v.status === "pending" ? `<button class="btn sm good" data-va="approve">অ্যাপ্রুভ ✅</button><button class="btn sm warn" data-va="reject">রিজেক্ট</button>`
+          : `<button class="btn sm good" data-va="restore">ফেরত আনুন</button>`}</div></div></div>`).join("") : `<div class="empty">কোনো পোস্ট নেই</div>`}</div>`;
+  if (d.videos.length) {
+    sb.from("videos").select("id,boost_until").eq("user_id", p.id).gt("boost_until", new Date().toISOString()).then(({ data }) => (data ?? []).forEach((v) => {
+      const c = $(`#luVids .vcard[data-id="${v.id}"]`); if (!c) return;
+      c.querySelector(".bst").innerHTML = boostPill(v); c.querySelector('[data-va="unboost"]')?.classList.remove("hidden");
+    }));
+    $("#luVids").onclick = async (e) => {
+      const b = e.target.closest("button[data-va]"); if (!b) return;
+      const id = Number(b.closest(".vcard").dataset.id), a = b.dataset.va;
+      if (a === "boost" || a === "unboost") return adminBoost(id, a === "unboost", () => routes.lookup(no));
+      let reason = null;
+      if (a === "reject" || a === "delete") { reason = await pickReason(); if (!reason) return; }
+      await act(() => rpc("admin_video_action", { p_id: id, p_action: a, p_reason: reason }), "হয়েছে");
+      routes.lookup(no);
+    };
+  }
   sb.from("app_usage").select("day,seconds").eq("user_id", p.id).order("day", { ascending: false }).limit(30).then(({ data }) => {
     const all = (data ?? []).reduce((a, x) => a + x.seconds, 0), today = (data ?? []).find((x) => x.day === new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Dhaka" }))?.seconds ?? 0;
     if ($("#usage")) $("#usage").textContent = `আজ ${hms(today)} · ৩০ দিনে ${hms(all)}`;
@@ -1022,6 +1058,7 @@ routes.posts = async (arg = "photo:published") => {
   $("#list").onclick = async (e) => {
     const b = e.target.closest("button[data-a]"); if (!b) return;
     const id = Number(b.closest(".vcard").dataset.id), a = b.dataset.a;
+    if (a === "boost" || a === "unboost") return adminBoost(id, a === "unboost", () => { $("#list").innerHTML = ""; before = null; load(); });
     let reason = null;
     if (a === "reject" || a === "delete") { reason = prompt("কারণ (ইউজার দেখবে):"); if (!reason) return; }
     await act(() => rpc("admin_post_action", { p_id: id, p_action: a, p_reason: reason }), "হয়েছে");
@@ -1202,6 +1239,7 @@ routes.devices = async (arg = "") => {
   const shared = arg === "shared", userNo = /^\d+$/.test(arg) ? Number(arg) : null;
   view.innerHTML = `<h1>📱 ডিভাইস</h1>
     <p class="muted small">ইউজার নতুন অ্যাপ (APK) খুললে তার মোবাইলের ব্র্যান্ড, মডেল ও Android ভার্সন এখানে আসে। একই মোবাইলে একাধিক অ্যাকাউন্ট খোলা হলে লাল দেখাবে — আর সেই নতুন অ্যাকাউন্টের রেফার বোনাস অটোমেটিক বাতিল হয়।</p>
+    <p class="muted small">✅ অ্যাপ্রুভ = একই মোবাইলের আলাদা আসল মানুষ (যেমন পরিবারের সদস্য) — তার রেফার, বোনাস ও ফ্রি কয়েন গিফট স্বাভাবিক চলবে। 🔄 রিসেট = মোবাইলের রেকর্ড মুছে নতুন করে গোনা শুরু। ⛓ জেল / 🗑 ডিলেট = জালিয়াতি অ্যাকাউন্টের জন্য।</p>
     <div id="dst" class="grid"></div>
     <div class="toolbar"><input id="dq" type="number" inputmode="numeric" placeholder="ইউজার ID দিয়ে খুঁজুন" value="${userNo ?? ""}"><button class="btn" id="dgo">খুঁজুন</button></div>
     <div class="tabs"><a class="btn sm ${!shared && !userNo ? "on" : ""}" href="#devices">সব ডিভাইস</a><a class="btn sm ${shared ? "on" : ""}" href="#devices/shared">⚠️ একই মোবাইলে একাধিক অ্যাকাউন্ট</a></div>
@@ -1219,12 +1257,40 @@ routes.devices = async (arg = "") => {
     $("#list").innerHTML = rows.length ? rows.map((d) => `<div class="item" style="${d.accounts > 1 ? "border-color:#7a2530" : ""}">
       <div class="top"><b>📱 ${esc(d.brand ?? "")} ${esc(d.model ?? "")}</b>${d.accounts > 1 ? `<span class="pill rejected">${num(d.accounts)}টি অ্যাকাউন্ট</span>` : `<span class="pill">১টি অ্যাকাউন্ট</span>`}</div>
       <div class="muted small">${esc(d.os ?? "")} · অ্যাপ v${esc(d.app_version ?? "?")} · শেষ ব্যবহার ${dt(d.last_seen)} · ডিভাইস কোড ${esc(String(d.device_hash).slice(0, 8))}</div>
-      <div class="table-wrap" style="margin-top:6px"><table><tr><th>ID</th><th>ইউজার</th><th>প্রথম খুলেছে</th><th>রেফার</th></tr>
-        ${(d.users || []).map((u) => `<tr><td><a href="#lookup/${u.user_no}">${u.user_no}</a></td><td>@${esc(u.username)}${u.status !== "active" ? ' <span class="pill rejected">ব্লক</span>' : ""}</td>
-          <td class="small">${dt(u.first_seen)}</td>
-          <td class="small">${u.referred_by ? `${u.referred_by}-এর রেফার · ${u.ref_ok ? "✅ সফল" : u.ref_blocked ? "❌ বাতিল" : "⏳"}` : "—"}</td></tr>`).join("")}</table></div></div>`).join("")
+      <div class="dv-users">
+        ${(d.users || []).map((u, i) => `<div class="dv-u" data-u="${u.id}" data-no="${u.user_no}">
+          <div><a href="#lookup/${u.user_no}"><b>${u.user_no}</b></a> @${esc(u.username)}${u.status !== "active" ? ' <span class="pill rejected">ব্লক</span>' : ""}${u.jailed ? ' <span class="pill rejected">⛓ জেলে</span>' : ""}${u.approved ? ' <span class="pill paid">✅ অ্যাপ্রুভড</span>' : i === 0 ? ' <span class="pill">প্রথম অ্যাকাউন্ট</span>' : ""}</div>
+          <div class="muted small">প্রথম খুলেছে ${dt(u.first_seen)}${u.referred_by ? ` · ${u.referred_by}-এর রেফার ${u.ref_ok ? "✅ সফল" : u.ref_blocked ? "❌ বাতিল" : "⏳"}` : ""}</div>
+          <div class="dv-act">${u.approved ? `<button class="btn sm" data-da="unapprove">অ্যাপ্রুভ বাতিল</button>` : d.accounts > 1 && i > 0 ? `<button class="btn sm good" data-da="approve">✅ অ্যাপ্রুভ</button>` : ""}
+            ${u.jailed ? `<button class="btn sm" data-da="unjail">জেল থেকে মুক্ত</button>` : `<button class="btn sm warn" data-da="jail">⛓ জেল</button>`}
+            <button class="btn sm bad" data-da="delete">🗑 ডিলেট</button></div></div>`).join("")}</div>
+      <div class="dv-act" style="margin-top:8px"><button class="btn sm" data-da="reset" data-dev="${esc(d.device_hash)}">🔄 মোবাইল রিসেট</button></div></div>`).join("")
       : `<div class="empty">${userNo ? "এই ইউজার এখনো নতুন অ্যাপ থেকে লগইন করেনি" : "এখনো কোনো ডিভাইস নেই — ইউজাররা নতুন APK খুললে দেখা যাবে"}</div>`;
+    rows.forEach((d, i) => { const el = $("#list").children[i]; if (el) el.dataset.dev = d.device_hash; });
   } catch (e) { $("#list").innerHTML = `<div class="empty err">${esc(errMsg(e))}</div>`; }
+  $("#list").onclick = async (e) => {
+    const b = e.target.closest("button[data-da]"); if (!b) return;
+    const a = b.dataset.da, dev = b.closest("[data-dev]")?.dataset.dev, tr = b.closest(".dv-u"), uid = tr?.dataset.u, no = tr?.dataset.no;
+    const again = () => routes.devices(arg);
+    if (a === "reset") {
+      if (!confirm("এই মোবাইলের সব রেকর্ড মুছে যাবে। পরের বার যে অ্যাকাউন্ট আগে অ্যাপ খুলবে সেটাই এই মোবাইলের প্রথম অ্যাকাউন্ট ধরা হবে, আর \"একই মোবাইল\" কারণে বাতিল রেফার আবার চালু হবে। রিসেট করবেন?")) return;
+      await act(() => rpc("admin_device_action", { p_device: dev, p_action: "reset", p_user: null }), "মোবাইল রিসেট হয়েছে"); return again();
+    }
+    if (a === "approve") {
+      if (!confirm(`${no} অ্যাকাউন্টকে আলাদা মানুষ হিসেবে অ্যাপ্রুভ করবেন? তখন একই মোবাইল হলেও রেফার, বোনাস ও ফ্রি কয়েন গিফট সব স্বাভাবিকভাবে চলবে।`)) return;
+      await act(() => rpc("admin_device_action", { p_device: dev, p_action: "approve", p_user: uid }), "অ্যাপ্রুভ হয়েছে"); return again();
+    }
+    if (a === "unapprove") { await act(() => rpc("admin_device_action", { p_device: dev, p_action: "unapprove", p_user: uid }), "অ্যাপ্রুভ বাতিল হয়েছে"); return again(); }
+    if (a === "jail") {
+      const reason = prompt(`${no} কে জেলে দেওয়ার কারণ:`, "একই মোবাইলে একাধিক অ্যাকাউন্ট (জালিয়াতি)"); if (!reason) return;
+      await act(() => rpc("admin_jail_now", { p_user: uid, p_reason: reason }), "জেলে দেওয়া হয়েছে"); return again();
+    }
+    if (a === "unjail") { await act(() => rpc("admin_jail_user", { p_user: uid, p_jail: false, p_reason: null, p_fee: null }), "মুক্ত করা হয়েছে"); return again(); }
+    if (a === "delete") {
+      if (!confirm(`${no} অ্যাকাউন্ট এখনই ডিলেট হবে (নাম, ছবি, পোস্ট মুছে যাবে; টাকার হিসাব থাকবে)। এটা ফেরত আনা যাবে না। নিশ্চিত?`)) return;
+      await act(() => rpc("admin_delete_account", { p_user: uid }), "অ্যাকাউন্ট ডিলেট হয়েছে"); return again();
+    }
+  };
 };
 
 // ---------- অ্যাপ আপডেট (বাধ্যতামূলক / ঐচ্ছিক) ----------
