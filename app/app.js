@@ -638,6 +638,10 @@ const ME_CACHE = { grow: "", dt: "" };
 const OFFICIAL = new Set();
 const isOff = (p) => !!(p && (p.is_official || OFFICIAL.has(p.user_id) || OFFICIAL.has(p.id)));
 const SEAL = `<svg viewBox="0 0 24 24"><path d="M12 1.8l2.3 1.7 2.8-.3 1.1 2.6 2.6 1.1-.3 2.8 1.7 2.3-1.7 2.3.3 2.8-2.6 1.1-1.1 2.6-2.8-.3L12 22.2l-2.3-1.7-2.8.3-1.1-2.6-2.6-1.1.3-2.8L1.8 12l1.7-2.3-.3-2.8 2.6-1.1 1.1-2.6 2.8.3z"/><path class="ck" d="M7.6 12.3l3 3 5.8-6.1"/></svg>`;
+// অফিসিয়াল ঢাল-লোগো (নামের নিচে)
+const offCrest = () => `<div class="offcrest" translate="no"><svg viewBox="0 0 46 52"><defs><linearGradient id="ocg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff1a8"/><stop offset=".5" stop-color="#f8c630"/><stop offset="1" stop-color="#c98a00"/></linearGradient></defs>
+  <path d="M23 2l19 7v15c0 13-8.5 22-19 26C12.5 46 4 37 4 24V9z" fill="url(#ocg)" stroke="#fff6c8" stroke-width="1.5"/><path d="M23 7l14 5v12c0 10-6.5 17-14 20C15.5 41 9 34 9 24V12z" fill="#5b21b6"/>
+  <path d="M14 18l4 3 5-7 5 7 4-3-2 9H16z" fill="#ffd54a"/><path d="M16.5 31l4.5 4.5 9-9" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span>${L("অফিসিয়াল", "OFFICIAL")}</span></div>`;
 function vBadge(p, big = false) {
   if (isOff(p)) return big ? `<span class="offb big" translate="no">${SEAL}<b>OFFICIAL</b></span>` : `<span class="offb" translate="no">${SEAL}</span>`;
   return p?.is_verified ? " ✔️" : "";   // অন্য সবার জন্য আগের মতোই
@@ -4583,7 +4587,7 @@ R.me = async () => {
   screen.innerHTML = `<div class="me${off ? " me-off" : ""}">
     <div class="me-head ${p.cover_url ? "has-cover" : ""}" ${p.cover_url ? `style="background:linear-gradient(180deg,rgba(25,8,55,.30) 0%,rgba(25,8,55,.55) 45%,rgba(25,8,55,.82) 100%),url('${esc(p.cover_url)}') center/cover"` : ""}>
       <div class="me-av">${avatarD(p)}</div>
-      <h2 translate="no">${esc(p.full_name || p.username)} ${vBadge(p, true)}</h2>${off ? "" : vipTag(p)}
+      <h2 translate="no">${esc(p.full_name || p.username)}${off ? "" : vBadge(p, true)}</h2>${off ? offCrest() : vipTag(p)}
       <div class="me-sub">@${esc(p.username)} · <span data-copy="${p.user_no}">ID ${p.user_no} ⧉</span>${host && !off ? ` · 🎤 হোস্ট` : ""}</div>
       <div class="chips"><span>${flagOf(cc)} ${cc ? (COUNTRY_NAMES[cc] ?? cc) : "দেশ জানা নেই"}</span><span>🅰️ ${esc(langName(p.language))}</span></div>
       <div class="me-counts"><a href="#u/${p.id}"><b>${n(p.videos_count)}</b><span>ভিডিও</span></a><div><b>${n(p.following_count)}</b><span>ফলোয়িং</span></div><div><b>${n(p.followers_count)}</b><span>ফলোয়ার</span></div></div>
@@ -4952,8 +4956,8 @@ R.u = async (id) => {
   const lv = levelOf(p.followers_count);
   screen.innerHTML = `<div class="cover${seller ? " seller" : host ? " host" : ""}" ${p.cover_url ? `style="background-image:url('${esc(p.cover_url)}')"` : ""}><button class="back" onclick="history.back()">←</button></div>
     <div class="page${host ? " hostpage" : ""}${seller ? " sellerpage" : ""}" style="padding-top:0">
-    <div class="prof${host ? " host" : ""}${seller ? " seller" : ""}${isOff(p) ? " offprof" : ""}">${host ? `<div class="avwrap" id="pAv">${avatarD(p)}<span class="crown">👑</span></div>` : `<div class="avplain" id="pAv">${avatarD(p)}</div>`}${isOff(p) ? "" : vipTag(p)}<h2 translate="no">${esc(p.full_name ?? "")} ${vBadge(p)}</h2><div class="muted">@${esc(p.username)}</div>
-      <div class="rbadges">${isOff(p) ? `<span class="rbadge official">👑 Reels Enjoy অফিসিয়াল</span>` : host ? `<span class="rbadge host">👑 HOST</span>` : `<span class="rbadge user">👤 ইউজার</span>`}${seller && helpersAllowed() ? `<span class="rbadge seller">💰 কয়েন সেলার</span>` : ""}${p.agent_status === "approved" ? `<span class="rbadge agent">🧑‍💼 এজেন্ট</span>` : ""}${isOff(p) ? "" : `<span class="rbadge lv">Lv${lv}</span>`}${p.country_code ? `<span class="rbadge">${flagOf(p.country_code)}</span>` : ""}</div>
+    <div class="prof${host ? " host" : ""}${seller ? " seller" : ""}${isOff(p) ? " offprof" : ""}">${host ? `<div class="avwrap" id="pAv">${avatarD(p)}<span class="crown">👑</span></div>` : `<div class="avplain" id="pAv">${avatarD(p)}</div>`}${isOff(p) ? "" : vipTag(p)}<h2 translate="no">${esc(p.full_name ?? "")}${isOff(p) ? "" : ` ${vBadge(p)}`}</h2>${isOff(p) ? offCrest() : ""}<div class="muted">@${esc(p.username)}</div>
+      <div class="rbadges">${isOff(p) ? "" : host ? `<span class="rbadge host">👑 HOST</span>` : `<span class="rbadge user">👤 ইউজার</span>`}${seller && helpersAllowed() ? `<span class="rbadge seller">💰 কয়েন সেলার</span>` : ""}${p.agent_status === "approved" ? `<span class="rbadge agent">🧑‍💼 এজেন্ট</span>` : ""}${isOff(p) ? "" : `<span class="rbadge lv">Lv${lv}</span>`}${p.country_code ? `<span class="rbadge">${flagOf(p.country_code)}</span>` : ""}</div>
       <div class="idtag" data-copy="${p.user_no}">ID: ${p.user_no} ⧉</div>
       <div class="counts"><div><b>${n(p.videos_count)}</b><span>ভিডিও</span></div><div><b id="fc">${n(p.followers_count)}</b><span>ফলোয়ার</span></div><div><b>${n(p.following_count)}</b><span>ফলোয়িং</span></div></div>
       ${p.bio ? `<p translate="no">${esc(p.bio)}</p>` : ""}
