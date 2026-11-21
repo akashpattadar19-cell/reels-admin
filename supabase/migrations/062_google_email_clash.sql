@@ -1,0 +1,2 @@
+-- 062: Google লগইনে "Database error saving new user" ঠিক — Gmail আগে অন্য অ্যাকাউন্টে থাকলে নতুন অ্যাকাউন্টে ইমেইল খালি রাখা হয় (uq_user_private_email)
+-- (applied in DB; function body = handle_new_user with `em` check for google and phone signups)
