@@ -204,7 +204,7 @@ body.t-c { --ink: #2b1028; --muted: #8a5a73; --bg: #fff8f1; --line: #f6dccb; --p
 .ln-card .chips span { font-size: 12.5px; background: #fff3ea; color: #9a3412; border-radius: 99px; padding: 2px 10px; font-weight: 600; }
 .ln-card .tiers { display: grid; gap: 5px; margin-top: 6px; }
 .ln-card .tr { display: flex; justify-content: space-between; font-size: 13.5px; background: #faf5ff; border-radius: 10px; padding: 5px 10px; }
-.ln-card .tr b { font-size: 13.5px; color: #16a34a; }
+.ln-card .tr b { font-size: 13.5px; color: #15803d; }
 .ln-trust { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 22px; }
 @media (max-width: 820px) { .ln-trust { grid-template-columns: 1fr 1fr; } }
 .ln-trust .tc { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 14px; }
