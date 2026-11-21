@@ -46,6 +46,7 @@
   const T = (x, k) => (lang === "en" ? (x[k + "_en"] || (k === "title" || k === "season" ? x[k] : "")) : x[k]) || "";
 
   function applyLang() {
+    try { paintTh(); } catch { /* এখনো তৈরি হয়নি */ }
     document.documentElement.lang = lang;
     document.querySelectorAll("[data-en]").forEach((el) => {
       if (el.dataset.bn === undefined) el.dataset.bn = el.textContent;
@@ -79,7 +80,20 @@
     try { document.title = pg === "home" ? "Reels Enjoy" : `${(document.querySelector(`#navLinks a[data-pg="${pg}"]`)?.textContent || "").trim() || "Download"} · Reels Enjoy`; } catch { /* */ }
   }
   window.addEventListener("hashchange", showPage);
+  try { history.scrollRestoration = "manual"; } catch { /* */ }
+  window.addEventListener("load", () => setTimeout(() => window.scrollTo(0, 0), 0));
   showPage();
+  // থিম: অরিজিনাল → লাইট → ডার্ক (অ্যাপের মতো একই নিয়ম)
+  const TH = [["original", "🎨", "অরিজিনাল", "Original"], ["light", "☀️", "লাইট", "Light"], ["dark", "🌙", "ডার্ক", "Dark"]];
+  const curTh = () => document.documentElement.dataset.theme || "original";
+  const paintTh = () => { const t = TH.find((x) => x[0] === curTh()) || TH[0]; $("#themeBtn").textContent = `${t[1]} ${L(t[2], t[3])}`; };
+  $("#themeBtn").onclick = () => {
+    const i = (TH.findIndex((x) => x[0] === curTh()) + 1) % TH.length, t = TH[i][0];
+    try { if (t === "original") localStorage.removeItem("theme"); else localStorage.setItem("theme", t); } catch { /* */ }
+    if (t === "original") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+    paintTh();
+  };
+  paintTh();
   $("#menuBtn").onclick = () => $("#navLinks").classList.toggle("open");
   $("#lang").onclick = () => { lang = lang === "en" ? "bn" : "en"; try { localStorage.setItem("lang", lang); } catch { /* */ } applyLang(); };
 

@@ -1,0 +1,29 @@
+/* ওয়েবসাইটের থিম: original (ডিফল্ট) · light · dark */
+html[data-theme="dark"] body.t-c { --ink: #f1ecf7; --muted: #b3a8c4; --bg: #140f1d; --card: #1e1729; --line: #352a45; background: #140f1d; color: var(--ink); }
+html[data-theme="dark"] .t-c .nav { background: rgba(20,15,29,.9); border-color: var(--line); }
+html[data-theme="dark"] .t-c .brand, html[data-theme="dark"] .links a { color: var(--ink); }
+html[data-theme="dark"] .t-c .hero { background: linear-gradient(135deg, #7a1442 0%, #8a3a12 60%, #7a5a10 100%); }
+html[data-theme="dark"] .card, html[data-theme="dark"] .ln-card, html[data-theme="dark"] .ln-trust .tc, html[data-theme="dark"] .oc, html[data-theme="dark"] .f,
+html[data-theme="dark"] .r, html[data-theme="dark"] .st, html[data-theme="dark"] .faq details { background: var(--card); border-color: var(--line); color: var(--ink); }
+html[data-theme="dark"] .sec.alt { background: #18121f; }
+html[data-theme="dark"] .ln-card .chips span { background: #3a2414; color: #ffc89a; }
+html[data-theme="dark"] .ln-card .tr { background: #261d35; }
+html[data-theme="dark"] .ln-card .tr b { color: #4ade80; }
+html[data-theme="dark"] .ln-card .li em { color: #ff8fbd; }
+html[data-theme="dark"] input, html[data-theme="dark"] textarea, html[data-theme="dark"] select { background: #241b31; color: var(--ink); border-color: var(--line); }
+html[data-theme="dark"] .links { background: #1e1729; }
+html[data-theme="dark"] .lang, html[data-theme="dark"] .menu-btn, html[data-theme="dark"] .theme-btn { background: #241b31; color: var(--ink); border-color: var(--line); }
+
+/* লাইট: সাদা হিরো, গাঢ় লেখা */
+html[data-theme="light"] body.t-c { --bg: #f7f7fa; --muted: #5f5670; background: #f7f7fa; }
+html[data-theme="light"] .t-c .hero { background: #fff; color: var(--ink); border-bottom: 1px solid var(--line); box-shadow: 0 10px 30px rgba(40,20,60,.05); }
+html[data-theme="light"] .t-c .hero h1 { color: var(--ink); text-shadow: none; }
+html[data-theme="light"] .t-c .lead, html[data-theme="light"] .t-c .ticks { color: #4a4058; }
+html[data-theme="light"] .t-c .tag { background: #fff1f6; border-color: #fbcfe0; color: #be185d; }
+html[data-theme="light"] .t-c .hero .btn { background: linear-gradient(135deg, #e11d74, #f97316); color: #fff; }
+html[data-theme="light"] .t-c .hero .btn.ghost { background: #fff; color: var(--ink); border-color: var(--line); }
+html[data-theme="light"] .t-c .phone .cap { color: var(--muted); }
+
+.theme-btn { border: 1px solid var(--line); background: #fff; border-radius: 99px; height: 32px; padding: 0 12px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; color: var(--p1); }
+html[data-theme="dark"] .t-c a:not(.btn) { color: #ff8fbd; }
+html[data-theme="dark"] body.t-c { --p1: #ff6aa8; }

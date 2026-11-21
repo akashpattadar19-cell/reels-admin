@@ -1,5 +1,5 @@
 /* থিম: original (ডিফল্ট) · light · dark — html[data-theme], localStorage "theme" */
-html[data-theme="dark"] { --bg: #100d1c; --panel: #1b1730; --panel2: #241f3d; --line: #322b55; --text: #eeeaf8; --muted: #a9a2c6; --icon: #c9b2ff;
+html[data-theme="dark"] { --bg: #100d1c; --panel: #1b1730; --panel2: #241f3d; --line: #322b55; --text: #eeeaf8; --muted: #a9a2c6; --icon: #c9b2ff; --purple: #c4a5ff; --accent2: #b794ff;
   --band: linear-gradient(160deg, #2e1065 0%, #4c1d95 60%, #581c87 100%); color-scheme: dark; }
 html[data-theme="dark"] body { background: var(--bg); color: var(--text); }
 html[data-theme="dark"] input, html[data-theme="dark"] textarea, html[data-theme="dark"] select { background: var(--panel2); color: var(--text); border-color: var(--line); }
@@ -31,3 +31,7 @@ html[data-theme="light"] .me-head:not(.has-cover) .chips span { background: #f3f
 .theme-pick .t-o i { background: linear-gradient(180deg, #7c3aed 0 45%, #f5f3ff 45%); }
 .theme-pick .t-l i { background: linear-gradient(180deg, #fff 0 45%, #f6f6f9 45%); }
 .theme-pick .t-d i { background: linear-gradient(180deg, #4c1d95 0 45%, #100d1c 45%); }
+html[data-theme="light"] .page > h1 .back, html[data-theme="light"] .page > .sbar + h1 .back { color: var(--text); }
+html[data-theme="light"] { --muted: #6b6488; }
+html[data-theme="dark"] .plus-amt { color: #4ade80; }
+html:not([data-theme="dark"]) .plus-amt { color: #15803d; }

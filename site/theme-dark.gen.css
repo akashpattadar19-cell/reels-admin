@@ -1,0 +1,45 @@
+/* স্বয়ংক্রিয়ভাবে তৈরি — tools/theme_gen.py */
+html[data-theme="dark"] .nav { background: rgba(255,255,255,0.07) }
+html[data-theme="dark"] .lang { background: var(--panel) }
+html[data-theme="dark"] .btn.ghost { background: var(--panel) }
+html[data-theme="dark"] .tag { background: var(--panel) }
+html[data-theme="dark"] .lead { color: #b8b0d2 }
+html[data-theme="dark"] .ticks { color: #b8b0d2 }
+html[data-theme="dark"] .phone img, html[data-theme="dark"] .phone video { background: #1e123f }
+html[data-theme="dark"] .sec.alt { background: #1f123f }
+html[data-theme="dark"] .season .prizes span.t { background: var(--panel); color: #b896ec }
+html[data-theme="dark"] .oc { background: var(--panel) }
+html[data-theme="dark"] .oc p { color: #bab3d0 }
+html[data-theme="dark"] .oc .badge { background: #3f3612; color: #f9ba8a }
+html[data-theme="dark"] .stats .s { background: var(--panel) }
+html[data-theme="dark"] .f { background: var(--panel) }
+html[data-theme="dark"] .f p { color: #bab3d0 }
+html[data-theme="dark"] .r { background: var(--panel) }
+html[data-theme="dark"] .r .soon { color: #b48ef4; background: #22123f }
+html[data-theme="dark"] .warn { background: #3f2b12; border: 1px solid var(--line); color: #f2a991 }
+html[data-theme="dark"] .w { background: var(--panel) }
+html[data-theme="dark"] .w .av { background: #1e123f }
+html[data-theme="dark"] .st { background: var(--panel) }
+html[data-theme="dark"] .st p { color: #bab3d0 }
+html[data-theme="dark"] .faq details { background: var(--panel) }
+html[data-theme="dark"] .faq p { color: #bab3d0 }
+html[data-theme="dark"] .agform input, html[data-theme="dark"] .agform textarea { background: var(--panel) }
+html[data-theme="dark"] #agMsg.err { color: #ee9595 }
+html[data-theme="dark"] body.t-c { background: #3f2812 }
+html[data-theme="dark"] .t-c .nav { background: rgba(63,40,18,0.9); border-color: var(--line) }
+html[data-theme="dark"] .t-c .tag { border-color: var(--line) }
+html[data-theme="dark"] .t-c .hero .btn { background: var(--panel); color: #f192bc }
+html[data-theme="dark"] .t-c .hero .btn.ghost { border-color: var(--line) }
+html[data-theme="dark"] .t-c .sec.alt { background: #3f2612 }
+html[data-theme="dark"] .t-c .f:nth-child(3n), html[data-theme="dark"] .t-c .r:nth-child(3n) { border-top-color: var(--line) }
+html[data-theme="dark"] .t-c .r .v { color: #f192bc }
+html[data-theme="dark"] .ln-card { background: var(--panel) }
+html[data-theme="dark"] .ln-ic { background: linear-gradient(135deg, #1a123f, #123b3f) }
+html[data-theme="dark"] .host .ln-ic { background: linear-gradient(135deg, #3f3612, #3f122c) }
+html[data-theme="dark"] .ln-card .chips span { background: #3f2512; color: #f2a991 }
+html[data-theme="dark"] .ln-card .tr { background: #28123f }
+html[data-theme="dark"] .ln-card .tr b { color: #95edb6 }
+html[data-theme="dark"] .ln-trust .tc { background: var(--panel) }
+html[data-theme="dark"] .menu-btn { background: var(--panel) }
+@media (max-width: 860px) { html[data-theme="dark"] .links { background: var(--panel) }
+html[data-theme="dark"] .links a.on { background: #3f1222 } }

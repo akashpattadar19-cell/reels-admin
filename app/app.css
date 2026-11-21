@@ -1378,7 +1378,7 @@ html, body, .auth, .auth-card { overflow-x: clip; }
 .lvbig.wl { background: linear-gradient(135deg, #312e81, #6d28d9); }
 
 /* ================= 049: নতুন ডিজাইন (স্টাইল ৩ — বেগুনি গ্রেডিয়েন্ট, লাইন আইকন, সোনালি কয়েন) ================= */
-:root { --bg: #F5F3FF; --panel: #fff; --panel2: #F3EFFC; --line: #ECE7F8; --text: #1F1535; --muted: #857C9F;
+:root { --bg: #F5F3FF; --panel: #fff; --panel2: #F3EFFC; --line: #ECE7F8; --text: #1F1535; --muted: #6E6690;
   --accent: #EC4899; --accent2: #9333EA; --purple: #9333EA; --cta: linear-gradient(90deg, #F97316, #EC4899);
   --band: linear-gradient(160deg, #5B21B6 0%, #7C3AED 55%, #9333EA 100%); --icon: #8B3FE0; }
 html, body { font-family: "Inter", "Hind Siliguri", system-ui, sans-serif; }
